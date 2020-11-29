@@ -8,6 +8,7 @@ import (
 
 var DefaultConfig = &Config{
 	ListenAddr: ":1986",
+	CacheDir: "",
 	ServerUrl: "",
 	Key: "",
 }
@@ -23,6 +24,11 @@ func LoadConfig(filename string) (*Config, error) {
 	listenAddr, ok := raw["ListenAddr"]
 	if ok {
 		config.ListenAddr = listenAddr
+	}
+
+	cacheDir, ok := raw["CacheDir"]
+	if ok {
+		config.CacheDir = os.ExpandEnv(cacheDir)
 	}
 
 	serverUrl, ok := raw["ServerUrl"]

@@ -4,14 +4,29 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"os/user"
+	"path/filepath"
 	"pcopy"
+	"regexp"
 )
 
 const (
-	defaultSystemConfigFile = "/etc/pcopy/pcopy.conf"
-	defaultLocalConfigFile = "$HOME/.config/pcopy/pcopy.conf"
+	systemConfigDir = "/etc/pcopy"
+	systemCacheDir  = "/var/lib/pcopy"
+
+	localConfigDir  = "$HOME/.config/pcopy"
+	localCacheDir   = "$HOME/.cache/pcopy"
 )
+
+// pcopy join pcopy.heckel.io p
+//  -> creates /etc/pcopy/p.conf
+
+// pcopy join 10.0.160.123
+//  -> creates /etc/pcopy/default.conf
+
+// pcopy copy p: < bla.txt
 
 func main() {
 	if len(os.Args) < 2 {
@@ -26,6 +41,8 @@ func main() {
 		execPaste()
 	case "serve":
 		execServe()
+	case "join":
+		execJoin()
 	default:
 		printSyntaxAndExit()
 	}
@@ -52,27 +69,35 @@ func execPaste()  {
 func parseClientArgs(command string) (*pcopy.Config, string) {
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
 	serverUrl := flags.String("server", "", "Server URL")
-	configFile := flags.String("config", "", "Config file")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		fail(err)
 	}
 
-	config, err := loadConfig(*configFile)
+	clipId := "default"
+	fileId := "default"
+	if flags.NArg() > 0 {
+		re := regexp.MustCompile(`^(?:([-_a-z0-9]+):)([-_a-z0-9]*)$`)
+		parts := re.FindStringSubmatch(flags.Arg(0))
+		if len(parts) != 3 {
+			fail(errors.New("invalid clip ID, must be in format [CLIPID:]FILEID"))
+		}
+		if parts[1] != "" {
+			clipId = parts[1]
+		}
+		if parts[2] != "" {
+			fileId = parts[2]
+		}
+	}
+
+	config, err := loadConfig(clipId)
 	if err != nil {
 		fail(err)
 	}
-
 	if *serverUrl != "" {
 		config.ServerUrl = *serverUrl
 	}
-
 	if config.ServerUrl == "" {
 		fail(errors.New("server address missing, specify -server flag or add 'ServerUrl' to config"))
-	}
-
-	fileId := "default"
-	if flags.NArg() > 0 {
-		fileId = flags.Arg(0)
 	}
 
 	return config, fileId
@@ -80,46 +105,55 @@ func parseClientArgs(command string) (*pcopy.Config, string) {
 
 func execServe()  {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
+	configName := flags.String("config", "server", "Alternate config name")
 	listenAddr := flags.String("listen", "", "Listen address")
-	configFile := flags.String("config", "", "Config file")
+	cacheDir := flags.String("cache", "", "Cache dir")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		fail(err)
 	}
 
-	config, err := loadConfig(*configFile)
+	config, err := loadConfig(*configName)
 	if err != nil {
 		fail(err)
 	}
-
 	if *listenAddr != "" {
 		config.ListenAddr = *listenAddr
 	}
-
+	if *cacheDir != "" {
+		config.CacheDir = *cacheDir
+	} else if config.CacheDir == "" {
+		config.CacheDir, err = getCacheDir()
+		if err != nil {
+			fail(err)
+		}
+	}
 	if config.ListenAddr == "" {
 		fail(errors.New("listen address missing, specify -listen flag or add 'ListenAddr' to config"))
 	}
 
+	log.Printf("Using config %s, cache %s", *configName, config.CacheDir)
+	log.Printf("Listening on %s", config.ListenAddr)
 	if err := pcopy.Serve(config); err != nil {
 		fail(err)
 	}
 }
 
-func loadConfig(configFile string) (*pcopy.Config, error) {
-	var err error
-	var config *pcopy.Config
+func execJoin() {
 
-	if configFile != "" {
-		config, err = pcopy.LoadConfig(configFile)
+}
+
+func loadConfig(configName string) (*pcopy.Config, error) {
+	var config *pcopy.Config
+	localConfigFile := filepath.Join(os.ExpandEnv(localConfigDir), configName + ".conf")
+	systemConfigFile := filepath.Join(systemConfigDir, configName + ".conf")
+
+	if _, err := os.Stat(localConfigFile); err == nil {
+		config, err = pcopy.LoadConfig(localConfigFile)
 		if err != nil {
 			return nil, err
 		}
-	} else if _, err := os.Stat(os.ExpandEnv(defaultLocalConfigFile)); err == nil {
-		config, err = pcopy.LoadConfig(os.ExpandEnv(defaultLocalConfigFile))
-		if err != nil {
-			return nil, err
-		}
-	} else if _, err := os.Stat(defaultSystemConfigFile); err == nil {
-		config, err = pcopy.LoadConfig(defaultSystemConfigFile)
+	} else if _, err := os.Stat(systemConfigFile); err == nil {
+		config, err = pcopy.LoadConfig(systemConfigFile)
 		if err != nil {
 			return nil, err
 		}
@@ -128,6 +162,19 @@ func loadConfig(configFile string) (*pcopy.Config, error) {
 	}
 
 	return config, nil
+}
+
+func getCacheDir() (string, error) {
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+
+	if u.Uid == "0" {
+		return systemCacheDir, nil
+	} else {
+		return os.ExpandEnv(localCacheDir), nil
+	}
 }
 
 func printSyntaxAndExit() {

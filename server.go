@@ -8,19 +8,21 @@ import (
 	"regexp"
 )
 
+type server struct {
+	config *Config
+}
+
 func Serve(config *Config) error  {
-	http.HandleFunc("/", handler)
+	server := &server{
+		config: config,
+	}
+
+	http.Handle("/", server)
 	return http.ListenAndServe(config.ListenAddr, nil)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
-
-	cacheDir := fmt.Sprintf("%s/.cache/pcopy", homeDir)
-	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := os.MkdirAll(s.config.CacheDir, 0700); err != nil {
 		panic(err)
 	}
 
@@ -30,7 +32,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		panic("invalid fileID")
 	}
 	fileId := matches[1]
-	file := fmt.Sprintf("%s/%s", cacheDir, fileId)
+	file := fmt.Sprintf("%s/%s", s.config.CacheDir, fileId)
 
 	if r.Method == http.MethodGet {
 		f, err := os.Open(file)

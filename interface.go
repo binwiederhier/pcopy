@@ -3,8 +3,9 @@ package pcopy
 import "io"
 
 type Config struct {
-	ServerUrl  string
 	ListenAddr string
+	CacheDir   string
+	ServerUrl  string
 	Key        string
 }
 
