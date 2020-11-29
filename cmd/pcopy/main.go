@@ -4,8 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"pcopy"
 )
@@ -35,12 +33,20 @@ func main() {
 
 func execCopy() {
 	config, fileId := parseClientArgs("copy")
-	cp(config.ServerUrl, fileId, os.Stdin)
+	client := pcopy.NewClient(config)
+
+	if err := client.Copy(os.Stdin, fileId); err != nil {
+		fail(err)
+	}
 }
 
 func execPaste()  {
 	config, fileId := parseClientArgs("paste")
-	paste(config.ServerUrl, fileId, os.Stdout)
+	client := pcopy.NewClient(config)
+
+	if err := client.Paste(os.Stdout, fileId); err != nil {
+		fail(err)
+	}
 }
 
 func parseClientArgs(command string) (*pcopy.Config, string) {
@@ -71,6 +77,7 @@ func parseClientArgs(command string) (*pcopy.Config, string) {
 
 	return config, fileId
 }
+
 func execServe()  {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
 	listenAddr := flags.String("listen", "", "Listen address")
@@ -94,41 +101,6 @@ func execServe()  {
 
 	if err := pcopy.Serve(config); err != nil {
 		fail(err)
-	}
-}
-
-func cp(endpoint string, fileId string, reader io.Reader) {
-	client := &http.Client{}
-
-	url := fmt.Sprintf("%s/%s", endpoint, fileId)
-	req, err := http.NewRequest(http.MethodPut, url, reader)
-	if err != nil {
-		panic(err)
-	}
-
-	if _, err := client.Do(req); err != nil {
-		panic(err)
-	}
-}
-
-func paste(endpoint string, fileId string, writer io.Writer) {
-	client := &http.Client{}
-
-	url := fmt.Sprintf("%s/%s", endpoint, fileId)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	} else if resp.Body == nil {
-		panic("body empty")
-	}
-
-	if _, err := io.Copy(writer, resp.Body); err != nil {
-		panic(err)
 	}
 }
 
