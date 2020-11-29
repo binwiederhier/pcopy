@@ -27,7 +27,7 @@ func (c *client) Copy(reader io.Reader, fileId string) error {
 	if err != nil {
 		return err
 	}
-
+	
 	if _, err := client.Do(req); err != nil {
 		return err
 	}

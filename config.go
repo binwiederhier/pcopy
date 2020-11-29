@@ -9,7 +9,7 @@ import (
 var DefaultConfig = &Config{
 	ListenAddr: ":1986",
 	ServerUrl: "",
-	CacheDir: "",
+	Key: "",
 }
 
 func LoadConfig(filename string) (*Config, error) {
@@ -28,6 +28,11 @@ func LoadConfig(filename string) (*Config, error) {
 	serverUrl, ok := raw["ServerUrl"]
 	if ok {
 		config.ServerUrl = serverUrl
+	}
+
+	key, ok := raw["Key"]
+	if ok {
+		config.Key = key
 	}
 
 	return config, nil

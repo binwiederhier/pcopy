@@ -5,7 +5,7 @@ import "io"
 type Config struct {
 	ServerUrl  string
 	ListenAddr string
-	CacheDir   string
+	Key        string
 }
 
 type Client interface {
