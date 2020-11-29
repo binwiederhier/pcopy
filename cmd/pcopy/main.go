@@ -4,20 +4,22 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"pcopy"
 	"regexp"
+	"strings"
 )
 
 const (
 	systemConfigDir = "/etc/pcopy"
 	systemCacheDir  = "/var/lib/pcopy"
 
-	localConfigDir  = "$HOME/.config/pcopy"
-	localCacheDir   = "$HOME/.cache/pcopy"
+	userConfigDir = "$HOME/.config/pcopy"
+	userCacheDir  = "$HOME/.cache/pcopy"
 )
 
 // pcopy join pcopy.heckel.io p
@@ -76,7 +78,7 @@ func parseClientArgs(command string) (*pcopy.Config, string) {
 	clipId := "default"
 	fileId := "default"
 	if flags.NArg() > 0 {
-		re := regexp.MustCompile(`^(?:([-_a-z0-9]+):)([-_a-z0-9]*)$`)
+		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]+):)?([-_a-zA-Z0-9]*)$`)
 		parts := re.FindStringSubmatch(flags.Arg(0))
 		if len(parts) != 3 {
 			fail(errors.New("invalid clip ID, must be in format [CLIPID:]FILEID"))
@@ -131,7 +133,7 @@ func execServe()  {
 		fail(errors.New("listen address missing, specify -listen flag or add 'ListenAddr' to config"))
 	}
 
-	log.Printf("Using config %s, cache %s", *configName, config.CacheDir)
+	log.Printf("Starting %s, using cache %s", *configName, config.CacheDir)
 	log.Printf("Listening on %s", config.ListenAddr)
 	if err := pcopy.Serve(config); err != nil {
 		fail(err)
@@ -139,16 +141,65 @@ func execServe()  {
 }
 
 func execJoin() {
+	flags := flag.NewFlagSet("join", flag.ExitOnError)
+	force := flags.Bool("force", false, "Overwrite config if it already exists")
+	if err := flags.Parse(os.Args[2:]); err != nil {
+		fail(err)
+	}
 
+	if flags.NArg() < 1 {
+		printSyntaxAndExit()
+	}
+
+	configName := "default"
+	serverUrl := flags.Arg(0)
+
+	if flags.NArg() > 1 {
+		configName = flags.Arg(1)
+	}
+
+	if !strings.HasPrefix(serverUrl, "http://") && !strings.HasPrefix(serverUrl, "https://") {
+		if strings.Contains(serverUrl, ":") {
+			serverUrl = fmt.Sprintf("http://%s", serverUrl)
+		} else {
+			serverUrl = fmt.Sprintf("http://%s:1986", serverUrl)
+		}
+	}
+
+	userConfigFile := filepath.Join(os.ExpandEnv(userConfigDir), configName + ".conf")
+	systemConfigFile := filepath.Join(systemConfigDir, configName + ".conf")
+
+	if _, err := os.Stat(userConfigFile); err == nil && !*force {
+		fail(errors.New("config file " + userConfigFile + " already exists, use -force to override"))
+	} else if _, err := os.Stat(systemConfigFile); err == nil && !*force {
+		fail(errors.New("config file " + systemConfigFile + " already exists, use -force to override"))
+	}
+
+	configDir, err := getConfigDir()
+	if err != nil {
+		fail(err)
+	}
+
+	configFile := filepath.Join(configDir, configName + ".conf")
+	if err := os.MkdirAll(configDir, 0744); err != nil {
+		fail(err)
+	}
+
+	config := fmt.Sprintf("ServerUrl %s\n", serverUrl)
+	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
+		fail(err)
+	}
+
+	log.Printf("Joined %s, config written to %s", configName, configFile)
 }
 
 func loadConfig(configName string) (*pcopy.Config, error) {
 	var config *pcopy.Config
-	localConfigFile := filepath.Join(os.ExpandEnv(localConfigDir), configName + ".conf")
+	userConfigFile := filepath.Join(os.ExpandEnv(userConfigDir), configName + ".conf")
 	systemConfigFile := filepath.Join(systemConfigDir, configName + ".conf")
 
-	if _, err := os.Stat(localConfigFile); err == nil {
-		config, err = pcopy.LoadConfig(localConfigFile)
+	if _, err := os.Stat(userConfigFile); err == nil {
+		config, err = pcopy.LoadConfig(userConfigFile)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +224,20 @@ func getCacheDir() (string, error) {
 	if u.Uid == "0" {
 		return systemCacheDir, nil
 	} else {
-		return os.ExpandEnv(localCacheDir), nil
+		return os.ExpandEnv(userCacheDir), nil
+	}
+}
+
+func getConfigDir() (string, error) {
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+
+	if u.Uid == "0" {
+		return systemConfigDir, nil
+	} else {
+		return os.ExpandEnv(userConfigDir), nil
 	}
 }
 
@@ -182,11 +246,14 @@ func printSyntaxAndExit() {
 	fmt.Println("  pcopy serve [-listen :1986]")
 	fmt.Println("    Start server")
 	fmt.Println()
-	fmt.Println("  pcopy copy [-config CONFIG] [-server http://...] < myfile.txt")
+	fmt.Println("  pcopy copy [-server http://...] < myfile.txt")
 	fmt.Println("    Copy myfile.txt to the remote clipboard")
 	fmt.Println()
-	fmt.Println("  pcopy paste [-config CONFIG] [-server http://...] > myfile.txt")
+	fmt.Println("  pcopy paste [-server http://...] > myfile.txt")
 	fmt.Println("    Paste myfile.txt from the remote clipboard")
+	fmt.Println()
+	fmt.Println("  pcopy join SERVER [ALIAS]")
+	fmt.Println("    Join a clipboard as ALIAS")
 	os.Exit(1)
 }
 

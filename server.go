@@ -26,7 +26,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	fileIdRegexp := regexp.MustCompile(`^/([-_a-z0-9]+)$`)
+	fileIdRegexp := regexp.MustCompile(`^/([-_a-zA-Z0-9]+)$`)
 	matches := fileIdRegexp.FindStringSubmatch(r.RequestURI)
 	if matches == nil {
 		panic("invalid fileID")
