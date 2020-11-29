@@ -16,19 +16,11 @@ import (
 
 const (
 	systemConfigDir = "/etc/pcopy"
-	systemCacheDir  = "/var/lib/pcopy"
+	systemCacheDir  = "/var/cache/pcopy"
 
 	userConfigDir = "$HOME/.config/pcopy"
 	userCacheDir  = "$HOME/.cache/pcopy"
 )
-
-// pcopy join pcopy.heckel.io p
-//  -> creates /etc/pcopy/p.conf
-
-// pcopy join 10.0.160.123
-//  -> creates /etc/pcopy/default.conf
-
-// pcopy copy p: < bla.txt
 
 func main() {
 	if len(os.Args) < 2 {
@@ -45,6 +37,10 @@ func main() {
 		execServe()
 	case "join":
 		execJoin()
+	case "list":
+		// TODO Implement list
+	case "install":
+		// TODO Implement install
 	default:
 		printSyntaxAndExit()
 	}
@@ -190,7 +186,7 @@ func execJoin() {
 		fail(err)
 	}
 
-	log.Printf("Joined %s, config written to %s", configName, configFile)
+	fmt.Printf("Joined %s, config written to %s\n", configName, configFile)
 }
 
 func loadConfig(configName string) (*pcopy.Config, error) {
