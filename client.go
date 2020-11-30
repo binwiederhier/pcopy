@@ -2,6 +2,8 @@ package pcopy
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -13,6 +15,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Client struct {
@@ -46,7 +49,9 @@ func (c *Client) Copy(reader io.Reader, fileId string) error {
 	if err != nil {
 		return err
 	}
-
+	if err := c.addAuthHeader(req); err != nil {
+		return err
+	}
 	if _, err := client.Do(req); err != nil {
 		return err
 	}
@@ -63,7 +68,10 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 	url := fmt.Sprintf("https://%s/clip/%s", c.config.ServerAddr, fileId)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		panic(err)
+		return err
+	}
+	if err := c.addAuthHeader(req); err != nil {
+		return err
 	}
 
 	resp, err := client.Do(req)
@@ -80,23 +88,18 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 	return nil
 }
 
-
-func (c *Client) Join() (string, error) {
-	return c.retrieveCert()
-}
-
 func (c *Client) Info() (*Info, error) {
 	cert := ""
 
 	// First attempt to retrieve info with secure HTTP client
-	info, err := c.getInfo(&http.Client{})
+	info, err := c.retrieveInfo(&http.Client{})
 	if err != nil {
 		fmt.Printf("Warning: remote cert invalid: %s; will be pinned\n", err.Error())
 
 		// Then attempt to retrieve ignoring bad certs (this is okay, we pin the cert if it's bad)
 		insecureTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		insecureClient := &http.Client{Transport: insecureTransport}
-		info, err = c.getInfo(insecureClient)
+		info, err = c.retrieveInfo(insecureClient)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +122,21 @@ func (c *Client) Info() (*Info, error) {
 	}, nil
 }
 
-func (c *Client) getInfo(client *http.Client) (*infoResponse, error) {
+func (c *Client) addAuthHeader(req *http.Request) error {
+	timestamp := time.Now().Unix()
+	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, req.Method, req.URL.Path)) // RequestURI is empty!
+	hash := hmac.New(sha256.New, c.config.Key)
+	if _, err := hash.Write(data); err != nil {
+		return err
+	}
+
+	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	req.Header.Set("Authorization", fmt.Sprintf("HMAC v1 %d %s", timestamp, hashBase64))
+
+	return nil
+}
+
+func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
 	resp, err := client.Get(fmt.Sprintf("https://%s/", c.config.ServerAddr))
 	if err != nil {
 		return nil, err

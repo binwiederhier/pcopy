@@ -6,27 +6,31 @@ import (
 	"errors"
 	"os"
 	"regexp"
+	"strconv"
 )
 
 type Config struct {
-	ListenAddr string
-	KeyFile    string
-	CertFile   string
-	CacheDir   string
+	ListenAddr    string
+	KeyFile       string
+	CertFile      string
+	CacheDir      string
 
-	ServerAddr string
-	Key        []byte
-	Salt       []byte
+	ServerAddr    string
+	Key           []byte
+	Salt          []byte
+	MaxRequestAge int
 }
 
 var DefaultConfig = &Config{
-	ListenAddr: ":1986",
-	KeyFile:    "",
-	CertFile:   "",
-	CacheDir:   "",
-	ServerAddr: "",
-	Key:        nil,
-	Salt:       nil,
+	ListenAddr:    ":1986",
+	KeyFile:       "",
+	CertFile:      "",
+	CacheDir:      "",
+
+	ServerAddr:    "",
+	Key:           nil,
+	Salt:          nil,
+	MaxRequestAge: 60,
 }
 
 func LoadConfig(filename string) (*Config, error) {
@@ -87,6 +91,14 @@ func LoadConfig(filename string) (*Config, error) {
 		}
 		config.Key = rawKey
 		config.Salt = rawSalt
+	}
+
+	maxRequestAge, ok := raw["MaxRequestAge"]
+	if ok {
+		config.MaxRequestAge, err = strconv.Atoi(maxRequestAge)
+		if err != nil {
+			return nil, errors.New("invalid config value for 'MaxRequestAge', must be integer")
+		}
 	}
 
 	return config, nil
