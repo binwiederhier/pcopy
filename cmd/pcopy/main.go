@@ -4,14 +4,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"pcopy"
 	"regexp"
-	"strings"
 )
 
 const (
@@ -66,7 +63,7 @@ func execPaste()  {
 
 func parseClientArgs(command string) (*pcopy.Config, string) {
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
-	serverUrl := flags.String("server", "", "Server URL")
+	serverAddr := flags.String("server", "", "Server address")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		fail(err)
 	}
@@ -91,102 +88,20 @@ func parseClientArgs(command string) (*pcopy.Config, string) {
 	if err != nil {
 		fail(err)
 	}
-	if *serverUrl != "" {
-		config.ServerUrl = *serverUrl
+	if *serverAddr != "" {
+		config.ServerAddr = *serverAddr
 	}
-	if config.ServerUrl == "" {
-		fail(errors.New("server address missing, specify -server flag or add 'ServerUrl' to config"))
+	if config.ServerAddr == "" {
+		fail(errors.New("server address missing, specify -server flag or add 'ServerAddr' to config"))
+	}
+	if config.CertFile == "" {
+		config.CertFile = filepath.Join(getConfigDir(), clipId + ".crt")
+		if _, err := os.Stat(config.CertFile); err != nil {
+			fail(errors.New("cert file missing, add 'CertFile' to config"))
+		}
 	}
 
 	return config, fileId
-}
-
-func execServe()  {
-	flags := flag.NewFlagSet("serve", flag.ExitOnError)
-	configName := flags.String("config", "server", "Alternate config name")
-	listenAddr := flags.String("listen", "", "Listen address")
-	cacheDir := flags.String("cache", "", "Cache dir")
-	if err := flags.Parse(os.Args[2:]); err != nil {
-		fail(err)
-	}
-
-	config, err := loadConfig(*configName)
-	if err != nil {
-		fail(err)
-	}
-	if *listenAddr != "" {
-		config.ListenAddr = *listenAddr
-	}
-	if *cacheDir != "" {
-		config.CacheDir = *cacheDir
-	} else if config.CacheDir == "" {
-		config.CacheDir, err = getCacheDir()
-		if err != nil {
-			fail(err)
-		}
-	}
-	if config.ListenAddr == "" {
-		fail(errors.New("listen address missing, specify -listen flag or add 'ListenAddr' to config"))
-	}
-
-	log.Printf("Starting %s, using cache %s", *configName, config.CacheDir)
-	log.Printf("Listening on %s", config.ListenAddr)
-	if err := pcopy.Serve(config); err != nil {
-		fail(err)
-	}
-}
-
-func execJoin() {
-	flags := flag.NewFlagSet("join", flag.ExitOnError)
-	force := flags.Bool("force", false, "Overwrite config if it already exists")
-	if err := flags.Parse(os.Args[2:]); err != nil {
-		fail(err)
-	}
-
-	if flags.NArg() < 1 {
-		printSyntaxAndExit()
-	}
-
-	configName := "default"
-	serverUrl := flags.Arg(0)
-
-	if flags.NArg() > 1 {
-		configName = flags.Arg(1)
-	}
-
-	if !strings.HasPrefix(serverUrl, "http://") && !strings.HasPrefix(serverUrl, "https://") {
-		if strings.Contains(serverUrl, ":") {
-			serverUrl = fmt.Sprintf("http://%s", serverUrl)
-		} else {
-			serverUrl = fmt.Sprintf("http://%s:1986", serverUrl)
-		}
-	}
-
-	userConfigFile := filepath.Join(os.ExpandEnv(userConfigDir), configName + ".conf")
-	systemConfigFile := filepath.Join(systemConfigDir, configName + ".conf")
-
-	if _, err := os.Stat(userConfigFile); err == nil && !*force {
-		fail(errors.New("config file " + userConfigFile + " already exists, use -force to override"))
-	} else if _, err := os.Stat(systemConfigFile); err == nil && !*force {
-		fail(errors.New("config file " + systemConfigFile + " already exists, use -force to override"))
-	}
-
-	configDir, err := getConfigDir()
-	if err != nil {
-		fail(err)
-	}
-
-	configFile := filepath.Join(configDir, configName + ".conf")
-	if err := os.MkdirAll(configDir, 0744); err != nil {
-		fail(err)
-	}
-
-	config := fmt.Sprintf("ServerUrl %s\n", serverUrl)
-	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
-		fail(err)
-	}
-
-	fmt.Printf("Joined %s, config written to %s\n", configName, configFile)
 }
 
 func loadConfig(configName string) (*pcopy.Config, error) {
@@ -211,30 +126,26 @@ func loadConfig(configName string) (*pcopy.Config, error) {
 	return config, nil
 }
 
-func getCacheDir() (string, error) {
+
+func getUserOrSystem(userValue string, systemValue string) string {
 	u, err := user.Current()
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
 	if u.Uid == "0" {
-		return systemCacheDir, nil
+		return systemValue
 	} else {
-		return os.ExpandEnv(userCacheDir), nil
+		return userValue
 	}
 }
 
-func getConfigDir() (string, error) {
-	u, err := user.Current()
-	if err != nil {
-		return "", err
-	}
+func getDefaultCacheDir() string {
+	return getUserOrSystem(os.ExpandEnv(userCacheDir), systemCacheDir)
+}
 
-	if u.Uid == "0" {
-		return systemConfigDir, nil
-	} else {
-		return os.ExpandEnv(userConfigDir), nil
-	}
+func getConfigDir() string {
+	return getUserOrSystem(os.ExpandEnv(userConfigDir), systemConfigDir)
 }
 
 func printSyntaxAndExit() {
@@ -242,10 +153,10 @@ func printSyntaxAndExit() {
 	fmt.Println("  pcopy serve [-listen :1986]")
 	fmt.Println("    Start server")
 	fmt.Println()
-	fmt.Println("  pcopy copy [-server http://...] < myfile.txt")
+	fmt.Println("  pcopy copy [-server myhost.com] < myfile.txt")
 	fmt.Println("    Copy myfile.txt to the remote clipboard")
 	fmt.Println()
-	fmt.Println("  pcopy paste [-server http://...] > myfile.txt")
+	fmt.Println("  pcopy paste [-server myhost.com] > myfile.txt")
 	fmt.Println("    Paste myfile.txt from the remote clipboard")
 	fmt.Println()
 	fmt.Println("  pcopy join SERVER [ALIAS]")

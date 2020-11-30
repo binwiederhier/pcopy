@@ -16,7 +16,7 @@ clean: .PHONY
 cmd: .PHONY
 	@echo == Building pcopy CLI ==
 	mkdir -p build/cmd
-	go build -o build/cmd/pcopy cmd/pcopy/main.go
+	go build -o build/cmd/pcopy cmd/pcopy/*.go
 	@echo
 	@echo "--> pcopy CLI built at build/cmd/pcopy"
 	@echo

@@ -8,9 +8,11 @@ import (
 
 var DefaultConfig = &Config{
 	ListenAddr: ":1986",
-	CacheDir: "",
-	ServerUrl: "",
-	Key: "",
+	KeyFile:    "", // defaults to basename.key
+	CertFile:   "", // defaults to basename.crt
+	CacheDir:   "",
+	ServerAddr: "",
+	Key:        "",
 }
 
 func LoadConfig(filename string) (*Config, error) {
@@ -26,14 +28,32 @@ func LoadConfig(filename string) (*Config, error) {
 		config.ListenAddr = listenAddr
 	}
 
+	keyFile, ok := raw["KeyFile"]
+	if ok {
+		if _, err := os.Stat(keyFile); err != nil {
+			return nil, err
+		}
+
+		config.KeyFile = keyFile
+	}
+
+	certFile, ok := raw["CertFile"]
+	if ok {
+		if _, err := os.Stat(certFile); err != nil {
+			return nil, err
+		}
+
+		config.CertFile = certFile
+	}
+
 	cacheDir, ok := raw["CacheDir"]
 	if ok {
 		config.CacheDir = os.ExpandEnv(cacheDir)
 	}
 
-	serverUrl, ok := raw["ServerUrl"]
+	serverAddr, ok := raw["ServerAddr"]
 	if ok {
-		config.ServerUrl = serverUrl
+		config.ServerAddr = serverAddr
 	}
 
 	key, ok := raw["Key"]

@@ -8,21 +8,23 @@ import (
 	"regexp"
 )
 
-type server struct {
+type handler struct {
 	config *Config
 }
 
 func Serve(config *Config) error  {
-	server := &server{
-		config: config,
+	server := &http.Server{
+		Addr: config.ListenAddr,
+		Handler: &handler{
+			config: config,
+		},
 	}
 
-	http.Handle("/", server)
-	return http.ListenAndServe(config.ListenAddr, nil)
+	return server.ListenAndServeTLS(config.CertFile, config.KeyFile)
 }
 
-func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := os.MkdirAll(s.config.CacheDir, 0700); err != nil {
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := os.MkdirAll(h.config.CacheDir, 0700); err != nil {
 		panic(err)
 	}
 
@@ -32,7 +34,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic("invalid fileID")
 	}
 	fileId := matches[1]
-	file := fmt.Sprintf("%s/%s", s.config.CacheDir, fileId)
+	file := fmt.Sprintf("%s/%s", h.config.CacheDir, fileId)
 
 	if r.Method == http.MethodGet {
 		f, err := os.Open(file)
@@ -57,3 +59,4 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
