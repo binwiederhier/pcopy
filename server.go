@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
@@ -31,6 +32,7 @@ func NewServer(config *Config) *Server {
 func (s *Server) ListenAndServeTLS() error {
 	http.HandleFunc("/", s.handleInfo)
 	http.HandleFunc("/verify", s.handleVerify)
+	http.HandleFunc("/get", s.handleGet)
 	http.HandleFunc("/clip/", s.handleClip)
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
@@ -53,6 +55,34 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+}
+
+func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+
+	exe, err := os.Executable()
+	if err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	realpath, err := filepath.EvalSymlinks(exe)
+	if err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	f, err := os.Open(realpath)
+	if err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	defer f.Close()
+
+	if _, err = io.Copy(w, f); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 }
 
 func (s *Server) handleClip(w http.ResponseWriter, r *http.Request) {

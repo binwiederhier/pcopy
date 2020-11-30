@@ -1,9 +1,21 @@
+# pcopy
 
+## Usage
+```
+pcp < myfile.txt
+pcp file2 < myfile2.txt
+```
 
-mkdir -p ~/.config/pcopy
-cd ~/.config/pcopy
-openssl req -nodes -x509 -newkey rsa:2048 -keyout server.key -out server.crt -days 365 -subj "/CN=pcopy" -sha256
+## Installation
+Installation:
+```
+curl -sk https://pcopy.heckel.io:1986/get > /usr/local/bin/pcopy
+chmod +x /usr/local/bin/pcopy
+pcopy install 
+pcopy join pcopy.heckel.io
+```
 
+## Setting up a server
 ```
 useradd pcopy
 mkdir /etc/pcopy /var/cache/pcopy
