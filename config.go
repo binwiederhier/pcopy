@@ -6,6 +6,16 @@ import (
 	"regexp"
 )
 
+type Config struct {
+	ListenAddr string
+	KeyFile    string
+	CertFile   string
+	CacheDir   string
+
+	ServerAddr string
+	Key        string
+}
+
 var DefaultConfig = &Config{
 	ListenAddr: ":1986",
 	KeyFile:    "", // defaults to basename.key

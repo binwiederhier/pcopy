@@ -13,19 +13,17 @@ import (
 	"net/http"
 )
 
-var _ Client = &client{}
-
-type client struct {
+type Client struct {
 	config *Config
 }
 
-func NewClient(config *Config) Client {
-	return &client{
+func NewClient(config *Config) *Client {
+	return &Client{
 		config: config,
 	}
 }
 
-func (c *client) Copy(reader io.Reader, fileId string) error {
+func (c *Client) Copy(reader io.Reader, fileId string) error {
 	client, err := c.newHttpClient()
 	if err != nil {
 		return err
@@ -44,7 +42,7 @@ func (c *client) Copy(reader io.Reader, fileId string) error {
 	return nil
 }
 
-func (c *client) Paste(writer io.Writer, fileId string) error {
+func (c *Client) Paste(writer io.Writer, fileId string) error {
 	client, err := c.newHttpClient()
 	if err != nil {
 		return err
@@ -71,11 +69,11 @@ func (c *client) Paste(writer io.Writer, fileId string) error {
 }
 
 
-func (c *client) Join() (string, error) {
+func (c *Client) Join() (string, error) {
 	return c.retrieveCert()
 }
 
-func (c *client) retrieveCert() (string, error) {
+func (c *Client) retrieveCert() (string, error) {
 	conn, err := tls.Dial("tcp", c.config.ServerAddr, &tls.Config{
 		InsecureSkipVerify: true,
 	})
@@ -96,8 +94,16 @@ func (c *client) retrieveCert() (string, error) {
 	return b.String(), nil
 }
 
+func (c *Client) newHttpClient() (*http.Client, error) {
+	if c.config.CertFile != "" {
+		return c.newHttpClientWithExtraCert()
+	} else {
+		return &http.Client{}, nil
+	}
+}
+
 // From https://forfuncsake.github.io/post/2017/08/trust-extra-ca-cert-in-go-app/
-func (c *client) newHttpClient() (*http.Client, error) {
+func (c *Client) newHttpClientWithExtraCert() (*http.Client, error) {
 	// Get the SystemCertPool, continue with an empty pool on error
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {

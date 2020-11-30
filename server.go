@@ -41,6 +41,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
+		defer f.Close()
+
 		if _, err = io.Copy(w, f); err != nil {
 			panic(err)
 		}
@@ -49,6 +51,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
+		defer f.Close()
+
 		if r.Body != nil {
 			if _, err = io.Copy(f, r.Body); err != nil {
 				panic(err)
