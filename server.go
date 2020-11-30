@@ -1,6 +1,8 @@
 package pcopy
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,33 +10,52 @@ import (
 	"regexp"
 )
 
-type handler struct {
+type Server struct {
 	config *Config
 }
 
-func Serve(config *Config) error  {
-	server := &http.Server{
-		Addr: config.ListenAddr,
-		Handler: &handler{
-			config: config,
-		},
+func NewServer(config *Config) *Server {
+	return &Server{
+		config: config,
 	}
-
-	return server.ListenAndServeTLS(config.CertFile, config.KeyFile)
 }
 
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := os.MkdirAll(h.config.CacheDir, 0700); err != nil {
+func (s *Server) ListenAndServeTLS() error {
+	http.HandleFunc("/", s.handleInfo)
+	http.HandleFunc("/verify", s.handleVerify)
+	http.HandleFunc("/clip/", s.handleClip)
+
+	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
+}
+
+func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
+	response := &infoResponse{
+		Version: 1,
+		Salt:    base64.StdEncoding.EncodeToString(s.config.Salt),
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		panic(err)
+	}
+}
+
+func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
+	
+}
+
+func (s *Server) handleClip(w http.ResponseWriter, r *http.Request) {
+	if err := os.MkdirAll(s.config.CacheDir, 0700); err != nil {
 		panic(err)
 	}
 
-	fileIdRegexp := regexp.MustCompile(`^/([-_a-zA-Z0-9]+)$`)
-	matches := fileIdRegexp.FindStringSubmatch(r.RequestURI)
+	re := regexp.MustCompile(`^/clip/([-_a-zA-Z0-9]+)$`)
+	matches := re.FindStringSubmatch(r.RequestURI)
 	if matches == nil {
 		panic("invalid fileID")
 	}
 	fileId := matches[1]
-	file := fmt.Sprintf("%s/%s", h.config.CacheDir, fileId)
+	file := fmt.Sprintf("%s/%s", s.config.CacheDir, fileId)
 
 	if r.Method == http.MethodGet {
 		f, err := os.Open(file)

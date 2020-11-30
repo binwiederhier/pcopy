@@ -38,10 +38,15 @@ func execServe()  {
 			fail(errors.New("cert file missing, add 'CertFile' to config"))
 		}
 	}
+	if config.Key == nil {
+		fail(errors.New("key missing, add 'Key' to config"))
+	}
 
 	log.Printf("Starting %s, using cache %s", *configName, config.CacheDir)
 	log.Printf("Listening on %s", config.ListenAddr)
-	if err := pcopy.Serve(config); err != nil {
+
+	server := pcopy.NewServer(config)
+	if err := server.ListenAndServeTLS(); err != nil {
 		fail(err)
 	}
 }

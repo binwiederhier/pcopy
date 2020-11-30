@@ -2,6 +2,8 @@ package pcopy
 
 import (
 	"bufio"
+	"encoding/base64"
+	"errors"
 	"os"
 	"regexp"
 )
@@ -13,16 +15,18 @@ type Config struct {
 	CacheDir   string
 
 	ServerAddr string
-	Key        string
+	Key        []byte
+	Salt       []byte
 }
 
 var DefaultConfig = &Config{
 	ListenAddr: ":1986",
-	KeyFile:    "", // defaults to basename.key
-	CertFile:   "", // defaults to basename.crt
+	KeyFile:    "",
+	CertFile:   "",
 	CacheDir:   "",
 	ServerAddr: "",
-	Key:        "",
+	Key:        nil,
+	Salt:       nil,
 }
 
 func LoadConfig(filename string) (*Config, error) {
@@ -68,7 +72,21 @@ func LoadConfig(filename string) (*Config, error) {
 
 	key, ok := raw["Key"]
 	if ok {
-		config.Key = key
+		re := regexp.MustCompile(`^([^:]+):(.+)$`)
+		matches := re.FindStringSubmatch(key)
+		if matches == nil {
+			return nil, errors.New("invalid config value for 'Key'")
+		}
+		rawSalt, err := base64.StdEncoding.DecodeString(matches[1])
+		if err != nil {
+			return nil, errors.New("invalid config value for 'Key', cannot decode salt")
+		}
+		rawKey, err := base64.StdEncoding.DecodeString(matches[2])
+		if err != nil {
+			return nil, errors.New("invalid config value for 'Key', cannot decode key")
+		}
+		config.Key = rawKey
+		config.Salt = rawSalt
 	}
 
 	return config, nil

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -15,6 +17,16 @@ import (
 
 type Client struct {
 	config *Config
+}
+
+type Info struct {
+	Cert string
+	Salt []byte
+}
+
+type infoResponse struct {
+	Version int    `json:"version"`
+	Salt    string `json:"salt"`
 }
 
 func NewClient(config *Config) *Client {
@@ -29,7 +41,7 @@ func (c *Client) Copy(reader io.Reader, fileId string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/%s", c.config.ServerAddr, fileId)
+	url := fmt.Sprintf("https://%s/clip/%s", c.config.ServerAddr, fileId)
 	req, err := http.NewRequest(http.MethodPut, url, reader)
 	if err != nil {
 		return err
@@ -48,7 +60,7 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/%s", c.config.ServerAddr, fileId)
+	url := fmt.Sprintf("https://%s/clip/%s", c.config.ServerAddr, fileId)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		panic(err)
@@ -71,6 +83,55 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 
 func (c *Client) Join() (string, error) {
 	return c.retrieveCert()
+}
+
+func (c *Client) Info() (*Info, error) {
+	cert := ""
+
+	// First attempt to retrieve info with secure HTTP client
+	info, err := c.getInfo(&http.Client{})
+	if err != nil {
+		fmt.Printf("Warning: remote cert invalid: %s; will be pinned\n", err.Error())
+
+		// Then attempt to retrieve ignoring bad certs (this is okay, we pin the cert if it's bad)
+		insecureTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		insecureClient := &http.Client{Transport: insecureTransport}
+		info, err = c.getInfo(insecureClient)
+		if err != nil {
+			return nil, err
+		}
+
+		// Retrieve bad cert for cert pinning
+		cert, err = c.retrieveCert()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	salt, err := base64.StdEncoding.DecodeString(info.Salt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Info{
+		Salt: salt,
+		Cert: cert,
+	}, nil
+}
+
+func (c *Client) getInfo(client *http.Client) (*infoResponse, error) {
+	resp, err := client.Get(fmt.Sprintf("https://%s/", c.config.ServerAddr))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	info := &infoResponse{}
+	if err := json.NewDecoder(resp.Body).Decode(info); err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }
 
 func (c *Client) retrieveCert() (string, error) {
