@@ -9,7 +9,7 @@ import (
 	"pcopy"
 )
 
-func execServe()  {
+func execServe() {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
 	configName := flags.String("config", "server", "Alternate config name")
 	if err := flags.Parse(os.Args[2:]); err != nil {

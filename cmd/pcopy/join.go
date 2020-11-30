@@ -1,12 +1,9 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"os"
@@ -15,9 +12,6 @@ import (
 	"strings"
 	"syscall"
 )
-
-const keyLen = 32
-const pbkdfIter = 10000
 
 func execJoin() {
 	flags := flag.NewFlagSet("join", flag.ExitOnError)
@@ -52,30 +46,20 @@ func execJoin() {
 
 	// Read password
 	fmt.Print("Enter Password: ")
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	password, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		fail(err)
 	}
+	fmt.Println()
 
 	client := pcopy.NewClient(&pcopy.Config{
 		ServerAddr: serverAddr,
 	})
 
-	// Key LKDJADLKjdaks/adks=
-	// Authorization: HMAC 1245 DALSJHKJLHAKSDH
-	// X-Authorization-Timestamp: 12345
-
-
 	info, err := client.Info()
 	if err != nil {
 		fail(err)
 	}
-
-	key := pbkdf2.Key(bytePassword, info.Salt, pbkdfIter, keyLen, sha256.New)
-	keyEncoded := fmt.Sprintf("%s:%s", base64.StdEncoding.EncodeToString(info.Salt),
-		base64.StdEncoding.EncodeToString(key))
-//	hmac.New(sha256.New, )
-
 
 	// Save config file and cert
 	configDir := getConfigDir()
@@ -86,6 +70,7 @@ func execJoin() {
 		fail(err)
 	}
 
+	keyEncoded := pcopy.DeriveKey(password, info.Salt)
 	config := fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, keyEncoded)
 	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
 		fail(err)
