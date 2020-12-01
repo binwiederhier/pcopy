@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"math"
-	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -29,25 +28,13 @@ func Serve(config *Config) error {
 }
 
 func (s *server) listenAndServeTLS() error {
-	handler := http.NewServeMux()
-	handler.HandleFunc("/", s.handleInfo)
-	handler.HandleFunc("/verify", s.handleVerify)
-	handler.HandleFunc("/install", s.handleInstall)
-	handler.HandleFunc("/get", s.handleGet)
-	handler.HandleFunc("/clip/", s.handleClip)
+	http.HandleFunc("/", s.handleInfo)
+	http.HandleFunc("/verify", s.handleVerify)
+	http.HandleFunc("/install", s.handleInstall)
+	http.HandleFunc("/get", s.handleGet)
+	http.HandleFunc("/clip/", s.handleClip)
 
-	server := &http.Server{
-		Addr: s.config.ListenAddr,
-		Handler: handler,
-	}
-
-	listener, err := net.Listen("tcp4", s.config.ListenAddr)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	return server.ServeTLS(listener, s.config.CertFile, s.config.KeyFile)
+	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
 
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
@@ -162,8 +149,13 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("curl -sk https://%s/get > /usr/bin/pcopy\n", s.config.ServerAddr) +
 			"chmod +x /usr/bin/pcopy\n" +
 			"/usr/bin/pcopy install\n" +
-			"echo 'pcopy downloaded and installed'\n" +
-			"/usr/bin/pcopy\n"
+			"echo \"Successfully installed /usr/bin/pcopy.\"\n" +
+			"echo \"To join this server's clipboard, use the following command:\"\n" +
+			"echo\n" +
+			fmt.Sprintf("echo '  $ pcopy join %s'\n", s.config.ServerAddr) +
+			"echo\n" +
+			"echo \"For more help, type 'pcopy -help'.\"\n"
+
 	} else {
 		script = "#!/bin/bash\n" +
 			"echo 'Server not configured to allow simple install.'\n" +

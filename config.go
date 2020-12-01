@@ -177,7 +177,7 @@ func loadRawConfig(filename string) (map[string]string, error) {
 			parts := value.FindStringSubmatch(line)
 
 			if len(parts) == 3 {
-				rawconfig[parts[1]] = parts[2]
+				rawconfig[parts[1]] = strings.TrimSpace(parts[2])
 			}
 		}
 	}
