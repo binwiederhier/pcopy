@@ -59,7 +59,7 @@ func execJoin() {
 
 	// Verify
 	// TODO verify
-	
+
 	// Save config file and cert
 	configFile = pcopy.GetConfigFileForAlias(alias)
 	configDir := filepath.Dir(configFile)

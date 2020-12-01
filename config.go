@@ -63,7 +63,28 @@ func GetConfigFileForAlias(alias string) string {
 	}
 }
 
-func LoadConfig(filename string) (*Config, error) {
+func LoadConfig(file string, alias string) (*Config, error) {
+	if file != "" {
+		return loadConfigFromFile(file)
+	} else {
+		return loadConfigFromAliasIfExists(alias)
+	}
+}
+
+func loadConfigFromAliasIfExists(alias string) (*Config, error) {
+	configFile := FindConfigFile(alias)
+	if configFile != "" {
+		config, err := loadConfigFromFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+		return config, nil
+	} else {
+		return DefaultConfig, nil
+	}
+}
+
+func loadConfigFromFile(filename string) (*Config, error) {
 	config := DefaultConfig
 	raw, err := loadRawConfig(filename)
 	if err != nil {

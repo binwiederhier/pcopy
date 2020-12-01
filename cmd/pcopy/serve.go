@@ -12,14 +12,14 @@ import (
 
 func execServe() {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
-	configFile := flags.String("config", "/etc/pcopy/server.conf", "Alternate config file")
+	configFile := flags.String("config", "", "Alternate config file")
 	cacheDir := flags.String("cache", "", "Cache dir")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		fail(err)
 	}
 
 	// Load config
-	config, err := pcopy.LoadConfig(*configFile)
+	config, err := pcopy.LoadConfig(*configFile, "server")
 	if err != nil {
 		fail(err)
 	}

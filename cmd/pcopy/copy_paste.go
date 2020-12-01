@@ -28,7 +28,7 @@ func execPaste()  {
 
 func parseClientArgs(command string) (*pcopy.Config, string) {
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
-	// configFile := flags.String("config", "", "Alternate config file")
+	configFile := flags.String("config", "", "Alternate config file")
 	serverAddr := flags.String("server", "", "Server address")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		fail(err)
@@ -44,6 +44,9 @@ func parseClientArgs(command string) (*pcopy.Config, string) {
 			fail(errors.New("invalid argument, must be in format [ALIAS:]FILEID"))
 		}
 		if parts[1] != "" {
+			if *configFile != "" {
+				fail(errors.New("invalid argument, -config cannot be set when alias is given"))
+			}
 			alias = parts[1]
 		}
 		if parts[2] != "" {
@@ -52,14 +55,9 @@ func parseClientArgs(command string) (*pcopy.Config, string) {
 	}
 
 	// Load config
-	var err error
-	config := pcopy.DefaultConfig
-	configFile := pcopy.FindConfigFile(alias)
-	if configFile != "" {
-		config, err = pcopy.LoadConfig(configFile)
-		if err != nil {
-			fail(err)
-		}
+	config, err := pcopy.LoadConfig(*configFile, alias)
+	if err != nil {
+		fail(err)
 	}
 
 	// Command line overrides
