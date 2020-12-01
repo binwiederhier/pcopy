@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 )
@@ -23,7 +22,7 @@ type Client struct {
 }
 
 type Info struct {
-	Cert string
+	Cert []byte
 	Salt []byte
 }
 
@@ -39,7 +38,7 @@ func NewClient(config *Config) *Client {
 }
 
 func (c *Client) Copy(reader io.Reader, fileId string) error {
-	client, err := c.newHttpClient()
+	client, err := c.newHttpClient(nil)
 	if err != nil {
 		return err
 	}
@@ -49,7 +48,7 @@ func (c *Client) Copy(reader io.Reader, fileId string) error {
 	if err != nil {
 		return err
 	}
-	if err := c.addAuthHeader(req); err != nil {
+	if err := c.addAuthHeader(req, nil); err != nil {
 		return err
 	}
 	if _, err := client.Do(req); err != nil {
@@ -60,7 +59,7 @@ func (c *Client) Copy(reader io.Reader, fileId string) error {
 }
 
 func (c *Client) Paste(writer io.Writer, fileId string) error {
-	client, err := c.newHttpClient()
+	client, err := c.newHttpClient(nil)
 	if err != nil {
 		return err
 	}
@@ -70,7 +69,7 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 	if err != nil {
 		return err
 	}
-	if err := c.addAuthHeader(req); err != nil {
+	if err := c.addAuthHeader(req, nil); err != nil {
 		return err
 	}
 
@@ -89,13 +88,11 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 }
 
 func (c *Client) Info() (*Info, error) {
-	cert := ""
+	var cert []byte
 
 	// First attempt to retrieve info with secure HTTP client
 	info, err := c.retrieveInfo(&http.Client{})
 	if err != nil {
-		fmt.Printf("Warning: remote cert error (likely self-signed); will be pinned\n")
-
 		// Then attempt to retrieve ignoring bad certs (this is okay, we pin the cert if it's bad)
 		insecureTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		insecureClient := &http.Client{Transport: insecureTransport}
@@ -122,10 +119,40 @@ func (c *Client) Info() (*Info, error) {
 	}, nil
 }
 
-func (c *Client) addAuthHeader(req *http.Request) error {
+
+func (c *Client) Verify(cert []byte, key []byte) error {
+	client, err := c.newHttpClient(cert)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("https://%s/verify", c.config.ServerAddr)
+	req, err := http.NewRequest(http.MethodPut, url, nil)
+	if err != nil {
+		return err
+	}
+	if err := c.addAuthHeader(req, key); err != nil {
+		return err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	} else if resp.StatusCode != http.StatusOK {
+		return errors.New(resp.Status)
+	}
+
+	return nil
+}
+
+func (c *Client) addAuthHeader(req *http.Request, key []byte) error {
+	if key == nil {
+		key = c.config.Key
+	}
+
 	timestamp := time.Now().Unix()
 	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, req.Method, req.URL.Path)) // RequestURI is empty!
-	hash := hmac.New(sha256.New, c.config.Key)
+	hash := hmac.New(sha256.New, key)
 	if _, err := hash.Write(data); err != nil {
 		return err
 	}
@@ -151,12 +178,12 @@ func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
 	return info, nil
 }
 
-func (c *Client) retrieveCert() (string, error) {
+func (c *Client) retrieveCert() ([]byte, error) {
 	conn, err := tls.Dial("tcp", c.config.ServerAddr, &tls.Config{
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer conn.Close()
 	var b bytes.Buffer
@@ -166,35 +193,29 @@ func (c *Client) retrieveCert() (string, error) {
 			Bytes: cert.Raw,
 		})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
-	return b.String(), nil
+	return b.Bytes(), nil
 }
 
-func (c *Client) newHttpClient() (*http.Client, error) {
-	if c.config.CertFile != "" {
-		return c.newHttpClientWithExtraCert()
+func (c *Client) newHttpClient(cert []byte) (*http.Client, error) {
+	if cert != nil {
+		return c.newHttpClientWithExtraCert(cert)
+	} else if c.config.CertFile != "" {
+		cert, err := ioutil.ReadFile(c.config.CertFile)
+		if err != nil {
+			return nil, err
+		}
+		return c.newHttpClientWithExtraCert(cert)
 	} else {
 		return &http.Client{}, nil
 	}
 }
 
-// From https://forfuncsake.github.io/post/2017/08/trust-extra-ca-cert-in-go-app/
-func (c *Client) newHttpClientWithExtraCert() (*http.Client, error) {
-	// Get the SystemCertPool, continue with an empty pool on error
-	rootCAs, _ := x509.SystemCertPool()
-	if rootCAs == nil {
-		rootCAs = x509.NewCertPool()
-	}
-
-	// Read in the cert file
-	certs, err := ioutil.ReadFile(c.config.CertFile)
-	if err != nil {
-		log.Fatalf("Failed to append %q to RootCAs: %v", c.config.CertFile, err)
-	}
-
-	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+func (c *Client) newHttpClientWithExtraCert(cert []byte) (*http.Client, error) {
+	rootCAs := x509.NewCertPool()
+	if ok := rootCAs.AppendCertsFromPEM(cert); !ok {
 		return nil, errors.New("no certs appended, using system certs only")
 	}
 

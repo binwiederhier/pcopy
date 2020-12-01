@@ -53,6 +53,11 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
+	if err := s.authorize(r); err != nil {
+		s.fail(w, r, http.StatusUnauthorized, err)
+		return
+	}
+
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 }
 

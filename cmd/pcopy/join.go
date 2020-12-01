@@ -41,12 +41,14 @@ func execJoin() {
 	}
 
 	// Read password
-	fmt.Print("Enter Password: ")
+	//fmt.Println("To join this clipboard, a password is required.")
+	fmt.Print("Enter password to join clipboard: ")
+
 	password, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		fail(err)
 	}
-	fmt.Println()
+	fmt.Print("\r")
 
 	client := pcopy.NewClient(&pcopy.Config{
 		ServerAddr: serverAddr,
@@ -57,8 +59,12 @@ func execJoin() {
 		fail(err)
 	}
 
-	// Verify
-	// TODO verify
+	// Verify that password was correct
+	key := pcopy.DeriveKey(password, info.Salt)
+	err = client.Verify(info.Cert, key)
+	if err != nil {
+		fail(errors.New(fmt.Sprintf("Failed to join clipboard, %s", err.Error())))
+	}
 
 	// Save config file and cert
 	configFile = pcopy.GetConfigFileForAlias(alias)
@@ -69,16 +75,47 @@ func execJoin() {
 		fail(err)
 	}
 
-	keyEncoded := pcopy.DeriveKey(password, info.Salt)
+	keyEncoded := pcopy.EncodeKey(password, info.Salt)
 	config := fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, keyEncoded)
 	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
 		fail(err)
 	}
-	if info.Cert != "" {
-		if err := ioutil.WriteFile(certFile, []byte(info.Cert), 0644); err != nil {
+	if info.Cert != nil {
+		if err := ioutil.WriteFile(certFile, info.Cert, 0644); err != nil {
 			fail(err)
 		}
 	}
 
-	fmt.Printf("Joined %s, config written to %s\n", alias, configFile)
+	aliasPrefix := ""
+	if alias != "default" {
+		aliasPrefix = fmt.Sprintf("%s:", alias)
+	}
+
+	fmt.Printf("Successfully joined clipboard, config written to %s\n", configFile)
+	if info.Cert != nil {
+		fmt.Println()
+		fmt.Println("Warning: Please be aware that the remote certificate was self-signed and has been pinned.")
+		fmt.Println("Future communication will be secure, but joining could have been intercepted.")
+	}
+	fmt.Println()
+	fmt.Println("You may now use 'pcopy copy' and 'pcopy paste', like this:")
+	fmt.Println()
+	fmt.Printf("  $ echo 'some text to copy' | pcopy copy %s\n", aliasPrefix)
+	fmt.Printf("  $ pcopy paste %s\n", aliasPrefix)
+	fmt.Println()
+	fmt.Printf("  $ pcopy copy %smyfile < myfile.txt\n", aliasPrefix)
+	fmt.Printf("  $ pcopy paste %smyfile > myfile.txt\n", aliasPrefix)
+	fmt.Println()
+	fmt.Println("You may also want to install the shortcuts 'pcp' and 'ppaste' like so:")
+	fmt.Println()
+	fmt.Println("  $ sudo pcopy install")
+	fmt.Println()
+	fmt.Println("To easily join on other computers, you can run this command:")
+	fmt.Println()
+	if info.Cert != nil {
+		fmt.Printf("  $ sudo bash -c 'curl -sk https://%s/install | sh'\n", serverAddr)
+	} else {
+		fmt.Printf("  $ sudo bash -c 'curl -s https://%s/install | sh'\n", serverAddr)
+	}
+	fmt.Println()
 }
