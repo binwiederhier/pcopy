@@ -1,7 +1,6 @@
 package pcopy
 
 import (
-	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/tls"
@@ -22,8 +21,8 @@ type Client struct {
 }
 
 type Info struct {
-	Cert []byte
-	Salt []byte
+	Certs []*x509.Certificate
+	Salt  []byte
 }
 
 type infoResponse struct {
@@ -94,7 +93,7 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 }
 
 func (c *Client) Info() (*Info, error) {
-	var cert []byte
+	var certs []*x509.Certificate
 
 	// First attempt to retrieve info with secure HTTP client
 	info, err := c.retrieveInfo(&http.Client{})
@@ -107,8 +106,8 @@ func (c *Client) Info() (*Info, error) {
 			return nil, err
 		}
 
-		// Retrieve bad cert for cert pinning
-		cert, err = c.retrieveCert()
+		// Retrieve bad cert(s) for cert pinning
+		certs, err = c.retrieveCerts()
 		if err != nil {
 			return nil, err
 		}
@@ -120,14 +119,14 @@ func (c *Client) Info() (*Info, error) {
 	}
 
 	return &Info{
-		Salt: salt,
-		Cert: cert,
+		Salt:  salt,
+		Certs: certs,
 	}, nil
 }
 
 
-func (c *Client) Verify(cert []byte, key []byte) error {
-	client, err := c.newHttpClient(cert)
+func (c *Client) Verify(certs []*x509.Certificate, key []byte) error {
+	client, err := c.newHttpClient(certs)
 	if err != nil {
 		return err
 	}
@@ -184,7 +183,7 @@ func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
 	return info, nil
 }
 
-func (c *Client) retrieveCert() ([]byte, error) {
+func (c *Client) retrieveCerts() ([]*x509.Certificate, error) {
 	conn, err := tls.Dial("tcp", c.config.ServerAddr, &tls.Config{
 		InsecureSkipVerify: true,
 	})
@@ -192,37 +191,28 @@ func (c *Client) retrieveCert() ([]byte, error) {
 		return nil, err
 	}
 	defer conn.Close()
-	var b bytes.Buffer
-	for _, cert := range conn.ConnectionState().PeerCertificates {
-		err := pem.Encode(&b, &pem.Block{
-			Type: "CERTIFICATE",
-			Bytes: cert.Raw,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return b.Bytes(), nil
+
+	return conn.ConnectionState().PeerCertificates, nil
 }
 
-func (c *Client) newHttpClient(cert []byte) (*http.Client, error) {
-	if cert != nil {
-		return c.newHttpClientWithExtraCert(cert)
+func (c *Client) newHttpClient(certs []*x509.Certificate) (*http.Client, error) {
+	if certs != nil {
+		return c.newHttpClientWithRootCAs(certs)
 	} else if c.config.CertFile != "" {
-		cert, err := ioutil.ReadFile(c.config.CertFile)
+		cert, err := c.readCertFromFile(c.config.CertFile)
 		if err != nil {
 			return nil, err
 		}
-		return c.newHttpClientWithExtraCert(cert)
+		return c.newHttpClientWithRootCAs([]*x509.Certificate{cert})
 	} else {
 		return &http.Client{}, nil
 	}
 }
 
-func (c *Client) newHttpClientWithExtraCert(cert []byte) (*http.Client, error) {
+func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Client, error) {
 	rootCAs := x509.NewCertPool()
-	if ok := rootCAs.AppendCertsFromPEM(cert); !ok {
-		return nil, errors.New("no certs appended, using system certs only")
+	for _, cert := range certs {
+		rootCAs.AddCert(cert)
 	}
 
 	return &http.Client{
@@ -235,6 +225,17 @@ func (c *Client) newHttpClientWithExtraCert(cert []byte) (*http.Client, error) {
 	}, nil
 }
 
+func (c *Client) readCertFromFile(certFile string) (*x509.Certificate, error) {
+	pemCert, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(pemCert)
+	if block == nil {
+		return nil, errors.New("failed to parse certificate PEM")
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
 
 
 

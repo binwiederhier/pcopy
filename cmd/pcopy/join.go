@@ -61,7 +61,7 @@ func execJoin(args []string) {
 
 	// Verify that password was correct
 	key := pcopy.DeriveKey(password, info.Salt)
-	err = client.Verify(info.Cert, key)
+	err = client.Verify(info.Certs, key)
 	if err != nil {
 		fail(errors.New(fmt.Sprintf("Failed to join clipboard, %s", err.Error())))
 	}
@@ -80,8 +80,12 @@ func execJoin(args []string) {
 	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
 		fail(err)
 	}
-	if info.Cert != nil {
-		if err := ioutil.WriteFile(certFile, info.Cert, 0644); err != nil {
+	if info.Certs != nil {
+		certsEncoded, err := pcopy.EncodeCerts(info.Certs)
+		if err != nil {
+			fail(err)
+		}
+		if err := ioutil.WriteFile(certFile, certsEncoded, 0644); err != nil {
 			fail(err)
 		}
 	}
@@ -92,7 +96,7 @@ func execJoin(args []string) {
 	}
 
 	fmt.Printf("Successfully joined clipboard, config written to %s\n", configFile)
-	if info.Cert != nil {
+	if info.Certs != nil {
 		fmt.Println()
 		fmt.Println("Warning: Please be aware that the remote certificate was self-signed and has been pinned.")
 		fmt.Println("Future communication will be secure, but joining could have been intercepted.")
@@ -113,7 +117,7 @@ func execJoin(args []string) {
 	fmt.Println("To easily join on other computers, you can run this command:")
 	fmt.Println()
 	// TODO --pinnedpubkey
-	if info.Cert != nil {
+	if info.Certs != nil {
 		fmt.Printf("  $ sudo bash -c 'curl -sk https://%s/install | sh'\n", serverAddr)
 	} else {
 		fmt.Printf("  $ sudo bash -c 'curl -s https://%s/install | sh'\n", serverAddr)

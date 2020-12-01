@@ -31,8 +31,8 @@ type Config struct {
 
 var DefaultConfig = &Config{
 	ListenAddr:    ":1986",
-	KeyFile:       "", // set to server.key by LoadConfig
-	CertFile:      "", // set to server.crt by LoadConfig
+	KeyFile:       "",
+	CertFile:      "",
 	CacheDir:      "/var/cache/pcopy",
 
 	ServerAddr:    "",
@@ -73,6 +73,7 @@ func LoadConfig(file string, alias string) (*Config, error) {
 
 func loadConfigFromAliasIfExists(alias string) (*Config, error) {
 	configFile := FindConfigFile(alias)
+
 	if configFile != "" {
 		config, err := loadConfigFromFile(configFile)
 		if err != nil {
@@ -98,23 +99,19 @@ func loadConfigFromFile(filename string) (*Config, error) {
 
 	keyFile, ok := raw["KeyFile"]
 	if ok {
-		if _, err := os.Stat(keyFile); err != nil { // FIXME should this be here?
+		if _, err := os.Stat(keyFile); err != nil {
 			return nil, err
 		}
 		config.KeyFile = keyFile
-	} else {
-		config.KeyFile = strings.TrimSuffix(filename, ".conf") + ".key"
 	}
 
 	certFile, ok := raw["CertFile"]
 	if ok {
-		if _, err := os.Stat(certFile); err != nil { // FIXME should this be here?
+		if _, err := os.Stat(certFile); err != nil {
 			return nil, err
 		}
 
 		config.CertFile = certFile
-	} else {
-		config.CertFile = strings.TrimSuffix(filename, ".conf") + ".crt"
 	}
 
 	cacheDir, ok := raw["CacheDir"]

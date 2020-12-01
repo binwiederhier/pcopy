@@ -6,6 +6,7 @@ import (
 	"os"
 	"pcopy"
 	"regexp"
+	"strings"
 )
 
 func execCopy(args []string) {
@@ -58,6 +59,14 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	config, err := pcopy.LoadConfig(*configFile, alias)
 	if err != nil {
 		fail(err)
+	}
+
+	// Load defaults
+	if config.CertFile == "" {
+		certFile := strings.TrimSuffix(*configFile, ".conf") + ".crt"
+		if _, err := os.Stat(certFile); err == nil {
+			config.CertFile = certFile
+		}
 	}
 
 	// Command line overrides

@@ -29,8 +29,7 @@ openssl req \
   -days 1825 \
   -sha256
   
-chown pcopy.pcopy /etc/pcopy/server.*
-chown pcopy.pcopy /var/cache/pcopy
+chown pcopy.pcopy /etc/pcopy /var/cache/pcopy /etc/pcopy/server.*
 
 cat >/etc/systemd/system/pcopy.service << EOL
 [Unit]

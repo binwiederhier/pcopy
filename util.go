@@ -1,9 +1,12 @@
 package pcopy
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"golang.org/x/crypto/pbkdf2"
 	"os"
@@ -44,4 +47,18 @@ func GetExecutable() (string, error) {
 	}
 
 	return realpath, nil
+}
+
+func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
+	var b bytes.Buffer
+	for _, cert := range certs {
+		err := pem.Encode(&b, &pem.Block{
+			Type: "CERTIFICATE",
+			Bytes: cert.Raw,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return b.Bytes(), nil
 }
