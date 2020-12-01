@@ -3,50 +3,46 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
+	"golang.org/x/sys/unix"
 	"log"
 	"os"
-	"path/filepath"
 	"pcopy"
 )
 
 func execServe() {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
-	configName := flags.String("config", "server", "Alternate config name")
+	configFile := flags.String("config", "/etc/pcopy/server.conf", "Alternate config file")
+	cacheDir := flags.String("cache", "", "Cache dir")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		fail(err)
 	}
 
-	config, err := loadConfig(*configName)
+	// Load config
+	config, err := pcopy.LoadConfig(*configFile)
 	if err != nil {
 		fail(err)
 	}
-	if config.CacheDir == "" {
-		config.CacheDir = getDefaultCacheDir()
+
+	// Command line overrides
+	if *cacheDir != "" {
+		config.CacheDir = *cacheDir
 	}
+
+	// Validate
 	if config.ListenAddr == "" {
 		fail(errors.New("listen address missing, add 'ListenAddr' to config"))
-	}
-	if config.KeyFile == "" {
-		config.KeyFile = filepath.Join(getConfigDir(), *configName + ".key")
-		if _, err := os.Stat(config.KeyFile); err != nil {
-			fail(errors.New("key file missing, add 'KeyFile' to config"))
-		}
-	}
-	if config.CertFile == "" {
-		config.CertFile = filepath.Join(getConfigDir(), *configName + ".crt")
-		if _, err := os.Stat(config.CertFile); err != nil {
-			fail(errors.New("cert file missing, add 'CertFile' to config"))
-		}
 	}
 	if config.Key == nil {
 		fail(errors.New("key missing, add 'Key' to config"))
 	}
+	if unix.Access(config.CacheDir, unix.W_OK) != nil {
+		fail(errors.New(fmt.Sprintf("cache dir %s not writable by user", config.CacheDir)))
+	}
 
-	log.Printf("Starting %s, using cache %s", *configName, config.CacheDir)
+	// Start server
 	log.Printf("Listening on %s", config.ListenAddr)
-
-	server := pcopy.NewServer(config)
-	if err := server.ListenAndServeTLS(); err != nil {
+	if err := pcopy.Serve(config); err != nil {
 		fail(err)
 	}
 }

@@ -19,17 +19,16 @@ import (
 	"time"
 )
 
-type Server struct {
+type server struct {
 	config *Config
 }
 
-func NewServer(config *Config) *Server {
-	return &Server{
-		config: config,
-	}
+func Serve(config *Config) error {
+	server := &server{config: config}
+	return server.listenAndServeTLS()
 }
 
-func (s *Server) ListenAndServeTLS() error {
+func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/", s.handleInfo)
 	http.HandleFunc("/verify", s.handleVerify)
 	http.HandleFunc("/get", s.handleGet)
@@ -38,7 +37,7 @@ func (s *Server) ListenAndServeTLS() error {
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
 
-func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	response := &infoResponse{
@@ -53,11 +52,11 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 }
 
-func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	exe, err := os.Executable()
@@ -85,7 +84,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleClip(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
 	if err := s.authorize(r); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
@@ -140,7 +139,7 @@ func (s *Server) handleClip(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) authorize(r *http.Request) error {
+func (s *server) authorize(r *http.Request) error {
 	re := regexp.MustCompile(`^HMAC v1 (\d+) (.+)$`)
 	matches := re.FindStringSubmatch(r.Header.Get("Authorization"))
 	if matches == nil {
@@ -184,7 +183,7 @@ func (s *Server) authorize(r *http.Request) error {
 	return nil
 }
 
-func (s *Server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
+func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
 	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
 }

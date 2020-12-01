@@ -21,7 +21,7 @@ func execJoin() {
 	}
 
 	if flags.NArg() < 1 {
-		printSyntaxAndExit()
+		usage()
 	}
 
 	alias := "default"
@@ -35,13 +35,9 @@ func execJoin() {
 		serverAddr = fmt.Sprintf("%s:1986", serverAddr)
 	}
 
-	userConfigFile := filepath.Join(os.ExpandEnv(userConfigDir), alias + ".conf")
-	systemConfigFile := filepath.Join(systemConfigDir, alias + ".conf")
-
-	if _, err := os.Stat(userConfigFile); err == nil && !*force {
-		fail(errors.New("config file " + userConfigFile + " already exists, use -force to override"))
-	} else if _, err := os.Stat(systemConfigFile); err == nil && !*force {
-		fail(errors.New("config file " + systemConfigFile + " already exists, use -force to override"))
+	configFile := pcopy.FindConfigFile(alias)
+	if configFile != "" && !*force {
+		fail(errors.New(fmt.Sprintf("config file %s already exists, use -force to override", configFile)))
 	}
 
 	// Read password
@@ -61,9 +57,12 @@ func execJoin() {
 		fail(err)
 	}
 
+	// Verify
+	// TODO verify
+	
 	// Save config file and cert
-	configDir := getConfigDir()
-	configFile := filepath.Join(configDir, alias + ".conf")
+	configFile = pcopy.GetConfigFileForAlias(alias)
+	configDir := filepath.Dir(configFile)
 	certFile := filepath.Join(configDir, alias + ".crt")
 
 	if err := os.MkdirAll(configDir, 0744); err != nil {
@@ -81,5 +80,5 @@ func execJoin() {
 		}
 	}
 
-	fmt.Printf("Joined %s, config written to %s, cert at %s\n", alias, configFile, certFile)
+	fmt.Printf("Joined %s, config written to %s\n", alias, configFile)
 }

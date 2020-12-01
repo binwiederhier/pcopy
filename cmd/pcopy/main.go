@@ -3,22 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/user"
-	"path/filepath"
-	"pcopy"
-)
-
-const (
-	systemConfigDir = "/etc/pcopy"
-	systemCacheDir  = "/var/cache/pcopy"
-
-	userConfigDir = "$HOME/.config/pcopy"
-	userCacheDir  = "$HOME/.cache/pcopy"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		printSyntaxAndExit()
+		usage()
 	}
 
 	command := os.Args[1]
@@ -38,55 +27,11 @@ func main() {
 	case "install":
 		// TODO Implement install
 	default:
-		printSyntaxAndExit()
+		usage()
 	}
 }
 
-func loadConfig(configName string) (*pcopy.Config, error) {
-	var config *pcopy.Config
-	userConfigFile := filepath.Join(os.ExpandEnv(userConfigDir), configName + ".conf")
-	systemConfigFile := filepath.Join(systemConfigDir, configName + ".conf")
-
-	if _, err := os.Stat(userConfigFile); err == nil {
-		config, err = pcopy.LoadConfig(userConfigFile)
-		if err != nil {
-			return nil, err
-		}
-	} else if _, err := os.Stat(systemConfigFile); err == nil {
-		config, err = pcopy.LoadConfig(systemConfigFile)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		config = pcopy.DefaultConfig
-	}
-
-	return config, nil
-}
-
-
-func getUserOrSystem(userValue string, systemValue string) string {
-	u, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
-	if u.Uid == "0" {
-		return systemValue
-	} else {
-		return userValue
-	}
-}
-
-func getDefaultCacheDir() string {
-	return getUserOrSystem(os.ExpandEnv(userCacheDir), systemCacheDir)
-}
-
-func getConfigDir() string {
-	return getUserOrSystem(os.ExpandEnv(userConfigDir), systemConfigDir)
-}
-
-func printSyntaxAndExit() {
+func usage() {
 	fmt.Println("Syntax:")
 	fmt.Println("  pcopy serve [-listen :1986]")
 	fmt.Println("    Start server")

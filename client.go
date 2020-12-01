@@ -94,7 +94,7 @@ func (c *Client) Info() (*Info, error) {
 	// First attempt to retrieve info with secure HTTP client
 	info, err := c.retrieveInfo(&http.Client{})
 	if err != nil {
-		fmt.Printf("Warning: remote cert invalid: %s; will be pinned\n", err.Error())
+		fmt.Printf("Warning: remote cert error (likely self-signed); will be pinned\n")
 
 		// Then attempt to retrieve ignoring bad certs (this is okay, we pin the cert if it's bad)
 		insecureTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
