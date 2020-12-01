@@ -8,8 +8,8 @@ import (
 	"regexp"
 )
 
-func execCopy() {
-	config, fileId := parseClientArgs("copy")
+func execCopy(args []string) {
+	config, fileId := parseClientArgs("copy", args)
 	client := pcopy.NewClient(config)
 
 	if err := client.Copy(os.Stdin, fileId); err != nil {
@@ -17,8 +17,8 @@ func execCopy() {
 	}
 }
 
-func execPaste()  {
-	config, fileId := parseClientArgs("paste")
+func execPaste(args []string)  {
+	config, fileId := parseClientArgs("paste", args)
 	client := pcopy.NewClient(config)
 
 	if err := client.Paste(os.Stdout, fileId); err != nil {
@@ -26,11 +26,11 @@ func execPaste()  {
 	}
 }
 
-func parseClientArgs(command string) (*pcopy.Config, string) {
+func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
 	configFile := flags.String("config", "", "Alternate config file")
 	serverAddr := flags.String("server", "", "Server address")
-	if err := flags.Parse(os.Args[2:]); err != nil {
+	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
 

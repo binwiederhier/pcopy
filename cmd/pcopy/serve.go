@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"log"
-	"os"
 	"pcopy"
 )
 
-func execServe() {
+func execServe(args []string) {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
 	configFile := flags.String("config", "", "Alternate config file")
+	listenAddr := flags.String("listen", "", "Listen address")
 	cacheDir := flags.String("cache", "", "Cache dir")
-	if err := flags.Parse(os.Args[2:]); err != nil {
+	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
 
@@ -25,6 +25,9 @@ func execServe() {
 	}
 
 	// Command line overrides
+	if *listenAddr != "" {
+		config.ListenAddr = *listenAddr
+	}
 	if *cacheDir != "" {
 		config.CacheDir = *cacheDir
 	}

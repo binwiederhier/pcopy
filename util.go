@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"golang.org/x/crypto/pbkdf2"
+	"os"
+	"path/filepath"
 )
 
 const keyLen = 32
@@ -28,4 +30,18 @@ func GenKey(password []byte) (string, error) {
 		return "", err
 	}
 	return EncodeKey(DeriveKey(password, salt), salt), nil
+}
+
+func GetExecutable() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	realpath, err := filepath.EvalSymlinks(exe)
+	if err != nil {
+		return "", err
+	}
+
+	return realpath, nil
 }

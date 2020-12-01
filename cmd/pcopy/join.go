@@ -13,10 +13,10 @@ import (
 	"syscall"
 )
 
-func execJoin() {
+func execJoin(args []string) {
 	flags := flag.NewFlagSet("join", flag.ExitOnError)
 	force := flags.Bool("force", false, "Overwrite config if it already exists")
-	if err := flags.Parse(os.Args[2:]); err != nil {
+	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
 
@@ -75,7 +75,7 @@ func execJoin() {
 		fail(err)
 	}
 
-	keyEncoded := pcopy.EncodeKey(password, info.Salt)
+	keyEncoded := pcopy.EncodeKey(key, info.Salt)
 	config := fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, keyEncoded)
 	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
 		fail(err)
@@ -112,6 +112,7 @@ func execJoin() {
 	fmt.Println()
 	fmt.Println("To easily join on other computers, you can run this command:")
 	fmt.Println()
+	// TODO --pinnedpubkey
 	if info.Cert != nil {
 		fmt.Printf("  $ sudo bash -c 'curl -sk https://%s/install | sh'\n", serverAddr)
 	} else {

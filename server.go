@@ -11,9 +11,9 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
@@ -29,12 +29,25 @@ func Serve(config *Config) error {
 }
 
 func (s *server) listenAndServeTLS() error {
-	http.HandleFunc("/", s.handleInfo)
-	http.HandleFunc("/verify", s.handleVerify)
-	http.HandleFunc("/get", s.handleGet)
-	http.HandleFunc("/clip/", s.handleClip)
+	handler := http.NewServeMux()
+	handler.HandleFunc("/", s.handleInfo)
+	handler.HandleFunc("/verify", s.handleVerify)
+	handler.HandleFunc("/install", s.handleInstall)
+	handler.HandleFunc("/get", s.handleGet)
+	handler.HandleFunc("/clip/", s.handleClip)
 
-	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
+	server := &http.Server{
+		Addr: s.config.ListenAddr,
+		Handler: handler,
+	}
+
+	listener, err := net.Listen("tcp4", s.config.ListenAddr)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	return server.ServeTLS(listener, s.config.CertFile, s.config.KeyFile)
 }
 
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
@@ -59,34 +72,6 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-}
-
-func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-
-	exe, err := os.Executable()
-	if err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	realpath, err := filepath.EvalSymlinks(exe)
-	if err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	f, err := os.Open(realpath)
-	if err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	defer f.Close()
-
-	if _, err = io.Copy(w, f); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
 }
 
 func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +126,53 @@ func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+}
+
+func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+
+	executable, err := GetExecutable()
+	if err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	f, err := os.Open(executable)
+	if err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	defer f.Close()
+
+	if _, err = io.Copy(w, f); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+
+	var script string
+	if s.config.ServerAddr != "" {
+		script = "#!/bin/bash\n" +
+			"set -e\n" +
+			"[ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }\n" +
+			fmt.Sprintf("curl -sk https://%s/get > /usr/bin/pcopy\n", s.config.ServerAddr) +
+			"chmod +x /usr/bin/pcopy\n" +
+			"/usr/bin/pcopy install\n" +
+			"echo 'pcopy downloaded and installed'\n" +
+			"/usr/bin/pcopy\n"
+	} else {
+		script = "#!/bin/bash\n" +
+			"echo 'Server not configured to allow simple install.'\n" +
+			"echo 'If you are the administrator, set ServerAddr in config.'\n"
+	}
+
+	if _, err := w.Write([]byte(script)); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
 	}
 }
 

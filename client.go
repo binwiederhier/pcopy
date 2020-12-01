@@ -51,8 +51,12 @@ func (c *Client) Copy(reader io.Reader, fileId string) error {
 	if err := c.addAuthHeader(req, nil); err != nil {
 		return err
 	}
-	if _, err := client.Do(req); err != nil {
+
+	resp, err := client.Do(req)
+	if err != nil {
 		return err
+	} else if resp.StatusCode != http.StatusOK {
+		return errors.New(resp.Status)
 	}
 
 	return nil
@@ -78,6 +82,8 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 		return err
 	} else if resp.Body == nil {
 		return errors.New("response body was empty")
+	} else if resp.StatusCode != http.StatusOK {
+		return errors.New(resp.Status)
 	}
 
 	if _, err := io.Copy(writer, resp.Body); err != nil {
