@@ -12,7 +12,7 @@ import (
 
 func execServe(args []string) {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
-	configFile := flags.String("config", "", "Alternate config file")
+	configFileOverride := flags.String("config", "", "Alternate config file")
 	listenAddr := flags.String("listen", "", "Listen address")
 	cacheDir := flags.String("cache", "", "Cache dir")
 	if err := flags.Parse(args); err != nil {
@@ -20,17 +20,19 @@ func execServe(args []string) {
 	}
 
 	// Load config
-	config, err := pcopy.LoadConfig(*configFile, "server")
+	configFile, config, err := pcopy.LoadConfig(*configFileOverride, "server")
 	if err != nil {
 		fail(err)
 	}
 
 	// Load defaults
-	if config.KeyFile == "" {
-		config.KeyFile = strings.TrimSuffix(*configFile, ".conf") + ".key"
-	}
-	if config.CertFile == "" {
-		config.CertFile = strings.TrimSuffix(*configFile, ".conf") + ".crt"
+	if configFile != "" {
+		if config.KeyFile == "" {
+			config.KeyFile = strings.TrimSuffix(configFile, ".conf") + ".key"
+		}
+		if config.CertFile == "" {
+			config.CertFile = strings.TrimSuffix(configFile, ".conf") + ".crt"
+		}
 	}
 
 	// Command line overrides

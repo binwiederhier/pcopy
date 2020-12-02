@@ -29,7 +29,7 @@ func execPaste(args []string)  {
 
 func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
-	configFile := flags.String("config", "", "Alternate config file")
+	configFileOverride := flags.String("config", "", "Alternate config file")
 	serverAddr := flags.String("server", "", "Server address")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
@@ -45,7 +45,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 			fail(errors.New("invalid argument, must be in format [ALIAS:]FILEID"))
 		}
 		if parts[1] != "" {
-			if *configFile != "" {
+			if *configFileOverride != "" {
 				fail(errors.New("invalid argument, -config cannot be set when alias is given"))
 			}
 			alias = parts[1]
@@ -56,14 +56,14 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	}
 
 	// Load config
-	config, err := pcopy.LoadConfig(*configFile, alias)
+	configFile, config, err := pcopy.LoadConfig(*configFileOverride, alias)
 	if err != nil {
 		fail(err)
 	}
 
 	// Load defaults
 	if config.CertFile == "" {
-		certFile := strings.TrimSuffix(*configFile, ".conf") + ".crt"
+		certFile := strings.TrimSuffix(configFile, ".conf") + ".crt"
 		if _, err := os.Stat(certFile); err == nil {
 			config.CertFile = certFile
 		}

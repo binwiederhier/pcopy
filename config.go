@@ -63,7 +63,7 @@ func GetConfigFileForAlias(alias string) string {
 	}
 }
 
-func LoadConfig(file string, alias string) (*Config, error) {
+func LoadConfig(file string, alias string) (string, *Config, error) {
 	if file != "" {
 		return loadConfigFromFile(file)
 	} else {
@@ -71,25 +71,25 @@ func LoadConfig(file string, alias string) (*Config, error) {
 	}
 }
 
-func loadConfigFromAliasIfExists(alias string) (*Config, error) {
+func loadConfigFromAliasIfExists(alias string) (string, *Config, error) {
 	configFile := FindConfigFile(alias)
 
 	if configFile != "" {
-		config, err := loadConfigFromFile(configFile)
+		file, config, err := loadConfigFromFile(configFile)
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
-		return config, nil
+		return file, config, nil
 	} else {
-		return DefaultConfig, nil
+		return "", DefaultConfig, nil
 	}
 }
 
-func loadConfigFromFile(filename string) (*Config, error) {
+func loadConfigFromFile(filename string) (string, *Config, error) {
 	config := DefaultConfig
 	raw, err := loadRawConfig(filename)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	listenAddr, ok := raw["ListenAddr"]
@@ -100,7 +100,7 @@ func loadConfigFromFile(filename string) (*Config, error) {
 	keyFile, ok := raw["KeyFile"]
 	if ok {
 		if _, err := os.Stat(keyFile); err != nil {
-			return nil, err
+			return "", nil, err
 		}
 		config.KeyFile = keyFile
 	}
@@ -108,7 +108,7 @@ func loadConfigFromFile(filename string) (*Config, error) {
 	certFile, ok := raw["CertFile"]
 	if ok {
 		if _, err := os.Stat(certFile); err != nil {
-			return nil, err
+			return "", nil, err
 		}
 
 		config.CertFile = certFile
@@ -129,15 +129,15 @@ func loadConfigFromFile(filename string) (*Config, error) {
 		re := regexp.MustCompile(`^([^:]+):(.+)$`)
 		matches := re.FindStringSubmatch(key)
 		if matches == nil {
-			return nil, errors.New("invalid config value for 'Key'")
+			return "", nil, errors.New("invalid config value for 'Key'")
 		}
 		rawSalt, err := base64.StdEncoding.DecodeString(matches[1])
 		if err != nil {
-			return nil, errors.New("invalid config value for 'Key', cannot decode salt")
+			return "", nil, errors.New("invalid config value for 'Key', cannot decode salt")
 		}
 		rawKey, err := base64.StdEncoding.DecodeString(matches[2])
 		if err != nil {
-			return nil, errors.New("invalid config value for 'Key', cannot decode key")
+			return "", nil, errors.New("invalid config value for 'Key', cannot decode key")
 		}
 		config.Key = rawKey
 		config.Salt = rawSalt
@@ -147,11 +147,11 @@ func loadConfigFromFile(filename string) (*Config, error) {
 	if ok {
 		config.MaxRequestAge, err = strconv.Atoi(maxRequestAge)
 		if err != nil {
-			return nil, errors.New("invalid config value for 'MaxRequestAge', must be integer")
+			return "", nil, errors.New("invalid config value for 'MaxRequestAge', must be integer")
 		}
 	}
 
-	return config, nil
+	return filename, config, nil
 }
 
 func loadRawConfig(filename string) (map[string]string, error) {
