@@ -44,7 +44,6 @@ func execJoin(args []string) {
 	}
 
 	// Read password
-	//fmt.Println("To join this clipboard, a password is required.")
 	fmt.Print("Enter password to join clipboard: ")
 
 	password, err := terminal.ReadPassword(syscall.Stdin)
@@ -93,6 +92,10 @@ func execJoin(args []string) {
 		}
 	}
 
+	printInstructions(configFile, alias, serverAddr, info)
+}
+
+func printInstructions(configFile string, alias string, serverAddr string, info *pcopy.Info) {
 	aliasPrefix := ""
 	if alias != "default" {
 		aliasPrefix = fmt.Sprintf("%s:", alias)
