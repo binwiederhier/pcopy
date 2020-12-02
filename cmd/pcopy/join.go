@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
@@ -114,13 +117,40 @@ func execJoin(args []string) {
 	fmt.Println()
 	fmt.Println("  $ sudo pcopy install")
 	fmt.Println()
-	fmt.Println("To easily join on other computers, you can run this command:")
-	fmt.Println()
-	// TODO --pinnedpubkey
 	if info.Certs != nil {
-		fmt.Printf("  $ sudo bash -c 'curl -sk https://%s/install | sh'\n", serverAddr)
+		pinnedPublicKeys := ""
+		if hashes, err := calculatePublicKeyHashes(info.Certs); err == nil {
+			pinnedPublicKeys = fmt.Sprintf("--pinnedpubkey %s ", strings.Join(hashes, ";"))
+			fmt.Println("To easily join on other computers, you can run this command (despite the -k option,")
+			fmt.Println("the curl command is secure, since the public key is pinned):")
+			fmt.Println()
+			fmt.Printf("  $ sudo bash -c 'curl -sk %shttps://%s/install | sh'\n", pinnedPublicKeys, serverAddr)
+		} else {
+			fmt.Println("To easily join on other computers, you can run this command (due to the -k option,")
+			fmt.Println("this curl command may be intercepted):")
+			fmt.Println()
+			fmt.Printf("  $ sudo bash -c 'curl -sk %shttps://%s/install | sh'\n", pinnedPublicKeys, serverAddr)
+		}
 	} else {
+		fmt.Println("To easily join on other computers, you can run this command:")
+		fmt.Println()
 		fmt.Printf("  $ sudo bash -c 'curl -s https://%s/install | sh'\n", serverAddr)
 	}
 	fmt.Println()
+}
+
+func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {
+	hashes := make([]string, len(certs))
+
+	for i, cert := range certs {
+		derCert, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		hash := sha256.New()
+		hash.Write(derCert)
+		hashes[i] = fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash.Sum(nil)))
+	}
+
+	return hashes, nil
 }
