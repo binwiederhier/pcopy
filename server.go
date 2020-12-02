@@ -153,7 +153,8 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			"[ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }\n" +
 			fmt.Sprintf("curl -sk https://%s/get > /usr/bin/pcopy\n", s.config.ServerAddr) +
 			"chmod +x /usr/bin/pcopy\n" +
-			"/usr/bin/pcopy install\n" +
+			"[ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp\n" +
+			"[ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste\n" +
 			"echo \"Successfully installed /usr/bin/pcopy.\"\n" +
 			"echo \"To join this server's clipboard, use the following command:\"\n" +
 			"echo\n" +

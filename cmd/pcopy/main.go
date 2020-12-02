@@ -29,8 +29,6 @@ func main() {
 			execJoin(args)
 		case "genkey":
 			execGenKey()
-		case "install":
-			execInstall()
 		default:
 			usage()
 		}
