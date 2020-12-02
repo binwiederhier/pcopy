@@ -94,6 +94,7 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 
 func (c *Client) Info() (*Info, error) {
 	var certs []*x509.Certificate
+	var err error
 
 	// First attempt to retrieve info with secure HTTP client
 	info, err := c.retrieveInfo(&http.Client{})
@@ -113,9 +114,12 @@ func (c *Client) Info() (*Info, error) {
 		}
 	}
 
-	salt, err := base64.StdEncoding.DecodeString(info.Salt)
-	if err != nil {
-		return nil, err
+	var salt []byte
+	if info.Salt != "" {
+		salt, err = base64.StdEncoding.DecodeString(info.Salt)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Info{
@@ -153,6 +157,9 @@ func (c *Client) Verify(certs []*x509.Certificate, key []byte) error {
 func (c *Client) addAuthHeader(req *http.Request, key []byte) error {
 	if key == nil {
 		key = c.config.Key
+	}
+	if key == nil {
+		return nil // No auth configured
 	}
 
 	timestamp := time.Now().Unix()

@@ -18,7 +18,7 @@ const (
 )
 
 type Config struct {
-	ListenAddr    string
+	ListenAddr    string // TODO Combine with ServerAddr?
 	KeyFile       string
 	CertFile      string
 	CacheDir      string
@@ -26,7 +26,7 @@ type Config struct {
 	ServerAddr    string
 	Key           []byte
 	Salt          []byte
-	MaxRequestAge int
+	MaxRequestAge int     // Max age in seconds for HMAC authorization
 }
 
 var DefaultConfig = &Config{

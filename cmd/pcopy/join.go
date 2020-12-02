@@ -43,15 +43,7 @@ func execJoin(args []string) {
 		fail(errors.New(fmt.Sprintf("config file %s already exists, use -force to override", configFile)))
 	}
 
-	// Read password
-	fmt.Print("Enter password to join clipboard: ")
-
-	password, err := terminal.ReadPassword(syscall.Stdin)
-	if err != nil {
-		fail(err)
-	}
-	fmt.Print("\r")
-
+	// Read basic info from server
 	client := pcopy.NewClient(&pcopy.Config{
 		ServerAddr: serverAddr,
 	})
@@ -61,28 +53,48 @@ func execJoin(args []string) {
 		fail(err)
 	}
 
-	// Verify that password was correct
-	key := pcopy.DeriveKey(password, info.Salt)
-	err = client.Verify(info.Certs, key)
-	if err != nil {
-		fail(errors.New(fmt.Sprintf("Failed to join clipboard, %s", err.Error())))
+	// Read password (if server is secured with key)
+	var key []byte
+
+	if info.Salt != nil {
+		fmt.Print("Enter password to join clipboard: ")
+
+		password, err := terminal.ReadPassword(syscall.Stdin)
+		if err != nil {
+			fail(err)
+		}
+		fmt.Print("\r")
+
+		// Verify that password was correct
+		key = pcopy.DeriveKey(password, info.Salt)
+		err = client.Verify(info.Certs, key)
+		if err != nil {
+			fail(errors.New(fmt.Sprintf("Failed to join clipboard, %s", err.Error())))
+		}
 	}
 
-	// Save config file and cert
+	// Save config file
 	configFile = pcopy.GetConfigFileForAlias(alias)
 	configDir := filepath.Dir(configFile)
-	certFile := filepath.Join(configDir, alias + ".crt")
 
 	if err := os.MkdirAll(configDir, 0744); err != nil {
 		fail(err)
 	}
 
-	keyEncoded := pcopy.EncodeKey(key, info.Salt)
-	config := fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, keyEncoded)
+	var config string
+	if key != nil {
+		keyEncoded := pcopy.EncodeKey(key, info.Salt)
+		config = fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, keyEncoded)
+	} else {
+		config = fmt.Sprintf("ServerAddr %s\n", serverAddr)
+	}
 	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
 		fail(err)
 	}
+
+	// Write self-signed certs (only if Verify didn't work with secure client)
 	if info.Certs != nil {
+		certFile := filepath.Join(configDir, alias + ".crt")
 		certsEncoded, err := pcopy.EncodeCerts(info.Certs)
 		if err != nil {
 			fail(err)

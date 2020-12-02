@@ -40,9 +40,14 @@ func (s *server) listenAndServeTLS() error {
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
+	salt := ""
+	if s.config.Salt != nil {
+		salt = base64.StdEncoding.EncodeToString(s.config.Salt)
+	}
+
 	response := &infoResponse{
 		Version: 1,
-		Salt:    base64.StdEncoding.EncodeToString(s.config.Salt),
+		Salt:    salt,
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -169,6 +174,10 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) authorize(r *http.Request) error {
+	if s.config.Key == nil {
+		return nil
+	}
+
 	re := regexp.MustCompile(`^HMAC v1 (\d+) (.+)$`)
 	matches := re.FindStringSubmatch(r.Header.Get("Authorization"))
 	if matches == nil {

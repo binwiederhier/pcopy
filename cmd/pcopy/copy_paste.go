@@ -79,9 +79,6 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	if config.ServerAddr == "" {
 		fail(errors.New("server address missing, specify -server flag or add 'ServerAddr' to config"))
 	}
-	if config.Key == nil {
-		fail(errors.New("key missing, specify -key flag or add 'Key' to config"))
-	}
 
 	return config, fileId
 }
