@@ -28,9 +28,10 @@ type Config struct {
 	CacheDir      string
 
 	ServerAddr    string
-	Key           []byte
+	Key           []byte // TODO make struct for Key+Salt
 	Salt          []byte
 	MaxRequestAge int     // Max age in seconds for HMAC authorization
+	MaxJoinAge    int     // Max age in seconds for join HMAC authorization
 }
 
 var DefaultConfig = &Config{
@@ -43,6 +44,7 @@ var DefaultConfig = &Config{
 	Key:           nil,
 	Salt:          nil,
 	MaxRequestAge: 60,
+	MaxJoinAge:    3600,
 }
 
 func FindConfigFile(alias string) string {
@@ -62,7 +64,7 @@ func FindNewConfigFile(alias string) (string, string) {
 	// Try the given alias first
 	configFile := FindConfigFile(alias)
 	if configFile == "" {
-		return alias, configFile
+		return alias, GetConfigFileForAlias(alias)
 	}
 
 	// If that is taken, try single letter alias
@@ -71,7 +73,7 @@ func FindNewConfigFile(alias string) (string, string) {
 		alias = string(c)
 		configFile = FindConfigFile(alias)
 		if configFile == "" {
-			return alias, configFile
+			return alias, GetConfigFileForAlias(alias)
 		}
 	}
 
@@ -80,7 +82,7 @@ func FindNewConfigFile(alias string) (string, string) {
 		alias = fmt.Sprintf("a%d", i)
 		configFile = FindConfigFile(alias)
 		if configFile == "" {
-			return alias, configFile
+			return alias, GetConfigFileForAlias(alias)
 		}
 	}
 }

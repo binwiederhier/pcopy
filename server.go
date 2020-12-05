@@ -59,7 +59,7 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r); err != nil {
+	if err := s.authorize(r, s.config.MaxRequestAge); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -68,7 +68,7 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r); err != nil {
+	if err := s.authorize(r, s.config.MaxRequestAge); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -175,7 +175,7 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 
 func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r); err != nil {
+	if err := s.authorize(r, s.config.MaxJoinAge); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -184,6 +184,11 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 
 	var script string
 	if s.config.ServerAddr != "" {
+		envPrefix := ""
+		if s.config.Key != nil {
+			envPrefix = fmt.Sprintf("PCOPY_KEY=%s ", EncodeKey(s.config.Key, s.config.Salt))
+		}
+
 		script = "#!/bin/bash\n" +
 			"set -e\n" +
 			"[ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }\n" +
@@ -192,7 +197,7 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 			"[ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp\n" +
 			"[ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste\n" +
 			"echo \"Successfully installed /usr/bin/pcopy.\"\n" +
-			fmt.Sprintf("/usr/bin/pcopy join -auto %s\n", s.config.ServerAddr)
+			fmt.Sprintf("%s/usr/bin/pcopy join -auto %s\n", envPrefix, s.config.ServerAddr)
 
 	} else {
 		script = s.notConfiguredScript()
@@ -210,7 +215,7 @@ func (s *server) notConfiguredScript() string {
 		"echo 'If you are the administrator, set ServerAddr in config.'\n"
 }
 
-func (s *server) authorize(r *http.Request) error {
+func (s *server) authorize(r *http.Request, maxRequestAge int) error {
 	if s.config.Key == nil {
 		return nil
 	}
@@ -250,7 +255,7 @@ func (s *server) authorize(r *http.Request) error {
 	}
 
 	// Compare timestamp (to prevent replay attacks)
-	if math.Abs(float64(time.Now().Unix()) - float64(timestamp)) > float64(s.config.MaxRequestAge) {
+	if math.Abs(float64(time.Now().Unix()) - float64(timestamp)) > float64(maxRequestAge) {
 		log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
 		return invalidAuthError
 	}

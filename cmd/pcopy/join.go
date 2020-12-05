@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"pcopy"
@@ -49,6 +50,7 @@ func execJoin(args []string) {
 		if configFile != "" && !*force {
 			fail(errors.New(fmt.Sprintf("config file %s already exists, use -force to override", configFile)))
 		}
+		configFile = pcopy.GetConfigFileForAlias(alias)
 	}
 
 	// Read basic info from server
@@ -61,30 +63,27 @@ func execJoin(args []string) {
 		fail(err)
 	}
 
-	// Read password (if server is secured with key)
+	// // Read and verify that password was correct (if server is secured with key)
 	var key []byte
 
 	if info.Salt != nil {
-		fmt.Print("Enter password to join clipboard: ")
-
-		password, err := terminal.ReadPassword(syscall.Stdin)
-		if err != nil {
-			fail(err)
-		}
-		fmt.Print("\r")
-
-		// Verify that password was correct
-		key = pcopy.DeriveKey(password, info.Salt)
-		err = client.Verify(info.Certs, key)
-		if err != nil {
-			fail(errors.New(fmt.Sprintf("Failed to join clipboard, %s", err.Error())))
+		envKey := os.Getenv("PCOPY_KEY")
+		if envKey != "" {
+			key = []byte(envKey)
+		} else {
+			password := readPassword()
+			key = pcopy.DeriveKey(password, info.Salt)
+			err = client.Verify(info.Certs, key)
+			if err != nil {
+				fail(errors.New(fmt.Sprintf("Failed to join clipboard, %s", err.Error())))
+			}
 		}
 	}
 
-	// Save config file
-	configFile = pcopy.GetConfigFileForAlias(alias)
-	configDir := filepath.Dir(configFile)
+	// TODO write config via Config.write()
 
+	// Save config file
+	configDir := filepath.Dir(configFile)
 	if err := os.MkdirAll(configDir, 0744); err != nil {
 		fail(err)
 	}
@@ -112,10 +111,20 @@ func execJoin(args []string) {
 		}
 	}
 
-	printInstructions(configFile, alias, serverAddr, info)
+	printInstructions(configFile, alias, key, serverAddr, info)
 }
 
-func printInstructions(configFile string, alias string, serverAddr string, info *pcopy.Info) {
+func readPassword() []byte {
+	fmt.Print("Enter password to join clipboard: ")
+	password, err := terminal.ReadPassword(syscall.Stdin)
+	if err != nil {
+		fail(err)
+	}
+	fmt.Print("\r")
+	return password
+}
+
+func printInstructions(configFile string, alias string, key []byte, serverAddr string, info *pcopy.Info) {
 	aliasPrefix := ""
 	if alias != "default" {
 		aliasPrefix = fmt.Sprintf("%s:", alias)
@@ -142,24 +151,33 @@ func printInstructions(configFile string, alias string, serverAddr string, info 
 
 	fmt.Println()
 	fmt.Println("To easily install pcopy on other computers, run:")
-	fmt.Printf("  $ %s\n", curlCommand("install", serverAddr, info.Certs))
+	fmt.Printf("  $ %s\n", curlCommand("install", serverAddr, info.Certs, nil))
 
 	fmt.Println()
 	fmt.Println("To install and join this clipboard on another computer, run:")
-	fmt.Printf("  $ %s\n", curlCommand("join", serverAddr, info.Certs))
+	fmt.Printf("  $ %s\n", curlCommand("join", serverAddr, info.Certs, key))
 	fmt.Println()
 }
 
-func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate) string {
-	args := "-s"
-	if certs != nil {
+func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key []byte) string {
+	args := make([]string, 0)
+	if key != nil {
+		auth, err := pcopy.GenerateHMACAuth(key, http.MethodGet, fmt.Sprintf("/%s", cmd))
+		if err != nil {
+			fail(err)
+		}
+		args = append(args, fmt.Sprintf("-H \"Authorization: %s\"", auth))
+	}
+	if certs == nil {
+		args = append(args, "-s")
+	} else {
 		if hashes, err := calculatePublicKeyHashes(certs); err == nil {
-			args += fmt.Sprintf("k --pinnedpubkey %s", strings.Join(hashes, ";"))
+			args = append(args, "-sk", fmt.Sprintf("--pinnedpubkey %s", strings.Join(hashes, ";")))
 		} else {
-			args += "k"
+			args = append(args, "-sk")
 		}
 	}
-	return fmt.Sprintf("sudo bash -c 'curl %s https://%s/%s | sh'", args, serverAddr, cmd)
+	return fmt.Sprintf("sudo bash -c 'curl %s https://%s/%s | sh'", strings.Join(args, " "), serverAddr, cmd)
 }
 
 func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {

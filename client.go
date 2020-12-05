@@ -1,8 +1,6 @@
 package pcopy
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -13,7 +11,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"time"
 )
 
 type Client struct {
@@ -162,16 +159,12 @@ func (c *Client) addAuthHeader(req *http.Request, key []byte) error {
 		return nil // No auth configured
 	}
 
-	timestamp := time.Now().Unix()
-	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, req.Method, req.URL.Path)) // RequestURI is empty!
-	hash := hmac.New(sha256.New, key)
-	if _, err := hash.Write(data); err != nil {
+	auth, err := GenerateHMACAuth(key, req.Method, req.URL.Path) // RequestURI is empty!
+	if err != nil {
 		return err
 	}
 
-	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	req.Header.Set("Authorization", fmt.Sprintf("HMAC v1 %d %s", timestamp, hashBase64))
-
+	req.Header.Set("Authorization", auth)
 	return nil
 }
 

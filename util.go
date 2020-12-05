@@ -2,6 +2,7 @@ package pcopy
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const keyLen = 32
@@ -61,4 +63,16 @@ func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
 		}
 	}
 	return b.Bytes(), nil
+}
+
+func GenerateHMACAuth(key []byte, method string, path string) (string, error) {
+	timestamp := time.Now().Unix()
+	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, method, path))
+	hash := hmac.New(sha256.New, key)
+	if _, err := hash.Write(data); err != nil {
+		return "", err
+	}
+
+	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	return fmt.Sprintf("HMAC v1 %d %s", timestamp, hashBase64), nil
 }
