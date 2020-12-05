@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-func execGenKey() {
+func execKeygen() {
 	fmt.Print("Enter Password: ")
 	password, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
@@ -15,7 +15,7 @@ func execGenKey() {
 	}
 	fmt.Println()
 
-	key, err := pcopy.GenKey(password)
+	key, err := pcopy.GenerateKey(password)
 	if err != nil {
 		fail(err)
 	}

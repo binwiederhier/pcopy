@@ -28,7 +28,7 @@ func EncodeKey(key []byte, salt []byte) string {
 		base64.StdEncoding.EncodeToString(key))
 }
 
-func GenKey(password []byte) (string, error) {
+func GenerateKey(password []byte) (string, error) {
 	salt := make([]byte, saltLen)
 	_, err := rand.Read(salt)
 	if err != nil {
