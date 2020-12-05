@@ -31,7 +31,8 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/", s.handleInfo)
 	http.HandleFunc("/verify", s.handleVerify)
 	http.HandleFunc("/install", s.handleInstall)
-	http.HandleFunc("/get", s.handleGet)
+	http.HandleFunc("/join", s.handleJoin)
+	http.HandleFunc("/download", s.handleDownload)
 	http.HandleFunc("/clip/", s.handleClip)
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
@@ -121,7 +122,7 @@ func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) handleGet(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	executable, err := GetExecutable()
@@ -151,7 +152,7 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		script = "#!/bin/bash\n" +
 			"set -e\n" +
 			"[ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }\n" +
-			fmt.Sprintf("curl -sk https://%s/get > /usr/bin/pcopy\n", s.config.ServerAddr) +
+			fmt.Sprintf("curl -sk https://%s/download > /usr/bin/pcopy\n", s.config.ServerAddr) +
 			"chmod +x /usr/bin/pcopy\n" +
 			"[ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp\n" +
 			"[ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste\n" +
@@ -163,15 +164,50 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			"echo \"For more help, type 'pcopy -help'.\"\n"
 
 	} else {
-		script = "#!/bin/bash\n" +
-			"echo 'Server not configured to allow simple install.'\n" +
-			"echo 'If you are the administrator, set ServerAddr in config.'\n"
+		script = s.notConfiguredScript()
 	}
 
 	if _, err := w.Write([]byte(script)); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+}
+
+
+func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
+	if err := s.authorize(r); err != nil {
+		s.fail(w, r, http.StatusUnauthorized, err)
+		return
+	}
+
+	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+
+	var script string
+	if s.config.ServerAddr != "" {
+		script = "#!/bin/bash\n" +
+			"set -e\n" +
+			"[ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }\n" +
+			fmt.Sprintf("curl -sk https://%s/download > /usr/bin/pcopy\n", s.config.ServerAddr) +
+			"chmod +x /usr/bin/pcopy\n" +
+			"[ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp\n" +
+			"[ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste\n" +
+			"echo \"Successfully installed /usr/bin/pcopy.\"\n" +
+			fmt.Sprintf("/usr/bin/pcopy join -auto %s\n", s.config.ServerAddr)
+
+	} else {
+		script = s.notConfiguredScript()
+	}
+
+	if _, err := w.Write([]byte(script)); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (s *server) notConfiguredScript() string {
+	return "#!/bin/bash\n" +
+		"echo 'Server not configured to allow simple install.'\n" +
+		"echo 'If you are the administrator, set ServerAddr in config.'\n"
 }
 
 func (s *server) authorize(r *http.Request) error {

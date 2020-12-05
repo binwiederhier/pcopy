@@ -58,7 +58,7 @@ func usage() {
 	fmt.Println("      pcopy paste phil > phil.jpg    -- Reads file 'phil' from default clipboard to 'phil.jpg'")
 	fmt.Println("      pcopy paste work:dog           -- Reads file 'dog' from 'work' clipboard and prints it")
 	fmt.Println()
-	fmt.Println("  pcopy serve [-config CONFIG] [-listen ADDR:PORT] [-cache DIR] [-listen :1986]")
+	fmt.Println("  pcopy serve [-config CONFIG] [-listen ADDR:PORT] [-cache DIR] [-listen ADDR]")
 	fmt.Println("    Start pcopy server and listen for incoming requests")
 	fmt.Println()
 	fmt.Println("  pcopy genkey")

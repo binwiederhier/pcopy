@@ -19,28 +19,36 @@ import (
 func execJoin(args []string) {
 	flags := flag.NewFlagSet("join", flag.ExitOnError)
 	force := flags.Bool("force", false, "Overwrite config if it already exists")
+	auto := flags.Bool("auto", false, "Automatically choose alias")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
-
 	if flags.NArg() < 1 {
 		usage()
+	}
+	if *force && *auto {
+		fail(errors.New("cannot use -auto and -force"))
 	}
 
 	alias := "default"
 	serverAddr := flags.Arg(0)
-
 	if flags.NArg() > 1 {
 		alias = flags.Arg(1)
 	}
 
 	if !strings.Contains(serverAddr, ":") {
-		serverAddr = fmt.Sprintf("%s:1986", serverAddr)
+		serverAddr = fmt.Sprintf("%s:%d", serverAddr, pcopy.DefaultPort)
 	}
 
-	configFile := pcopy.FindConfigFile(alias)
-	if configFile != "" && !*force {
-		fail(errors.New(fmt.Sprintf("config file %s already exists, use -force to override", configFile)))
+	// Find config file
+	var configFile string
+	if *auto {
+		alias, configFile = pcopy.FindNewConfigFile(alias)
+	} else {
+		configFile = pcopy.FindConfigFile(alias)
+		if configFile != "" && !*force {
+			fail(errors.New(fmt.Sprintf("config file %s already exists, use -force to override", configFile)))
+		}
 	}
 
 	// Read basic info from server
@@ -113,45 +121,45 @@ func printInstructions(configFile string, alias string, serverAddr string, info 
 		aliasPrefix = fmt.Sprintf("%s:", alias)
 	}
 
-	fmt.Printf("Successfully joined clipboard, config written to %s\n", configFile)
+	if alias == "default" {
+		fmt.Printf("Successfully joined clipboard, config written to %s\n", configFile)
+	} else {
+		fmt.Printf("Successfully joined clipboard as alias '%s', config written to %s\n", alias, configFile)
+	}
+
 	if info.Certs != nil {
 		fmt.Println()
-		fmt.Println("Warning: Please be aware that the remote certificate was self-signed and has been pinned.")
+		fmt.Println("Warning: The TLS certificate was self-signed and has been pinned.")
 		fmt.Println("Future communication will be secure, but joining could have been intercepted.")
 	}
+
 	fmt.Println()
-	fmt.Println("You may now use 'pcopy copy' and 'pcopy paste', like this:")
-	fmt.Println()
-	fmt.Printf("  $ echo 'some text to copy' | pcopy copy %s\n", aliasPrefix)
-	fmt.Printf("  $ pcopy paste %s\n", aliasPrefix)
-	fmt.Println()
-	fmt.Printf("  $ pcopy copy %smyfile < myfile.txt\n", aliasPrefix)
-	fmt.Printf("  $ pcopy paste %smyfile > myfile.txt\n", aliasPrefix)
-	fmt.Println()
-	fmt.Println("You may also want to install the shortcuts 'pcp' and 'ppaste' like so:")
-	fmt.Println()
-	fmt.Println("  $ sudo pcopy install")
-	fmt.Println()
-	if info.Certs != nil {
-		pinnedPublicKeys := ""
-		if hashes, err := calculatePublicKeyHashes(info.Certs); err == nil {
-			pinnedPublicKeys = fmt.Sprintf("--pinnedpubkey %s ", strings.Join(hashes, ";"))
-			fmt.Println("To easily join on other computers, you can run this command (despite the -k option,")
-			fmt.Println("the curl command is secure, since the public key is pinned):")
-			fmt.Println()
-			fmt.Printf("  $ sudo bash -c 'curl -sk %shttps://%s/install | sh'\n", pinnedPublicKeys, serverAddr)
-		} else {
-			fmt.Println("To easily join on other computers, you can run this command (due to the -k option,")
-			fmt.Println("this curl command may be intercepted):")
-			fmt.Println()
-			fmt.Printf("  $ sudo bash -c 'curl -sk %shttps://%s/install | sh'\n", pinnedPublicKeys, serverAddr)
-		}
+	if _, err := os.Stat("/usr/bin/pcp"); err == nil {
+		fmt.Printf("You may now use 'pcp %s' and 'ppaste %s'. See 'pcopy -h' for usage details.\n", aliasPrefix, aliasPrefix)
 	} else {
-		fmt.Println("To easily join on other computers, you can run this command:")
-		fmt.Println()
-		fmt.Printf("  $ sudo bash -c 'curl -s https://%s/install | sh'\n", serverAddr)
+		fmt.Printf("You may now use 'pcopy copy %s' and 'pcopy paste %s'. See 'pcopy -h' for usage details.\n", aliasPrefix, aliasPrefix)
 	}
+
 	fmt.Println()
+	fmt.Println("To easily install pcopy on other computers, run:")
+	fmt.Printf("  $ %s\n", curlCommand("install", serverAddr, info.Certs))
+
+	fmt.Println()
+	fmt.Println("To install and join this clipboard on another computer, run:")
+	fmt.Printf("  $ %s\n", curlCommand("join", serverAddr, info.Certs))
+	fmt.Println()
+}
+
+func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate) string {
+	args := "-s"
+	if certs != nil {
+		if hashes, err := calculatePublicKeyHashes(certs); err == nil {
+			args += fmt.Sprintf("k --pinnedpubkey %s", strings.Join(hashes, ";"))
+		} else {
+			args += "k"
+		}
+	}
+	return fmt.Sprintf("sudo bash -c 'curl %s https://%s/%s | sh'", args, serverAddr, cmd)
 }
 
 func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {

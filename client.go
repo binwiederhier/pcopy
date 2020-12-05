@@ -243,6 +243,3 @@ func (c *Client) readCertFromFile(certFile string) (*x509.Certificate, error) {
 	}
 	return x509.ParseCertificate(block.Bytes)
 }
-
-
-

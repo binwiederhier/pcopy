@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -13,9 +14,12 @@ import (
 )
 
 const (
-	systemConfigDir = "/etc/pcopy"
-	userConfigDir = "$HOME/.config/pcopy"
+	DefaultPort = 1986
+	DefaultCacheDir = "/var/cache/pcopy"
 )
+
+var SystemConfigDir = "/etc/pcopy"
+var UserConfigDir = os.ExpandEnv("$HOME/.config/pcopy")
 
 type Config struct {
 	ListenAddr    string // TODO Combine with ServerAddr?
@@ -30,10 +34,10 @@ type Config struct {
 }
 
 var DefaultConfig = &Config{
-	ListenAddr:    ":1986",
+	ListenAddr:    fmt.Sprintf(":%d", DefaultPort),
 	KeyFile:       "",
 	CertFile:      "",
-	CacheDir:      "/var/cache/pcopy",
+	CacheDir:      DefaultCacheDir,
 
 	ServerAddr:    "",
 	Key:           nil,
@@ -42,8 +46,8 @@ var DefaultConfig = &Config{
 }
 
 func FindConfigFile(alias string) string {
-	userConfigFile := filepath.Join(os.ExpandEnv(userConfigDir), alias + ".conf")
-	systemConfigFile := filepath.Join(systemConfigDir, alias + ".conf")
+	userConfigFile := filepath.Join(os.ExpandEnv(UserConfigDir), alias + ".conf")
+	systemConfigFile := filepath.Join(SystemConfigDir, alias + ".conf")
 
 	if _, err := os.Stat(userConfigFile); err == nil {
 		return userConfigFile
@@ -54,12 +58,39 @@ func FindConfigFile(alias string) string {
 	return ""
 }
 
+func FindNewConfigFile(alias string) (string, string) {
+	// Try the given alias first
+	configFile := FindConfigFile(alias)
+	if configFile == "" {
+		return alias, configFile
+	}
+
+	// If that is taken, try single letter alias
+	alphabet := "abcdefghijklmnopqrstuvwxyz"
+	for _, c := range alphabet {
+		alias = string(c)
+		configFile = FindConfigFile(alias)
+		if configFile == "" {
+			return alias, configFile
+		}
+	}
+
+	// If all of those are taken (really?), just count up
+	for i := 1 ;; i++ {
+		alias = fmt.Sprintf("a%d", i)
+		configFile = FindConfigFile(alias)
+		if configFile == "" {
+			return alias, configFile
+		}
+	}
+}
+
 func GetConfigFileForAlias(alias string) string {
 	u, _ := user.Current()
 	if u.Uid == "0" {
-		return filepath.Join(systemConfigDir, alias+".conf")
+		return filepath.Join(SystemConfigDir, alias+".conf")
 	} else {
-		return filepath.Join(os.ExpandEnv(userConfigDir), alias+".conf")
+		return filepath.Join(os.ExpandEnv(UserConfigDir), alias+".conf")
 	}
 }
 
