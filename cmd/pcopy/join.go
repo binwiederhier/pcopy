@@ -48,7 +48,7 @@ func execJoin(args []string) {
 	} else {
 		configFile = pcopy.FindConfigFile(alias)
 		if configFile != "" && !*force {
-			fail(errors.New(fmt.Sprintf("config file %s already exists, use -force to override", configFile)))
+			fail(errors.New(fmt.Sprintf("config file %s exists, you may want to specify a different clipboard name, or use -force to override", configFile)))
 		}
 		configFile = pcopy.GetConfigFileForAlias(alias)
 	}
@@ -148,15 +148,7 @@ func printInstructions(configFile string, alias string, key []byte, serverAddr s
 	} else {
 		fmt.Printf("You may now use 'pcopy copy %s' and 'pcopy paste %s'. See 'pcopy -h' for usage details.\n", aliasPrefix, aliasPrefix)
 	}
-
-	fmt.Println()
-	fmt.Println("To easily install pcopy on other computers, run:")
-	fmt.Printf("  $ %s\n", curlCommand("install", serverAddr, info.Certs, nil))
-
-	fmt.Println()
-	fmt.Println("To install and join this clipboard on another computer, run:")
-	fmt.Printf("  $ %s\n", curlCommand("join", serverAddr, info.Certs, key))
-	fmt.Println()
+	fmt.Println("To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.")
 }
 
 func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key []byte) string {
