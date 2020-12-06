@@ -25,7 +25,7 @@ func execJoin(args []string) {
 		fail(err)
 	}
 	if flags.NArg() < 1 {
-		usage()
+		showHelp()
 	}
 	if *force && *auto {
 		fail(errors.New("cannot use -auto and -force"))

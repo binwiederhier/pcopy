@@ -13,14 +13,15 @@ func main() {
 		execPaste(os.Args[1:])
 	} else {
 		help := flag.Bool("help", false, "Show help")
+		flag.Usage = showUsage
 		flag.Parse()
 
 		if *help {
-			usage()
+			showHelp()
 		}
 
 		if len(os.Args) < 2 {
-			usageShort("")
+			showUsage()
 		}
 
 		command := os.Args[1]
@@ -38,12 +39,16 @@ func main() {
 		case "keygen":
 			execKeygen()
 		default:
-			usageShort(fmt.Sprintf("invalid command: %s", command))
+			showUsageWithError(fmt.Sprintf("invalid command: %s", command))
 		}
 	}
 }
 
-func usageShort(error string) {
+func showUsage() {
+	showUsageWithError("")
+}
+
+func showUsageWithError(error string) {
 	if error != "" {
 		fmt.Printf("pcopy: %s\n", error)
 	}
@@ -53,7 +58,7 @@ func usageShort(error string) {
 	os.Exit(1)
 }
 
-func usage() {
+func showHelp() {
 	fmt.Println("Usage:")
 	fmt.Println("  pcopy join SERVER [ALIAS]")
 	fmt.Println("    Join a remote clipboard. ALIAS is the short alias that can be used to identify it. It")
