@@ -6,19 +6,16 @@ import (
 	"os"
 )
 
+// TODO print all error messages to STDERR
+
 func main() {
 	if os.Args[0] == "pcp" {
 		execCopy(os.Args[1:])
 	} else if os.Args[0] == "ppaste" {
 		execPaste(os.Args[1:])
 	} else {
-		help := flag.Bool("help", false, "Show help")
 		flag.Usage = showUsage
 		flag.Parse()
-
-		if *help {
-			showHelp()
-		}
 
 		if len(os.Args) < 2 {
 			showUsage()
@@ -39,7 +36,7 @@ func main() {
 		case "invite":
 			execInvite(args)
 		case "keygen":
-			execKeygen()
+			execKeygen(args)
 		default:
 			showUsageWithError(fmt.Sprintf("invalid command: %s", command))
 		}
@@ -56,41 +53,16 @@ func showUsageWithError(error string) {
 	}
 
 	fmt.Println("Usage: pcopy COMMAND [OPTION..] [ARG..]")
-	fmt.Println("Try 'pcopy -help' for more information.")
-	os.Exit(1)
-}
-
-func showHelp() {
-	fmt.Println("Usage:")
-	fmt.Println("  pcopy join SERVER [CLIPBOARD]")
-	fmt.Println("    Join a remote clipboard. CLIPBOARD is the short alias that can be used to identify it. It")
-	fmt.Println("    defaults to 'default'. This command is interactive and will write a config file")
-	fmt.Println("    to ~/.config/pcopy (or /etc/pcopy). Example: pcopy join pcopy.example.com")
 	fmt.Println()
-	fmt.Println("  pcopy invite CLIPBOARD")
-	fmt.Println("    Generate commands that can be shared with others so they can easily join this clipboard")
+	fmt.Println("Commands:")
+	fmt.Println("  join      Join a remote clipboard")
+	fmt.Println("  invite    Generate commands to invite others to join a clipboard")
+	fmt.Println("  copy      Read from STDIN and copy to remote clipboard")
+	fmt.Println("  paste     Write remote clipboard contents to STDOUT")
+	fmt.Println("  serve     Start pcopy server")
+	fmt.Println("  keygen    Generate key for the server config")
 	fmt.Println()
-	fmt.Println("  pcopy copy [-config CONFIG] [-server myhost.com] [[CLIPBOARD:]FILE]")
-	fmt.Println("    Read from STDIN and copy to remote clipboard. FILE is the remote file name, and CLIPBOARD is")
-	fmt.Println("    the alias name of the clipboard (both default to 'default').")
-	fmt.Println()
-	fmt.Println("    Examples:")
-	fmt.Println("      pcopy copy < myfile.txt        -- Copies myfile.txt to default clipboard & file")
-	fmt.Println("      echo hi | pcopy copy work:     -- Copies 'hi' to default file in clipboard 'work'")
-	fmt.Println()
-	fmt.Println("  pcopy paste [-config CONFIG] [-server myhost.com] [[CLIPBOARD:]FILE]")
-	fmt.Println("    Write remote clipboard contents to STDOUT. FILE is the remote file name, and CLIPBOARD is")
-	fmt.Println("    the alias name of the clipboard (both default to 'default').")
-	fmt.Println()
-	fmt.Println("    Examples:")
-	fmt.Println("      pcopy paste phil > phil.jpg    -- Reads file 'phil' from default clipboard to 'phil.jpg'")
-	fmt.Println("      pcopy paste work:dog           -- Reads file 'dog' from 'work' clipboard and prints it")
-	fmt.Println()
-	fmt.Println("  pcopy serve [-config CONFIG] [-listen ADDR:PORT] [-cache DIR] [-listen ADDR]")
-	fmt.Println("    Start pcopy server and listen for incoming requests")
-	fmt.Println()
-	fmt.Println("  pcopy keygen")
-	fmt.Println("    Generate key for the server config. This command is interactive.")
+	fmt.Println("Try 'pcopy COMMAND -help' for more information.")
 	os.Exit(1)
 }
 

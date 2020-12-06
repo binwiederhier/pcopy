@@ -15,13 +15,14 @@ import (
 
 func execJoin(args []string) {
 	flags := flag.NewFlagSet("join", flag.ExitOnError)
+	flags.Usage = func() { showJoinUsage(flags) }
 	force := flags.Bool("force", false, "Overwrite config if it already exists")
-	auto := flags.Bool("auto", false, "Automatically choose clipboard")
+	auto := flags.Bool("auto", false, "Automatically choose clipboard alias")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
 	if flags.NArg() < 1 {
-		showHelp()
+		fail(errors.New("missing server address, see -help for usage details"))
 	}
 	if *force && *auto {
 		fail(errors.New("cannot use -auto and -force"))
@@ -150,4 +151,27 @@ func printInstructions(configFile string, clipboard string, info *pcopy.Info) {
 		fmt.Printf("You may now use 'pcopy copy %s' and 'pcopy paste %s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	}
 	fmt.Println("To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.")
+}
+
+func showJoinUsage(flags *flag.FlagSet) {
+	fmt.Println("Usage: pcopy join [OPTIONS..] SERVER [CLIPBOARD]")
+	fmt.Println()
+	fmt.Println("Description:")
+	fmt.Println("  Connects to a remote clipboard with the server address SERVER. CLIPBOARD is the local alias")
+	fmt.Println("  that can be used to identify it (default is 'default'). This command is interactive and")
+	fmt.Println("  will write a config file to ~/.config/pcopy/$CLIPBOARD.conf (or /etc/pcopy/$CLIPBOARD.conf).")
+	fmt.Println()
+	fmt.Println("  The command will ask for a password if the remote clipboard requires one, unless the PCOPY_KEY")
+	fmt.Println("  environment variable is passed.")
+	fmt.Println()
+	fmt.Println("  If the remote server's certificate is self-signed, its certificate will be downloaded to ")
+	fmt.Println("  ~/.config/pcopy/$CLIPBOARD.crt (or /etc/pcopy/$CLIPBOARD.crt) and pinned for future connections.")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  pcopy join pcopy.example.com     # Joins remote clipboard as local alias 'default'")
+	fmt.Println("  pcopy join pcopy.work.com work   # Joins remote clipboard with local alias 'work'")
+	fmt.Println()
+	fmt.Println("Options:")
+	flags.PrintDefaults()
+	syscall.Exit(1)
 }

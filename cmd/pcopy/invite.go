@@ -10,10 +10,11 @@ import (
 	"os"
 	"pcopy"
 	"strings"
+	"syscall"
 )
 
 func execInvite(args []string)  {
-	config, alias := parseInviteArgs("invite", args)
+	config, alias := parseInviteArgs(args)
 
 	var certs []*x509.Certificate
 	if config.CertFile != "" {
@@ -36,8 +37,9 @@ func execInvite(args []string)  {
 	fmt.Println()
 }
 
-func parseInviteArgs(command string, args []string) (*pcopy.Config, string) {
-	flags := flag.NewFlagSet(command, flag.ExitOnError)
+func parseInviteArgs(args []string) (*pcopy.Config, string) {
+	flags := flag.NewFlagSet("invite", flag.ExitOnError)
+	flags.Usage = showInviteUsage
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
@@ -97,4 +99,21 @@ func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {
 	}
 
 	return hashes, nil
+}
+
+func showInviteUsage() {
+	fmt.Println("Usage: pcopy invite [OPTIONS..] [CLIPBOARD]")
+	fmt.Println()
+	fmt.Println("Description:")
+	fmt.Println("  Generates commands that can be shared with others so they can easily install")
+	fmt.Println("  pcopy, and/or join this clipboard. CLIPBOARD is the name of the clipboard for")
+	fmt.Println("  which to generates the commands (default is 'default').")
+	fmt.Println()
+	fmt.Println("  The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or")
+	fmt.Println("  /etc/pcopy/$CLIPBOARD.conf. If not config exists, it will fail.")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  pcopy invite         # Generates links for the default clipboard")
+	fmt.Println("  pcopy invite work    # Generates links for the clipboard called 'work'")
+	syscall.Exit(1)
 }
