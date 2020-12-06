@@ -43,7 +43,7 @@ func parseInviteArgs(command string, args []string) (*pcopy.Config, string) {
 	}
 
 	// Parse clipboard and file
-	clipboard := "default"
+	clipboard := pcopy.DefaultClipboard
 	if flags.NArg() > 0 {
 		clipboard = flags.Arg(0)
 	}

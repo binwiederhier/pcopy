@@ -10,7 +10,10 @@ import (
 
 func execCopy(args []string) {
 	config, file := parseClientArgs("copy", args)
-	client := pcopy.NewClient(config)
+	client, err := pcopy.NewClient(config)
+	if err != nil {
+		fail(err)
+	}
 
 	if err := client.Copy(os.Stdin, file); err != nil {
 		fail(err)
@@ -19,7 +22,10 @@ func execCopy(args []string) {
 
 func execPaste(args []string)  {
 	config, fileId := parseClientArgs("paste", args)
-	client := pcopy.NewClient(config)
+	client, err := pcopy.NewClient(config)
+	if err != nil {
+		fail(err)
+	}
 
 	if err := client.Paste(os.Stdout, fileId); err != nil {
 		fail(err)
@@ -59,17 +65,12 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 		}
 	}
 
-	// Validate
-	if config.ServerAddr == "" {
-		fail(errors.New("server address missing, specify -server flag or add 'ServerAddr' to config"))
-	}
-
 	return config, file
 }
 
 func parseClipboardAndFile(flags *flag.FlagSet, configFileOverride string) (string, string) {
-	clipboard := "default"
-	file := "default"
+	clipboard := pcopy.DefaultClipboard
+	file := pcopy.DefaultFile
 	if flags.NArg() > 0 {
 		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]+):)?([-_a-zA-Z0-9]*)$`)
 		parts := re.FindStringSubmatch(flags.Arg(0))

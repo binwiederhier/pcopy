@@ -16,7 +16,7 @@ import (
 func execJoin(args []string) {
 	flags := flag.NewFlagSet("join", flag.ExitOnError)
 	force := flags.Bool("force", false, "Overwrite config if it already exists")
-	auto := flags.Bool("auto", false, "Automatically choose alias")
+	auto := flags.Bool("auto", false, "Automatically choose clipboard")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
@@ -27,10 +27,10 @@ func execJoin(args []string) {
 		fail(errors.New("cannot use -auto and -force"))
 	}
 
-	alias := "default"
+	clipboard := pcopy.DefaultClipboard
 	serverAddr := flags.Arg(0)
 	if flags.NArg() > 1 {
-		alias = flags.Arg(1)
+		clipboard = flags.Arg(1)
 	}
 
 	if !strings.Contains(serverAddr, ":") {
@@ -40,19 +40,22 @@ func execJoin(args []string) {
 	// Find config file
 	var configFile string
 	if *auto {
-		alias, configFile = pcopy.FindNewConfigFile(alias)
+		clipboard, configFile = pcopy.FindNewConfigFile(clipboard)
 	} else {
-		configFile = pcopy.FindConfigFile(alias)
+		configFile = pcopy.FindConfigFile(clipboard)
 		if configFile != "" && !*force {
 			fail(errors.New(fmt.Sprintf("config file %s exists, you may want to specify a different clipboard name, or use -force to override", configFile)))
 		}
-		configFile = pcopy.GetConfigFileForAlias(alias)
+		configFile = pcopy.GetConfigFileForAlias(clipboard)
 	}
 
 	// Read basic info from server
-	client := pcopy.NewClient(&pcopy.Config{
+	client, err := pcopy.NewClient(&pcopy.Config{
 		ServerAddr: serverAddr,
 	})
+	if err != nil {
+		fail(err)
+	}
 
 	info, err := client.Info()
 	if err != nil {
@@ -99,7 +102,7 @@ func execJoin(args []string) {
 
 	// Write self-signed certs (only if Verify didn't work with secure client)
 	if info.Certs != nil {
-		certFile := filepath.Join(configDir, alias + ".crt")
+		certFile := filepath.Join(configDir, clipboard + ".crt")
 		certsEncoded, err := pcopy.EncodeCerts(info.Certs)
 		if err != nil {
 			fail(err)
@@ -109,7 +112,7 @@ func execJoin(args []string) {
 		}
 	}
 
-	printInstructions(configFile, alias, info)
+	printInstructions(configFile, clipboard, info)
 }
 
 func readPassword() []byte {
@@ -122,16 +125,16 @@ func readPassword() []byte {
 	return password
 }
 
-func printInstructions(configFile string, alias string, info *pcopy.Info) {
-	aliasPrefix := ""
-	if alias != "default" {
-		aliasPrefix = fmt.Sprintf("%s:", alias)
+func printInstructions(configFile string, clipboard string, info *pcopy.Info) {
+	clipboardPrefix := ""
+	if clipboard != pcopy.DefaultClipboard {
+		clipboardPrefix = fmt.Sprintf("%s:", clipboard)
 	}
 
-	if alias == "default" {
+	if clipboard == pcopy.DefaultClipboard {
 		fmt.Printf("Successfully joined clipboard, config written to %s\n", configFile)
 	} else {
-		fmt.Printf("Successfully joined clipboard as alias '%s', config written to %s\n", alias, configFile)
+		fmt.Printf("Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, configFile)
 	}
 
 	if info.Certs != nil {
@@ -142,9 +145,9 @@ func printInstructions(configFile string, alias string, info *pcopy.Info) {
 
 	fmt.Println()
 	if _, err := os.Stat("/usr/bin/pcp"); err == nil {
-		fmt.Printf("You may now use 'pcp %s' and 'ppaste %s'. See 'pcopy -h' for usage details.\n", aliasPrefix, aliasPrefix)
+		fmt.Printf("You may now use 'pcp %s' and 'ppaste %s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	} else {
-		fmt.Printf("You may now use 'pcopy copy %s' and 'pcopy paste %s'. See 'pcopy -h' for usage details.\n", aliasPrefix, aliasPrefix)
+		fmt.Printf("You may now use 'pcopy copy %s' and 'pcopy paste %s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	}
 	fmt.Println("To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.")
 }

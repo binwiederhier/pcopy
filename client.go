@@ -25,10 +25,13 @@ type infoResponse struct {
 	Salt    string `json:"salt"`
 }
 
-func NewClient(config *Config) *Client {
+func NewClient(config *Config) (*Client, error) {
+	if config.ServerAddr == "" {
+		return nil, missingServerAddrError
+	}
 	return &Client{
 		config: config,
-	}
+	}, nil
 }
 
 func (c *Client) Copy(reader io.Reader, fileId string) error {
@@ -222,3 +225,5 @@ func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 		},
 	}, nil
 }
+
+var missingServerAddrError = errors.New("server address missing")

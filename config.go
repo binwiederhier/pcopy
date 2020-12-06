@@ -15,6 +15,8 @@ import (
 const (
 	DefaultPort = 1986
 	DefaultCacheDir = "/var/cache/pcopy"
+	DefaultClipboard = "default"
+	DefaultFile = "default"
 )
 
 var SystemConfigDir = "/etc/pcopy"

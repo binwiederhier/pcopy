@@ -56,7 +56,7 @@ func execServe(args []string) {
 
 	// Start server
 	if config.Key == nil {
-		log.Printf("Listening on %s (INSECURE MODE, no 'Key' defined)\n", config.ListenAddr)
+		log.Printf("Listening on %s (INSECURE MODE)\n", config.ListenAddr)
 	} else {
 		log.Printf("Listening on %s\n", config.ListenAddr)
 	}
