@@ -1,11 +1,9 @@
 package main
 
 import (
-	"errors"
 	"flag"
-	"fmt"
-	"golang.org/x/sys/unix"
 	"log"
+	"os"
 	"pcopy"
 )
 
@@ -13,8 +11,8 @@ func execServe(args []string) {
 	flags := flag.NewFlagSet("serve", flag.ExitOnError)
 	configFileOverride := flags.String("config", "", "Alternate config file")
 	listenAddr := flags.String("listen", "", "Listen address")
-	keyFile := flags.String("keyfile", "", "Private key file")
-	certFile := flags.String("certfile", "", "Certificate file")
+	keyFile := flags.String("key", "", "Private key file")
+	certFile := flags.String("cert", "", "Certificate file")
 	cacheDir := flags.String("cache", "", "Cache dir")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
@@ -49,19 +47,11 @@ func execServe(args []string) {
 	if *certFile != "" {
 		config.CertFile = *certFile
 	}
-
-	// Validate
-	if config.ListenAddr == "" {
-		fail(errors.New("listen address missing, add 'ListenAddr' to config or pass -listen"))
-	}
-	if config.KeyFile == "" {
-		fail(errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile"))
-	}
-	if config.CertFile == "" {
-		fail(errors.New("certificate file missing, add 'CertFile' to config or pass -certfile"))
-	}
-	if unix.Access(config.CacheDir, unix.W_OK) != nil {
-		fail(errors.New(fmt.Sprintf("cache dir %s not writable by user", config.CacheDir)))
+	if os.Getenv("PCOPY_KEY") != "" {
+		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
+		if err != nil {
+			fail(err)
+		}
 	}
 
 	// Start server

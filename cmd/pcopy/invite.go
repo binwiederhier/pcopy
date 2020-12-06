@@ -42,14 +42,14 @@ func parseInviteArgs(command string, args []string) (*pcopy.Config, string) {
 		fail(err)
 	}
 
-	// Parse alias and file
-	alias := "default"
+	// Parse clipboard and file
+	clipboard := "default"
 	if flags.NArg() > 0 {
-		alias = flags.Arg(0)
+		clipboard = flags.Arg(0)
 	}
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig("", alias)
+	configFile, config, err := pcopy.LoadConfig("", clipboard)
 	if err != nil {
 		fail(err)
 	}
@@ -59,7 +59,7 @@ func parseInviteArgs(command string, args []string) (*pcopy.Config, string) {
 		config.CertFile = pcopy.DefaultCertFile(configFile)
 	}
 
-	return config, alias
+	return config, clipboard
 }
 
 func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key *pcopy.Key) string {

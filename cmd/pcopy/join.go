@@ -59,7 +59,7 @@ func execJoin(args []string) {
 		fail(err)
 	}
 
-	// // Read and verify that password was correct (if server is secured with key)
+	// Read and verify that password was correct (if server is secured with key)
 	var key *pcopy.Key
 
 	if info.Salt != nil {

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"log"
 	"math"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,7 +27,26 @@ type server struct {
 
 func Serve(config *Config) error {
 	server := &server{config: config}
+	if err := server.checkConfig(); err != nil {
+		return err
+	}
 	return server.listenAndServeTLS()
+}
+
+func (s *server) checkConfig() error {
+	if s.config.ListenAddr == "" {
+		return listenAddrMissingError
+	}
+	if s.config.KeyFile == "" {
+		return keyFileMissingError
+	}
+	if s.config.CertFile == "" {
+		return certFileMissingError
+	}
+	if unix.Access(s.config.CacheDir, unix.W_OK) != nil {
+		return cacheDirNotWritableError
+	}
+	return nil
 }
 
 func (s *server) listenAndServeTLS() error {
@@ -34,7 +55,7 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/install", s.handleInstall)
 	http.HandleFunc("/join", s.handleJoin)
 	http.HandleFunc("/download", s.handleDownload)
-	http.HandleFunc("/clip/", s.handleClip)
+	http.HandleFunc("/clip/", s.handleClipboard)
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -68,7 +89,7 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 }
 
-func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 	if err := s.authorize(r, s.config.MaxRequestAge); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
@@ -84,7 +105,7 @@ func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
 	re := regexp.MustCompile(`^/clip/([-_a-zA-Z0-9]+)$`)
 	matches := re.FindStringSubmatch(r.RequestURI)
 	if matches == nil {
-		s.fail(w, r, http.StatusBadRequest, invalidFileId)
+		s.fail(w, r, http.StatusBadRequest, invalidFileError)
 		return
 	}
 	fileId := matches[1]
@@ -150,20 +171,7 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	var script string
 	if s.config.ServerAddr != "" {
-		script = "#!/bin/bash\n" +
-			"set -e\n" +
-			"[ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }\n" +
-			fmt.Sprintf("curl -sk https://%s/download > /usr/bin/pcopy\n", s.config.ServerAddr) +
-			"chmod +x /usr/bin/pcopy\n" +
-			"[ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp\n" +
-			"[ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste\n" +
-			"echo \"Successfully installed /usr/bin/pcopy.\"\n" +
-			"echo \"To join this server's clipboard, use the following command:\"\n" +
-			"echo\n" +
-			fmt.Sprintf("echo '  $ pcopy join %s'\n", s.config.ServerAddr) +
-			"echo\n" +
-			"echo \"For more help, type 'pcopy -help'.\"\n"
-
+		script = s.installScript()
 	} else {
 		script = s.notConfiguredScript()
 	}
@@ -173,7 +181,6 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-
 
 func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 	if err := s.authorize(r, s.config.MaxJoinAge); err != nil {
@@ -185,21 +192,7 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 
 	var script string
 	if s.config.ServerAddr != "" {
-		envPrefix := ""
-		if s.config.Key != nil {
-			envPrefix = fmt.Sprintf("PCOPY_KEY=%s ", EncodeKey(s.config.Key))
-		}
-
-		script = "#!/bin/bash\n" +
-			"set -e\n" +
-			"[ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }\n" +
-			fmt.Sprintf("curl -sk https://%s/download > /usr/bin/pcopy\n", s.config.ServerAddr) +
-			"chmod +x /usr/bin/pcopy\n" +
-			"[ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp\n" +
-			"[ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste\n" +
-			"echo \"Successfully installed /usr/bin/pcopy.\"\n" +
-			fmt.Sprintf("%s/usr/bin/pcopy join -auto %s\n", envPrefix, s.config.ServerAddr)
-
+		script = s.joinScript()
 	} else {
 		script = s.notConfiguredScript()
 	}
@@ -208,12 +201,6 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-}
-
-func (s *server) notConfiguredScript() string {
-	return "#!/bin/bash\n" +
-		"echo 'Server not configured to allow simple install.'\n" +
-		"echo 'If you are the administrator, set ServerAddr in config.'\n"
 }
 
 func (s *server) authorize(r *http.Request, maxRequestAge int) error {
@@ -269,6 +256,26 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err erro
 	w.WriteHeader(code)
 }
 
+func(s *server) notConfiguredScript() string {
+	return strings.Join([]string{scriptHeader, notConfiguredCommands}, "\n")
+}
+
+func (s *server) installScript() string {
+	template := strings.Join([]string{scriptHeader, installCommands, joinInstructionsCommands}, "\n")
+	return s.replaceScriptVars(template)
+}
+
+func (s *server) joinScript() string {
+	template := strings.Join([]string{scriptHeader, installCommands, joinCommands}, "\n")
+	return s.replaceScriptVars(template)
+}
+
+func (s *server) replaceScriptVars(template string) string {
+	template = strings.ReplaceAll(template, "${serverAddr}", s.config.ServerAddr)
+	template = strings.ReplaceAll(template, "${key}", EncodeKey(s.config.Key))
+	return template
+}
+
 func getExecutable() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -283,5 +290,33 @@ func getExecutable() (string, error) {
 	return realpath, nil
 }
 
+var listenAddrMissingError = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
+var keyFileMissingError = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
+var certFileMissingError = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
+var cacheDirNotWritableError = errors.New("cache dir not writable by user")
 var invalidAuthError = errors.New("invalid auth")
-var invalidFileId = errors.New("invalid file ID")
+var invalidFileError = errors.New("invalid file name")
+
+const scriptHeader = `#!/bin/sh
+set -e
+`
+const notConfiguredCommands = `echo 'Server not configured to allow simple install.
+echo 'If you are the administrator, set ServerAddr in config.
+`
+const installCommands = `if [ ! -f /usr/bin/pcopy ]; then
+  [ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }
+  curl -sk https://${serverAddr}/download > /usr/bin/pcopy
+  chmod +x /usr/bin/pcopy
+  [ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp
+  [ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste
+  echo "Successfully installed /usr/bin/pcopy."
+fi
+`
+const joinInstructionsCommands = `echo "To join this server's clipboard, use the following command:"
+echo
+echo '  $ pcopy join ${serverAddr}'
+echo
+echo "For more help, type 'pcopy -help'."
+`
+const joinCommands = `PCOPY_KEY=${key} /usr/bin/pcopy join -auto ${serverAddr}
+`

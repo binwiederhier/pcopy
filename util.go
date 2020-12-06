@@ -28,8 +28,12 @@ func DeriveKey(password []byte, salt []byte) *Key {
 }
 
 func EncodeKey(key *Key) string {
-	return fmt.Sprintf("%s:%s", base64.StdEncoding.EncodeToString(key.Salt),
-		base64.StdEncoding.EncodeToString(key.Bytes))
+	if key == nil {
+		return ""
+	} else {
+		return fmt.Sprintf("%s:%s", base64.StdEncoding.EncodeToString(key.Salt),
+			base64.StdEncoding.EncodeToString(key.Bytes))
+	}
 }
 
 func DecodeKey(keyEncoded string) (*Key, error) {

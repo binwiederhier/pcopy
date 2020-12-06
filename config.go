@@ -98,11 +98,11 @@ func GetConfigFileForAlias(alias string) string {
 	}
 }
 
-func LoadConfig(file string, alias string) (string, *Config, error) {
+func LoadConfig(file string, clipboard string) (string, *Config, error) {
 	if file != "" {
 		return loadConfigFromFile(file)
 	} else {
-		return loadConfigFromAliasIfExists(alias)
+		return loadConfigFromClipboardIfExists(clipboard)
 	}
 }
 
@@ -122,7 +122,7 @@ func DefaultKeyFile(configFile string) string {
 	return keyFile
 }
 
-func loadConfigFromAliasIfExists(alias string) (string, *Config, error) {
+func loadConfigFromClipboardIfExists(alias string) (string, *Config, error) {
 	configFile := FindConfigFile(alias)
 
 	if configFile != "" {

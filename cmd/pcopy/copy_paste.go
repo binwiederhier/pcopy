@@ -9,10 +9,10 @@ import (
 )
 
 func execCopy(args []string) {
-	config, fileId := parseClientArgs("copy", args)
+	config, file := parseClientArgs("copy", args)
 	client := pcopy.NewClient(config)
 
-	if err := client.Copy(os.Stdin, fileId); err != nil {
+	if err := client.Copy(os.Stdin, file); err != nil {
 		fail(err)
 	}
 }
@@ -34,11 +34,11 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 		fail(err)
 	}
 
-	// Parse alias and file
-	alias, file := parseAliasAndFile(flags, *configFileOverride)
+	// Parse clipboard and file
+	clipboard, file := parseClipboardAndFile(flags, *configFileOverride)
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig(*configFileOverride, alias)
+	configFile, config, err := pcopy.LoadConfig(*configFileOverride, clipboard)
 	if err != nil {
 		fail(err)
 	}
@@ -52,7 +52,12 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	if *serverAddr != "" {
 		config.ServerAddr = *serverAddr
 	}
-	// FIXME add -key parsing
+	if os.Getenv("PCOPY_KEY") != "" {
+		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
+		if err != nil {
+			fail(err)
+		}
+	}
 
 	// Validate
 	if config.ServerAddr == "" {
@@ -62,24 +67,24 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	return config, file
 }
 
-func parseAliasAndFile(flags *flag.FlagSet, configFileOverride string) (string, string) {
-	alias := "default"
+func parseClipboardAndFile(flags *flag.FlagSet, configFileOverride string) (string, string) {
+	clipboard := "default"
 	file := "default"
 	if flags.NArg() > 0 {
 		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]+):)?([-_a-zA-Z0-9]*)$`)
 		parts := re.FindStringSubmatch(flags.Arg(0))
 		if len(parts) != 3 {
-			fail(errors.New("invalid argument, must be in format [ALIAS:]FILE"))
+			fail(errors.New("invalid argument, must be in format [CLIPBOARD:]FILE"))
 		}
 		if parts[1] != "" {
 			if configFileOverride != "" {
-				fail(errors.New("invalid argument, -config cannot be set when alias is given"))
+				fail(errors.New("invalid argument, -config cannot be set when clipboard is given"))
 			}
-			alias = parts[1]
+			clipboard = parts[1]
 		}
 		if parts[2] != "" {
 			file = parts[2]
 		}
 	}
-	return alias, file
+	return clipboard, file
 }
