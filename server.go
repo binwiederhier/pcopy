@@ -55,7 +55,7 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/install", s.handleInstall)
 	http.HandleFunc("/join", s.handleJoin)
 	http.HandleFunc("/download", s.handleDownload)
-	http.HandleFunc("/clip/", s.handleClipboard)
+	http.HandleFunc("/clipboard/", s.handleClipboard)
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -69,8 +69,8 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := &infoResponse{
-		Version: 1,
-		Salt:    salt,
+		ServerAddr: s.config.ServerAddr,
+		Salt:       salt,
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -102,7 +102,7 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	re := regexp.MustCompile(`^/clip/([-_a-zA-Z0-9]+)$`)
+	re := regexp.MustCompile(`^/clipboard/([-_a-zA-Z0-9]+)$`)
 	matches := re.FindStringSubmatch(r.RequestURI)
 	if matches == nil {
 		s.fail(w, r, http.StatusBadRequest, invalidFileError)
@@ -208,7 +208,7 @@ func (s *server) authorize(r *http.Request, maxRequestAge int) error {
 		return nil
 	}
 
-	re := regexp.MustCompile(`^HMAC v1 (\d+) (.+)$`)
+	re := regexp.MustCompile(`^HMAC (\d+) (.+)$`)
 	matches := re.FindStringSubmatch(r.Header.Get("Authorization"))
 	if matches == nil {
 		log.Printf("%s - %s %s - auth header missing", r.RemoteAddr, r.Method, r.RequestURI)

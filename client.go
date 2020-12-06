@@ -16,13 +16,14 @@ type Client struct {
 }
 
 type Info struct {
-	Certs []*x509.Certificate
-	Salt  []byte
+	ServerAddr string
+	Salt       []byte
+	Certs      []*x509.Certificate
 }
 
 type infoResponse struct {
-	Version int    `json:"version"`
-	Salt    string `json:"salt"`
+	ServerAddr string `json:"serverAddr"`
+	Salt       string `json:"salt"`
 }
 
 func NewClient(config *Config) (*Client, error) {
@@ -40,7 +41,7 @@ func (c *Client) Copy(reader io.Reader, fileId string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/clip/%s", c.config.ServerAddr, fileId)
+	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, fileId)
 	req, err := http.NewRequest(http.MethodPut, url, reader)
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func (c *Client) Paste(writer io.Writer, fileId string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/clip/%s", c.config.ServerAddr, fileId)
+	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, fileId)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -121,8 +122,9 @@ func (c *Client) Info() (*Info, error) {
 	}
 
 	return &Info{
-		Salt:  salt,
-		Certs: certs,
+		ServerAddr: info.ServerAddr,
+		Salt:       salt,
+		Certs:      certs,
 	}, nil
 }
 

@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"pcopy"
-	"strings"
 	"syscall"
 )
 
@@ -29,13 +28,9 @@ func execJoin(args []string) {
 	}
 
 	clipboard := pcopy.DefaultClipboard
-	serverAddr := flags.Arg(0)
+	serverAddr := pcopy.ExpandServerAddr(flags.Arg(0))
 	if flags.NArg() > 1 {
 		clipboard = flags.Arg(1)
-	}
-
-	if !strings.Contains(serverAddr, ":") {
-		serverAddr = fmt.Sprintf("%s:%d", serverAddr, pcopy.DefaultPort)
 	}
 
 	// Find config file
@@ -61,6 +56,11 @@ func execJoin(args []string) {
 	info, err := client.Info()
 	if err != nil {
 		fail(err)
+	}
+
+	// Override server address if set (server advertised a specific address)
+	if info.ServerAddr != "" {
+		serverAddr = pcopy.ExpandServerAddr(info.ServerAddr)
 	}
 
 	// Read and verify that password was correct (if server is secured with key)

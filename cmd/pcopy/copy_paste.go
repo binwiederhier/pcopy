@@ -60,7 +60,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 
 	// Command line overrides
 	if *serverAddr != "" {
-		config.ServerAddr = *serverAddr
+		config.ServerAddr = pcopy.ExpandServerAddr(*serverAddr)
 	}
 	if *certFile != "" {
 		config.CertFile = *certFile

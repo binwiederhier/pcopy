@@ -111,5 +111,5 @@ func GenerateAuthHMAC(key []byte, method string, path string) (string, error) {
 	}
 
 	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	return fmt.Sprintf("HMAC v1 %d %s", timestamp, hashBase64), nil
+	return fmt.Sprintf("HMAC %d %s", timestamp, hashBase64), nil
 }

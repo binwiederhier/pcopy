@@ -108,6 +108,13 @@ func LoadConfig(file string, clipboard string) (string, *Config, error) {
 	}
 }
 
+func ExpandServerAddr(serverAddr string) string {
+	if !strings.Contains(serverAddr, ":") {
+		serverAddr = fmt.Sprintf("%s:%d", serverAddr, DefaultPort)
+	}
+	return serverAddr
+}
+
 func DefaultCertFile(configFile string) string {
 	certFile := strings.TrimSuffix(configFile, ".conf") + ".crt"
 	if _, err := os.Stat(certFile); err != nil {

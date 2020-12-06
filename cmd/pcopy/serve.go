@@ -43,7 +43,7 @@ func execServe(args []string) {
 		config.ListenAddr = *listenAddr
 	}
 	if *serverAddr != "" {
-		config.ServerAddr = *serverAddr
+		config.ServerAddr = pcopy.ExpandServerAddr(*serverAddr)
 	}
 	if *cacheDir != "" {
 		config.CacheDir = *cacheDir
