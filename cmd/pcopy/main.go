@@ -36,6 +36,8 @@ func main() {
 			execServe(args)
 		case "join":
 			execJoin(args)
+		case "invite":
+			execInvite(args)
 		case "keygen":
 			execKeygen()
 		default:

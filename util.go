@@ -10,8 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"golang.org/x/crypto/pbkdf2"
-	"os"
-	"path/filepath"
+	"io/ioutil"
 	"time"
 )
 
@@ -37,20 +36,6 @@ func GenerateKey(password []byte) (string, error) {
 	return EncodeKey(DeriveKey(password, salt), salt), nil
 }
 
-func GetExecutable() (string, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-
-	realpath, err := filepath.EvalSymlinks(exe)
-	if err != nil {
-		return "", err
-	}
-
-	return realpath, nil
-}
-
 func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
 	var b bytes.Buffer
 	for _, cert := range certs {
@@ -63,6 +48,29 @@ func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
 		}
 	}
 	return b.Bytes(), nil
+}
+
+func LoadCerts(file string) ([]*x509.Certificate, error) {
+	b, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	certs := make([]*x509.Certificate, 0)
+	for {
+		block, rest := pem.Decode(b)
+		if block == nil {
+			break
+		}
+		if block.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certs = append(certs, cert)
+		}
+		b = rest
+	}
+	return certs, nil
 }
 
 func GenerateHMACAuth(key []byte, method string, path string) (string, error) {

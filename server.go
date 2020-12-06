@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
@@ -125,7 +126,7 @@ func (s *server) handleClip(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
-	executable, err := GetExecutable()
+	executable, err := getExecutable()
 	if err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -266,6 +267,20 @@ func (s *server) authorize(r *http.Request, maxRequestAge int) error {
 func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
 	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
+}
+
+func getExecutable() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	realpath, err := filepath.EvalSymlinks(exe)
+	if err != nil {
+		return "", err
+	}
+
+	return realpath, nil
 }
 
 var invalidAuthError = errors.New("invalid auth")

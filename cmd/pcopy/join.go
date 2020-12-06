@@ -67,7 +67,7 @@ func execJoin(args []string) {
 	var key []byte
 
 	if info.Salt != nil {
-		envKey := os.Getenv("PCOPY_KEY")
+		envKey := os.Getenv("PCOPY_KEY") // TODO document this
 		if envKey != "" {
 			key = []byte(envKey)
 		} else {

@@ -7,7 +7,6 @@ import (
 	"golang.org/x/sys/unix"
 	"log"
 	"pcopy"
-	"strings"
 )
 
 func execServe(args []string) {
@@ -30,10 +29,10 @@ func execServe(args []string) {
 	// Load defaults
 	if configFile != "" {
 		if config.KeyFile == "" {
-			config.KeyFile = strings.TrimSuffix(configFile, ".conf") + ".key"
+			config.KeyFile = pcopy.DefaultKeyFile(configFile)
 		}
 		if config.CertFile == "" {
-			config.CertFile = strings.TrimSuffix(configFile, ".conf") + ".crt"
+			config.CertFile = pcopy.DefaultCertFile(configFile)
 		}
 	}
 

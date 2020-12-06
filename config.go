@@ -104,6 +104,22 @@ func LoadConfig(file string, alias string) (string, *Config, error) {
 	}
 }
 
+func DefaultCertFile(configFile string) string {
+	certFile := strings.TrimSuffix(configFile, ".conf") + ".crt"
+	if _, err := os.Stat(certFile); err != nil {
+		return ""
+	}
+	return certFile
+}
+
+func DefaultKeyFile(configFile string) string {
+	keyFile := strings.TrimSuffix(configFile, ".conf") + ".key"
+	if _, err := os.Stat(keyFile); err != nil {
+		return ""
+	}
+	return keyFile
+}
+
 func loadConfigFromAliasIfExists(alias string) (string, *Config, error) {
 	configFile := FindConfigFile(alias)
 
@@ -181,6 +197,14 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		config.MaxRequestAge, err = strconv.Atoi(maxRequestAge)
 		if err != nil {
 			return "", nil, errors.New("invalid config value for 'MaxRequestAge', must be integer")
+		}
+	}
+
+	maxJoinAge, ok := raw["MaxJoinAge"]
+	if ok {
+		config.MaxJoinAge, err = strconv.Atoi(maxJoinAge)
+		if err != nil {
+			return "", nil, errors.New("invalid config value for 'MaxJoinAge', must be integer")
 		}
 	}
 

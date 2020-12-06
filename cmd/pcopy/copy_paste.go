@@ -6,7 +6,6 @@ import (
 	"os"
 	"pcopy"
 	"regexp"
-	"strings"
 )
 
 func execCopy(args []string) {
@@ -36,24 +35,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	}
 
 	// Parse alias and file
-	alias := "default"
-	fileId := "default"
-	if flags.NArg() > 0 {
-		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]+):)?([-_a-zA-Z0-9]*)$`)
-		parts := re.FindStringSubmatch(flags.Arg(0))
-		if len(parts) != 3 {
-			fail(errors.New("invalid argument, must be in format [ALIAS:]FILEID"))
-		}
-		if parts[1] != "" {
-			if *configFileOverride != "" {
-				fail(errors.New("invalid argument, -config cannot be set when alias is given"))
-			}
-			alias = parts[1]
-		}
-		if parts[2] != "" {
-			fileId = parts[2]
-		}
-	}
+	alias, file := parseAliasAndFile(flags, *configFileOverride)
 
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(*configFileOverride, alias)
@@ -63,10 +45,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 
 	// Load defaults
 	if config.CertFile == "" {
-		certFile := strings.TrimSuffix(configFile, ".conf") + ".crt"
-		if _, err := os.Stat(certFile); err == nil {
-			config.CertFile = certFile
-		}
+		config.CertFile = pcopy.DefaultCertFile(configFile)
 	}
 
 	// Command line overrides
@@ -80,5 +59,27 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 		fail(errors.New("server address missing, specify -server flag or add 'ServerAddr' to config"))
 	}
 
-	return config, fileId
+	return config, file
+}
+
+func parseAliasAndFile(flags *flag.FlagSet, configFileOverride string) (string, string) {
+	alias := "default"
+	file := "default"
+	if flags.NArg() > 0 {
+		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]+):)?([-_a-zA-Z0-9]*)$`)
+		parts := re.FindStringSubmatch(flags.Arg(0))
+		if len(parts) != 3 {
+			fail(errors.New("invalid argument, must be in format [ALIAS:]FILE"))
+		}
+		if parts[1] != "" {
+			if configFileOverride != "" {
+				fail(errors.New("invalid argument, -config cannot be set when alias is given"))
+			}
+			alias = parts[1]
+		}
+		if parts[2] != "" {
+			file = parts[2]
+		}
+	}
+	return alias, file
 }
