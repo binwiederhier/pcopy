@@ -8,9 +8,11 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"golang.org/x/crypto/pbkdf2"
 	"io/ioutil"
+	"regexp"
 	"time"
 )
 
@@ -18,22 +20,45 @@ const keyLen = 32
 const saltLen = 10
 const pbkdfIter = 10000
 
-func DeriveKey(password []byte, salt []byte) []byte {
-	return pbkdf2.Key(password, salt, pbkdfIter, keyLen, sha256.New)
+func DeriveKey(password []byte, salt []byte) *Key {
+	return &Key{
+		Bytes: pbkdf2.Key(password, salt, pbkdfIter, keyLen, sha256.New),
+		Salt: salt,
+	}
 }
 
-func EncodeKey(key []byte, salt []byte) string {
-	return fmt.Sprintf("%s:%s", base64.StdEncoding.EncodeToString(salt),
-		base64.StdEncoding.EncodeToString(key))
+func EncodeKey(key *Key) string {
+	return fmt.Sprintf("%s:%s", base64.StdEncoding.EncodeToString(key.Salt),
+		base64.StdEncoding.EncodeToString(key.Bytes))
 }
 
-func GenerateKey(password []byte) (string, error) {
+func DecodeKey(keyEncoded string) (*Key, error) {
+	re := regexp.MustCompile(`^([^:]+):(.+)$`)
+	matches := re.FindStringSubmatch(keyEncoded)
+	if matches == nil {
+		return nil, errors.New("invalid key")
+	}
+	rawSalt, err := base64.StdEncoding.DecodeString(matches[1])
+	if err != nil {
+		return nil, errors.New("invalid key, cannot decode salt")
+	}
+	rawKey, err := base64.StdEncoding.DecodeString(matches[2])
+	if err != nil {
+		return nil, errors.New("invalid key, cannot decode")
+	}
+	return &Key{
+		Bytes: rawKey,
+		Salt: rawSalt,
+	}, nil
+}
+
+func GenerateKey(password []byte) (*Key, error) {
 	salt := make([]byte, saltLen)
 	_, err := rand.Read(salt)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return EncodeKey(DeriveKey(password, salt), salt), nil
+	return DeriveKey(password, salt), nil
 }
 
 func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
@@ -50,7 +75,7 @@ func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func LoadCerts(file string) ([]*x509.Certificate, error) {
+func LoadCertsFromFile(file string) ([]*x509.Certificate, error) {
 	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
@@ -73,7 +98,7 @@ func LoadCerts(file string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func GenerateHMACAuth(key []byte, method string, path string) (string, error) {
+func GenerateAuthHMAC(key []byte, method string, path string) (string, error) {
 	timestamp := time.Now().Unix()
 	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, method, path))
 	hash := hmac.New(sha256.New, key)

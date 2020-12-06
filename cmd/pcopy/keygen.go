@@ -20,5 +20,5 @@ func execKeygen() {
 		fail(err)
 	}
 
-	fmt.Printf("Success. Update your server config with:\nKey %s\n", key)
+	fmt.Printf("Success. Update your server config with:\nKey %s\n", pcopy.EncodeKey(key))
 }

@@ -43,8 +43,8 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	salt := ""
-	if s.config.Salt != nil {
-		salt = base64.StdEncoding.EncodeToString(s.config.Salt)
+	if s.config.Key != nil {
+		salt = base64.StdEncoding.EncodeToString(s.config.Key.Salt)
 	}
 
 	response := &infoResponse{
@@ -187,7 +187,7 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 	if s.config.ServerAddr != "" {
 		envPrefix := ""
 		if s.config.Key != nil {
-			envPrefix = fmt.Sprintf("PCOPY_KEY=%s ", EncodeKey(s.config.Key, s.config.Salt))
+			envPrefix = fmt.Sprintf("PCOPY_KEY=%s ", EncodeKey(s.config.Key))
 		}
 
 		script = "#!/bin/bash\n" +
@@ -242,7 +242,7 @@ func (s *server) authorize(r *http.Request, maxRequestAge int) error {
 
 	// Recalculate HMAC
 	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, r.Method, r.RequestURI))
-	hm := hmac.New(sha256.New, s.config.Key)
+	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
 		log.Printf("%s - %s %s - hmac calculation: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return invalidAuthError

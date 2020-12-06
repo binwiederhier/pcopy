@@ -1,15 +1,11 @@
 package main
 
 import (
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"pcopy"
@@ -64,12 +60,15 @@ func execJoin(args []string) {
 	}
 
 	// // Read and verify that password was correct (if server is secured with key)
-	var key []byte
+	var key *pcopy.Key
 
 	if info.Salt != nil {
 		envKey := os.Getenv("PCOPY_KEY") // TODO document this
 		if envKey != "" {
-			key = []byte(envKey)
+			key, err = pcopy.DecodeKey(envKey)
+			if err != nil {
+				fail(err)
+			}
 		} else {
 			password := readPassword()
 			key = pcopy.DeriveKey(password, info.Salt)
@@ -90,8 +89,7 @@ func execJoin(args []string) {
 
 	var config string
 	if key != nil {
-		keyEncoded := pcopy.EncodeKey(key, info.Salt)
-		config = fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, keyEncoded)
+		config = fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, pcopy.EncodeKey(key))
 	} else {
 		config = fmt.Sprintf("ServerAddr %s\n", serverAddr)
 	}
@@ -111,7 +109,7 @@ func execJoin(args []string) {
 		}
 	}
 
-	printInstructions(configFile, alias, key, serverAddr, info)
+	printInstructions(configFile, alias, info)
 }
 
 func readPassword() []byte {
@@ -124,7 +122,7 @@ func readPassword() []byte {
 	return password
 }
 
-func printInstructions(configFile string, alias string, key []byte, serverAddr string, info *pcopy.Info) {
+func printInstructions(configFile string, alias string, info *pcopy.Info) {
 	aliasPrefix := ""
 	if alias != "default" {
 		aliasPrefix = fmt.Sprintf("%s:", alias)
@@ -149,41 +147,4 @@ func printInstructions(configFile string, alias string, key []byte, serverAddr s
 		fmt.Printf("You may now use 'pcopy copy %s' and 'pcopy paste %s'. See 'pcopy -h' for usage details.\n", aliasPrefix, aliasPrefix)
 	}
 	fmt.Println("To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.")
-}
-
-func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key []byte) string {
-	args := make([]string, 0)
-	if key != nil {
-		auth, err := pcopy.GenerateHMACAuth(key, http.MethodGet, fmt.Sprintf("/%s", cmd))
-		if err != nil {
-			fail(err)
-		}
-		args = append(args, fmt.Sprintf("-H \"Authorization: %s\"", auth))
-	}
-	if certs == nil {
-		args = append(args, "-s")
-	} else {
-		if hashes, err := calculatePublicKeyHashes(certs); err == nil {
-			args = append(args, "-sk", fmt.Sprintf("--pinnedpubkey %s", strings.Join(hashes, ";")))
-		} else {
-			args = append(args, "-sk")
-		}
-	}
-	return fmt.Sprintf("sudo bash -c 'curl %s https://%s/%s | sh'", strings.Join(args, " "), serverAddr, cmd)
-}
-
-func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {
-	hashes := make([]string, len(certs))
-
-	for i, cert := range certs {
-		derCert, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
-		if err != nil {
-			return nil, err
-		}
-		hash := sha256.New()
-		hash.Write(derCert)
-		hashes[i] = fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash.Sum(nil)))
-	}
-
-	return hashes, nil
 }

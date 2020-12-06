@@ -5,11 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -126,7 +124,7 @@ func (c *Client) Info() (*Info, error) {
 }
 
 
-func (c *Client) Verify(certs []*x509.Certificate, key []byte) error {
+func (c *Client) Verify(certs []*x509.Certificate, key *Key) error {
 	client, err := c.newHttpClient(certs)
 	if err != nil {
 		return err
@@ -151,7 +149,7 @@ func (c *Client) Verify(certs []*x509.Certificate, key []byte) error {
 	return nil
 }
 
-func (c *Client) addAuthHeader(req *http.Request, key []byte) error {
+func (c *Client) addAuthHeader(req *http.Request, key *Key) error {
 	if key == nil {
 		key = c.config.Key
 	}
@@ -159,7 +157,7 @@ func (c *Client) addAuthHeader(req *http.Request, key []byte) error {
 		return nil // No auth configured
 	}
 
-	auth, err := GenerateHMACAuth(key, req.Method, req.URL.Path) // RequestURI is empty!
+	auth, err := GenerateAuthHMAC(key.Bytes, req.Method, req.URL.Path) // RequestURI is empty!
 	if err != nil {
 		return err
 	}
@@ -199,11 +197,11 @@ func (c *Client) newHttpClient(certs []*x509.Certificate) (*http.Client, error) 
 	if certs != nil {
 		return c.newHttpClientWithRootCAs(certs)
 	} else if c.config.CertFile != "" {
-		cert, err := c.readCertFromFile(c.config.CertFile)
+		certs, err := LoadCertsFromFile(c.config.CertFile)
 		if err != nil {
 			return nil, err
 		}
-		return c.newHttpClientWithRootCAs([]*x509.Certificate{cert})
+		return c.newHttpClientWithRootCAs(certs)
 	} else {
 		return &http.Client{}, nil
 	}
@@ -223,16 +221,4 @@ func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 			},
 		},
 	}, nil
-}
-
-func (c *Client) readCertFromFile(certFile string) (*x509.Certificate, error) {
-	pemCert, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(pemCert)
-	if block == nil {
-		return nil, errors.New("failed to parse certificate PEM")
-	}
-	return x509.ParseCertificate(block.Bytes)
 }

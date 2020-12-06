@@ -2,7 +2,6 @@ package pcopy
 
 import (
 	"bufio"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -28,10 +27,14 @@ type Config struct {
 	CacheDir      string
 
 	ServerAddr    string
-	Key           []byte // TODO make struct for Key+Salt
-	Salt          []byte
+	Key           *Key
 	MaxRequestAge int     // Max age in seconds for HMAC authorization
 	MaxJoinAge    int     // Max age in seconds for join HMAC authorization
+}
+
+type Key struct {
+	Bytes []byte
+	Salt  []byte
 }
 
 var DefaultConfig = &Config{
@@ -42,7 +45,6 @@ var DefaultConfig = &Config{
 
 	ServerAddr:    "",
 	Key:           nil,
-	Salt:          nil,
 	MaxRequestAge: 60,
 	MaxJoinAge:    3600,
 }
@@ -175,21 +177,10 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 
 	key, ok := raw["Key"]
 	if ok {
-		re := regexp.MustCompile(`^([^:]+):(.+)$`)
-		matches := re.FindStringSubmatch(key)
-		if matches == nil {
-			return "", nil, errors.New("invalid config value for 'Key'")
-		}
-		rawSalt, err := base64.StdEncoding.DecodeString(matches[1])
+		config.Key, err = DecodeKey(key)
 		if err != nil {
-			return "", nil, errors.New("invalid config value for 'Key', cannot decode salt")
+			return "", nil, err
 		}
-		rawKey, err := base64.StdEncoding.DecodeString(matches[2])
-		if err != nil {
-			return "", nil, errors.New("invalid config value for 'Key', cannot decode key")
-		}
-		config.Key = rawKey
-		config.Salt = rawSalt
 	}
 
 	maxRequestAge, ok := raw["MaxRequestAge"]
