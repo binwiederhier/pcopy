@@ -17,21 +17,20 @@ const (
 	DefaultCacheDir = "/var/cache/pcopy"
 	DefaultClipboard = "default"
 	DefaultFile = "default"
+
+	SystemConfigDir = "/etc/pcopy"
+	UserConfigDir = "~/.config/pcopy"
 )
 
-var SystemConfigDir = "/etc/pcopy"
-var UserConfigDir = os.ExpandEnv("$HOME/.config/pcopy")
-
 type Config struct {
-	ListenAddr    string // TODO Combine with ServerAddr?
+	ListenAddr    string
+	ServerAddr    string
 	KeyFile       string
 	CertFile      string
-	CacheDir      string
-
-	ServerAddr    string
 	Key           *Key
-	MaxRequestAge int     // Max age in seconds for HMAC authorization
-	MaxJoinAge    int     // Max age in seconds for join HMAC authorization
+	CacheDir      string
+	MaxRequestAge int     // Max age in seconds for copy/paste HMAC authorization to time out
+	MaxJoinAge    int     // Max age in seconds for join HMAC authorization to time out
 }
 
 type Key struct {
@@ -41,18 +40,17 @@ type Key struct {
 
 var DefaultConfig = &Config{
 	ListenAddr:    fmt.Sprintf(":%d", DefaultPort),
+	ServerAddr:    "",
 	KeyFile:       "",
 	CertFile:      "",
-	CacheDir:      DefaultCacheDir,
-
-	ServerAddr:    "",
 	Key:           nil,
+	CacheDir:      DefaultCacheDir,
 	MaxRequestAge: 60,
 	MaxJoinAge:    3600,
 }
 
 func FindConfigFile(alias string) string {
-	userConfigFile := filepath.Join(os.ExpandEnv(UserConfigDir), alias + ".conf")
+	userConfigFile := filepath.Join(ExpandHome(UserConfigDir), alias + ".conf")
 	systemConfigFile := filepath.Join(SystemConfigDir, alias + ".conf")
 
 	if _, err := os.Stat(userConfigFile); err == nil {
@@ -96,7 +94,7 @@ func GetConfigFileForAlias(alias string) string {
 	if u.Uid == "0" {
 		return filepath.Join(SystemConfigDir, alias+".conf")
 	} else {
-		return filepath.Join(os.ExpandEnv(UserConfigDir), alias+".conf")
+		return filepath.Join(ExpandHome(UserConfigDir), alias+".conf")
 	}
 }
 
@@ -176,7 +174,7 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 
 	cacheDir, ok := raw["CacheDir"]
 	if ok {
-		config.CacheDir = os.ExpandEnv(cacheDir)
+		config.CacheDir = ExpandHome(cacheDir)
 	}
 
 	serverAddr, ok := raw["ServerAddr"]

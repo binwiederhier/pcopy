@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"golang.org/x/crypto/pbkdf2"
 	"io/ioutil"
+	"os"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -112,4 +114,8 @@ func GenerateAuthHMAC(key []byte, method string, path string) (string, error) {
 
 	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
 	return fmt.Sprintf("HMAC %d %s", timestamp, hashBase64), nil
+}
+
+func ExpandHome(path string) string {
+	return os.ExpandEnv(strings.ReplaceAll(path, "~", "$HOME"))
 }
