@@ -15,7 +15,7 @@ import (
 
 const (
 	DefaultPort = 1986
-	DefaultCacheDir = "/var/cache/pcopy"
+	DefaultClipboardDir = "/var/cache/pcopy"
 	DefaultClipboard = "default"
 	DefaultFile = "default"
 
@@ -29,7 +29,7 @@ type Config struct {
 	KeyFile       string
 	CertFile      string
 	Key           *Key
-	CacheDir      string
+	ClipboardDir  string
 	MaxRequestAge int     // Max age in seconds for copy/paste HMAC authorization to time out
 	MaxJoinAge    int     // Max age in seconds for join HMAC authorization to time out
 }
@@ -45,7 +45,7 @@ var DefaultConfig = &Config{
 	KeyFile:       "",
 	CertFile:      "",
 	Key:           nil,
-	CacheDir:      DefaultCacheDir,
+	ClipboardDir:  DefaultClipboardDir,
 	MaxRequestAge: 60,
 	MaxJoinAge:    3600,
 }
@@ -194,9 +194,9 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		config.CertFile = certFile
 	}
 
-	cacheDir, ok := raw["CacheDir"]
+	clipboardDir, ok := raw["ClipboardDir"]
 	if ok {
-		config.CacheDir = ExpandHome(cacheDir)
+		config.ClipboardDir = ExpandHome(clipboardDir)
 	}
 
 	serverAddr, ok := raw["ServerAddr"]
@@ -325,5 +325,5 @@ var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse
 # Format:  /some/folder
 # Default: /var/cache/pcopy
 #
-{{if .CacheDir}}CacheDir {{.CacheDir}}{{else}}# CacheDir /var/cache/pcopy{{end}}
+{{if .ClipboardDir}}ClipboardDir {{.ClipboardDir}}{{else}}# ClipboardDir /var/cache/pcopy{{end}}
 `))

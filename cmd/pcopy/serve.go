@@ -15,9 +15,9 @@ func execServe(args []string) {
 	configFileOverride := flags.String("config", "", "Alternate config file")
 	listenAddr := flags.String("listen", "", "Address and port to use to bind the server")
 	serverAddr := flags.String("addr", "", "Server address to be advertised to clients")
-	keyFile := flags.String("key", "", "Private key file")
-	certFile := flags.String("cert", "", "Certificate file")
-	cacheDir := flags.String("cache", "", "Cache dir")
+	keyFile := flags.String("key", "", "Private key file for TLS connections")
+	certFile := flags.String("cert", "", "Certificate file for TLS connections")
+	clipboardDir := flags.String("dir", "", "Clipboard directory")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
@@ -45,8 +45,8 @@ func execServe(args []string) {
 	if *serverAddr != "" {
 		config.ServerAddr = pcopy.ExpandServerAddr(*serverAddr)
 	}
-	if *cacheDir != "" {
-		config.CacheDir = *cacheDir
+	if *clipboardDir != "" {
+		config.ClipboardDir = *clipboardDir
 	}
 	if *keyFile != "" {
 		config.KeyFile = *keyFile

@@ -8,6 +8,12 @@ import (
 
 // TODO print all error messages to STDERR
 
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
 	if os.Args[0] == "pcp" {
 		execCopy(os.Args[1:])
@@ -68,6 +74,10 @@ func showUsageWithError(error string) {
 	fmt.Println("  keygen    Generate key for the server config")
 	fmt.Println()
 	fmt.Println("Try 'pcopy COMMAND -help' for more information.")
+	fmt.Println()
+
+	fmt.Printf("pcopy %s (%s), built at %s\n", version, commit[:7], date)
+	fmt.Printf("Copyright (C) 2020 Philipp Heckel, distributed under the Apache License 2.0\n")
 	os.Exit(1)
 }
 

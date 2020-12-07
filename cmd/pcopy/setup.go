@@ -41,13 +41,13 @@ func execSetup(args []string) {
 	}
 	fmt.Println()
 
-	fmt.Println("The cache dir is where the clipboard contents are stored.")
-	fmt.Printf("Cache dir (default: %s): ", pcopy.DefaultCacheDir)
-	cacheDir := readLine(reader)
-	if cacheDir != "" {
-		config.CacheDir = cacheDir
+	fmt.Println("The clipboard dir is where the clipboard contents are stored.")
+	fmt.Printf("Clipboard dir (default: %s): ", pcopy.DefaultClipboardDir)
+	clipboardDir := readLine(reader)
+	if clipboardDir != "" {
+		config.ClipboardDir = clipboardDir
 	} else {
-		cacheDir = pcopy.DefaultCacheDir
+		clipboardDir = pcopy.DefaultClipboardDir
 	}
 	fmt.Println()
 
@@ -77,8 +77,8 @@ func execSetup(args []string) {
 	keyFile := pcopy.DefaultKeyFile(configFile, false)
 	certFile := pcopy.DefaultCertFile(configFile, false)
 
-	// Create cache dir
-	if err := os.MkdirAll(cacheDir, 0700); err != nil {
+	// Create clipboard dir
+	if err := os.MkdirAll(clipboardDir, 0700); err != nil {
 		fail(err)
 	}
 

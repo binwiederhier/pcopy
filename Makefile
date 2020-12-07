@@ -1,22 +1,35 @@
+VERSION=0.1.0-alpha
+
 .PHONY:
 
 help:
 	@echo "Build:"
-	@echo "  make all   - Build all deliverables"
-	@echo "  make cmd   - Build the pcopy CLI tool"
-	@echo "  make clean - Clean build folder"
+	@echo "  make build             - Build"
+	@echo "  make build-snapshot    - Build snapshot"
+	@echo "  make build-simple      - Build (using go build, without goreleaser)"
+	@echo "  make release           - Create a release"
+	@echo "  make release-snapshot  - Create a test release"
+	@echo "  make clean             - Clean build folder"
 
-all: clean cmd
+build: .PHONY
+	goreleaser build --rm-dist
+
+build-snapshot:
+	goreleaser build --snapshot --rm-dist
+
+build-simple: clean
+	mkdir -p dist/pcopy_linux_amd64
+	go build \
+		-o dist/pcopy_linux_amd64/pcopy \
+		-ldflags \
+		"-X main.version=${VERSION} -X main.commit=$(shell git rev-parse --short HEAD) -X main.date=$(shell date +%s)" \
+		cmd/pcopy/*.go
+
+release:
+	goreleaser release --rm-dist
+
+release-snapshot:
+	goreleaser release --snapshot --skip-publish --rm-dist
 
 clean: .PHONY
-	@echo == Cleaning ==
-	rm -rf build
-	@echo
-
-cmd: .PHONY
-	@echo == Building pcopy CLI ==
-	mkdir -p build/cmd
-	go build -o build/cmd/pcopy cmd/pcopy/*.go
-	@echo
-	@echo "--> pcopy CLI built at build/cmd/pcopy"
-	@echo
+	rm -rf dist

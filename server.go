@@ -43,8 +43,8 @@ func (s *server) checkConfig() error {
 	if s.config.CertFile == "" {
 		return certFileMissingError
 	}
-	if unix.Access(s.config.CacheDir, unix.W_OK) != nil {
-		return cacheDirNotWritableError
+	if unix.Access(s.config.ClipboardDir, unix.W_OK) != nil {
+		return clipboardDirNotWritableError
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
-	if err := os.MkdirAll(s.config.CacheDir, 0700); err != nil {
+	if err := os.MkdirAll(s.config.ClipboardDir, 0700); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -109,7 +109,7 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fileId := matches[1]
-	file := fmt.Sprintf("%s/%s", s.config.CacheDir, fileId)
+	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, fileId)
 
 	if r.Method == http.MethodGet {
 		f, err := os.Open(file)
@@ -301,7 +301,7 @@ const certCommonName = "pcopy"
 var listenAddrMissingError = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
 var keyFileMissingError = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
 var certFileMissingError = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
-var cacheDirNotWritableError = errors.New("cache dir not writable by user")
+var clipboardDirNotWritableError = errors.New("clipboard dir not writable by user")
 var invalidAuthError = errors.New("invalid auth")
 var invalidFileError = errors.New("invalid file name")
 
