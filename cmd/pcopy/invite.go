@@ -39,7 +39,8 @@ func execInvite(args []string)  {
 
 func parseInviteArgs(args []string) (*pcopy.Config, string) {
 	flags := flag.NewFlagSet("invite", flag.ExitOnError)
-	flags.Usage = showInviteUsage
+	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
+	flags.Usage = func() { showInviteUsage(flags) }
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
@@ -51,7 +52,7 @@ func parseInviteArgs(args []string) (*pcopy.Config, string) {
 	}
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig("", clipboard)
+	configFile, config, err := pcopy.LoadConfig(*configFileOverride, clipboard)
 	if err != nil {
 		fail(err)
 	}
@@ -101,7 +102,7 @@ func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {
 	return hashes, nil
 }
 
-func showInviteUsage() {
+func showInviteUsage(flags *flag.FlagSet) {
 	fmt.Println("Usage: pcopy invite [OPTIONS..] [CLIPBOARD]")
 	fmt.Println()
 	fmt.Println("Description:")
@@ -115,5 +116,8 @@ func showInviteUsage() {
 	fmt.Println("Examples:")
 	fmt.Println("  pcopy invite         # Generates links for the default clipboard")
 	fmt.Println("  pcopy invite work    # Generates links for the clipboard called 'work'")
+	fmt.Println()
+	fmt.Println("Options:")
+	flags.PrintDefaults()
 	syscall.Exit(1)
 }

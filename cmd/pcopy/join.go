@@ -87,7 +87,7 @@ func execJoin(args []string) {
 		ServerAddr: serverAddr,
 		Key: key, // May be nil, but that's ok
 	}
-	if err := config.Write(configFile); err != nil {
+	if err := config.WriteFile(configFile); err != nil {
 		fail(err)
 	}
 
@@ -119,7 +119,7 @@ func readPassword() []byte {
 func printInstructions(configFile string, clipboard string, info *pcopy.Info) {
 	clipboardPrefix := ""
 	if clipboard != pcopy.DefaultClipboard {
-		clipboardPrefix = fmt.Sprintf("%s:", clipboard)
+		clipboardPrefix = fmt.Sprintf(" %s:", clipboard)
 	}
 
 	if clipboard == pcopy.DefaultClipboard {
@@ -136,9 +136,9 @@ func printInstructions(configFile string, clipboard string, info *pcopy.Info) {
 
 	fmt.Println()
 	if _, err := os.Stat("/usr/bin/pcp"); err == nil {
-		fmt.Printf("You may now use 'pcp %s' and 'ppaste %s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
+		fmt.Printf("You may now use 'pcp%s' and 'ppaste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	} else {
-		fmt.Printf("You may now use 'pcopy copy %s' and 'pcopy paste %s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
+		fmt.Printf("You may now use 'pcopy copy%s' and 'pcopy paste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	}
 	fmt.Println("To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.")
 }

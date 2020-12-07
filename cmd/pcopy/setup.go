@@ -86,7 +86,7 @@ func execSetup(args []string) {
 
 	// Write config file
 	configFile := pcopy.GetConfigFileForAlias("server")
-	if err := config.Write(configFile); err != nil {
+	if err := config.WriteFile(configFile); err != nil {
 		fail(err)
 	}
 

@@ -19,8 +19,8 @@ const (
 	DefaultClipboard = "default"
 	DefaultFile = "default"
 
-	SystemConfigDir = "/etc/pcopy"
-	UserConfigDir = "~/.config/pcopy"
+	systemConfigDir = "/etc/pcopy"
+	userConfigDir   = "~/.config/pcopy"
 )
 
 type Config struct {
@@ -50,7 +50,7 @@ var DefaultConfig = &Config{
 	MaxJoinAge:    3600,
 }
 
-func (c *Config) Write(filename string) error {
+func (c *Config) WriteFile(filename string) error {
 	dir := filepath.Dir(filename)
 	if err := os.MkdirAll(dir, 0744); err != nil {
 		return err
@@ -68,9 +68,10 @@ func (c *Config) Write(filename string) error {
 
 	return nil
 }
+
 func FindConfigFile(alias string) string {
-	userConfigFile := filepath.Join(ExpandHome(UserConfigDir), alias + ".conf")
-	systemConfigFile := filepath.Join(SystemConfigDir, alias + ".conf")
+	userConfigFile := filepath.Join(ExpandHome(userConfigDir), alias + ".conf")
+	systemConfigFile := filepath.Join(systemConfigDir, alias + ".conf")
 
 	if _, err := os.Stat(userConfigFile); err == nil {
 		return userConfigFile
@@ -111,9 +112,9 @@ func FindNewConfigFile(alias string) (string, string) {
 func GetConfigFileForAlias(alias string) string {
 	u, _ := user.Current()
 	if u.Uid == "0" {
-		return filepath.Join(SystemConfigDir, alias+".conf")
+		return filepath.Join(systemConfigDir, alias+".conf")
 	} else {
-		return filepath.Join(ExpandHome(UserConfigDir), alias+".conf")
+		return filepath.Join(ExpandHome(userConfigDir), alias+".conf")
 	}
 }
 
