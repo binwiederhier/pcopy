@@ -41,7 +41,7 @@ func execJoin(args []string) {
 		if configFile != "" && !*force {
 			fail(errors.New(fmt.Sprintf("config file %s exists, you may want to specify a different clipboard name, or use -force to override", configFile)))
 		}
-		configFile = pcopy.GetConfigFileForAlias(clipboard)
+		configFile = pcopy.GetConfigFileForClipboard(clipboard)
 	}
 
 	// Read basic info from server

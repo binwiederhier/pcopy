@@ -14,6 +14,7 @@ import (
 
 func execSetup(args []string) {
 	flags := flag.NewFlagSet("setup", flag.ExitOnError)
+	configFile := flags.String("config", pcopy.DefaultServerConfigFile, "Config file this wizard will write")
 	flags.Usage = showSetupUsage
 	if err := flags.Parse(args); err != nil {
 		fail(err)
@@ -85,19 +86,18 @@ func execSetup(args []string) {
 	}
 
 	// Write config file
-	configFile := pcopy.GetConfigFileForAlias("server")
-	if err := config.WriteFile(configFile); err != nil {
+	if err := config.WriteFile(*configFile); err != nil {
 		fail(err)
 	}
 
 	// Write private key file
-	keyFile := pcopy.DefaultKeyFile(configFile, false)
+	keyFile := pcopy.DefaultKeyFile(*configFile, false)
 	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
 		fail(err)
 	}
 
 	// Write cert file
-	certFile := pcopy.DefaultCertFile(configFile, false)
+	certFile := pcopy.DefaultCertFile(*configFile, false)
 	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
 		fail(err)
 	}

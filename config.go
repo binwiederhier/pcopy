@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	DefaultPort = 1986
-	DefaultClipboardDir = "/var/cache/pcopy"
-	DefaultClipboard = "default"
-	DefaultFile = "default"
+	DefaultPort             = 1986
+	DefaultServerConfigFile = "/etc/pcopy/server.conf"
+	DefaultClipboardDir     = "/var/cache/pcopy"
+	DefaultClipboard        = "default"
+	DefaultFile             = "default"
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
@@ -82,39 +83,39 @@ func FindConfigFile(alias string) string {
 	return ""
 }
 
-func FindNewConfigFile(alias string) (string, string) {
-	// Try the given alias first
-	configFile := FindConfigFile(alias)
+func FindNewConfigFile(clipboard string) (string, string) {
+	// Try the given clipboard first
+	configFile := FindConfigFile(clipboard)
 	if configFile == "" {
-		return alias, GetConfigFileForAlias(alias)
+		return clipboard, GetConfigFileForClipboard(clipboard)
 	}
 
-	// If that is taken, try single letter alias
+	// If that is taken, try single letter clipboard
 	alphabet := "abcdefghijklmnopqrstuvwxyz"
 	for _, c := range alphabet {
-		alias = string(c)
-		configFile = FindConfigFile(alias)
+		clipboard = string(c)
+		configFile = FindConfigFile(clipboard)
 		if configFile == "" {
-			return alias, GetConfigFileForAlias(alias)
+			return clipboard, GetConfigFileForClipboard(clipboard)
 		}
 	}
 
 	// If all of those are taken (really?), just count up
 	for i := 1 ;; i++ {
-		alias = fmt.Sprintf("a%d", i)
-		configFile = FindConfigFile(alias)
+		clipboard = fmt.Sprintf("a%d", i)
+		configFile = FindConfigFile(clipboard)
 		if configFile == "" {
-			return alias, GetConfigFileForAlias(alias)
+			return clipboard, GetConfigFileForClipboard(clipboard)
 		}
 	}
 }
 
-func GetConfigFileForAlias(alias string) string {
+func GetConfigFileForClipboard(clipboard string) string {
 	u, _ := user.Current()
 	if u.Uid == "0" {
-		return filepath.Join(systemConfigDir, alias+".conf")
+		return filepath.Join(systemConfigDir, clipboard+".conf")
 	} else {
-		return filepath.Join(ExpandHome(userConfigDir), alias+".conf")
+		return filepath.Join(ExpandHome(userConfigDir), clipboard+".conf")
 	}
 }
 
