@@ -18,6 +18,8 @@ const (
 	DefaultClipboardDir     = "/var/cache/pcopy"
 	DefaultClipboard        = "default"
 	DefaultFile             = "default"
+	DefaultMaxJoinAge       = time.Hour
+	DefaultExpireAfter      = time.Hour * 24 * 7
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
@@ -46,8 +48,8 @@ var DefaultConfig = &Config{
 	CertFile:     "",
 	Key:          nil,
 	ClipboardDir: DefaultClipboardDir,
-	MaxJoinAge:   time.Hour,
-	ExpireAfter:  time.Hour * 24 * 7,
+	MaxJoinAge:   DefaultMaxJoinAge,
+	ExpireAfter:  DefaultExpireAfter,
 }
 
 func (c *Config) WriteFile(filename string) error {
