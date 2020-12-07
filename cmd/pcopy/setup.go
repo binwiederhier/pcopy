@@ -102,7 +102,7 @@ func execSetup(args []string) {
 		fail(err)
 	}
 
-	fmt.Printf("Server config written to %s, with key/cert file next to it\n", configFile)
+	fmt.Printf("Server config written to %s, with key/cert file next to it\n", *configFile)
 }
 
 func readLine(reader *bufio.Reader) string {
