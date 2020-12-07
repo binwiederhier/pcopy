@@ -20,13 +20,13 @@ func execSetup(args []string) {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	config := pcopy.DefaultConfig
+	config := &pcopy.Config{}
 
 	fmt.Println("pcopy server setup")
 	fmt.Println("--")
 
 	fmt.Println("The listen address is used to bind the local server.")
-	fmt.Printf("Listen address (default: %s): ", config.ListenAddr)
+	fmt.Printf("Listen address (default: :%d): ", pcopy.DefaultPort)
 	listenAddr := readLine(reader)
 	if listenAddr != "" {
 		config.ListenAddr = listenAddr
@@ -34,10 +34,20 @@ func execSetup(args []string) {
 	fmt.Println()
 
 	fmt.Println("The hostname will be used to advertise to clients. It must be resolvable by clients.")
-	fmt.Printf("Hostname (default: %s): ", config.ServerAddr)
+	fmt.Print("Hostname (default: empty): ")
 	serverAddr := readLine(reader)
-	if serverAddr == "" {
+	if serverAddr != "" {
 		config.ServerAddr = serverAddr
+	}
+	fmt.Println()
+
+	fmt.Println("The cache dir is where the clipboard contents are stored.")
+	fmt.Printf("Cache dir (default: %s): ", pcopy.DefaultCacheDir)
+	cacheDir := readLine(reader)
+	if cacheDir != "" {
+		config.CacheDir = cacheDir
+	} else {
+		cacheDir = pcopy.DefaultCacheDir
 	}
 	fmt.Println()
 
@@ -50,6 +60,12 @@ func execSetup(args []string) {
 	fmt.Println()
 	fmt.Println()
 
+	// Generate private key, certificate and key
+	pemKey, pemCert, err := pcopy.GenerateKeyAndCert()
+	if err != nil {
+		fail(err)
+	}
+
 	if string(password) != "" {
 		config.Key, err = pcopy.GenerateKey(password)
 		if err != nil {
@@ -57,23 +73,27 @@ func execSetup(args []string) {
 		}
 	}
 
-	pemKey, pemCert, err := pcopy.GenerateKeyAndCert()
-
-	// Write config file
 	configFile := pcopy.GetConfigFileForAlias("server")
-	if err := config.Write(configFile); err != nil {
+	keyFile := pcopy.DefaultKeyFile(configFile, false)
+	certFile := pcopy.DefaultCertFile(configFile, false)
+
+	// Create cache dir
+	if err := os.MkdirAll(cacheDir, 0700); err != nil {
 		fail(err)
 	}
 
 	// Write private key file
-	keyFile := pcopy.DefaultKeyFile(configFile, false)
 	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
 		fail(err)
 	}
 
 	// Write cert file
-	certFile := pcopy.DefaultCertFile(configFile, false)
 	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
+		fail(err)
+	}
+
+	// Write config file (write this last, in case we crash)
+	if err := config.Write(configFile); err != nil {
 		fail(err)
 	}
 

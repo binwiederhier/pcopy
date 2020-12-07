@@ -56,7 +56,7 @@ func (c *Config) Write(filename string) error {
 		return err
 	}
 
-	f, err := os.OpenFile(filename, os.O_CREATE | os.O_WRONLY, 0600)
+	f, err := os.OpenFile(filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse
 # Format:    HOST[:PORT]
 # Default:   None
 #
-ServerAddr {{.ServerAddr}}
+{{if .ServerAddr}}ServerAddr {{.ServerAddr}}{{else}}# ServerAddr{{end}}
 
 # Address and port to use to bind the server. To bind to all addresses, you may omit the address,
 # e.g. :2586.
@@ -282,7 +282,7 @@ ServerAddr {{.ServerAddr}}
 # Format:  [ADDR]:PORT
 # Default: :1986
 #
-ListenAddr {{.ListenAddr}}
+{{if .ListenAddr}}ListenAddr {{.ListenAddr}}{{else}}# ListenAddr :1986{{end}}
 
 # If a key is defined, clients need to auth whenever they want copy/paste values
 # to the clipboard. A key is derived from a password and can be generated using
@@ -325,5 +325,5 @@ ListenAddr {{.ListenAddr}}
 # Format:  /some/folder
 # Default: /var/cache/pcopy
 #
-{{if .CacheDir}}CacheDir {{.CacheDir}}{{else}}# CacheDir{{end}}
+{{if .CacheDir}}CacheDir {{.CacheDir}}{{else}}# CacheDir /var/cache/pcopy{{end}}
 `))
