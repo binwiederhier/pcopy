@@ -2,16 +2,20 @@ package pcopy
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/pbkdf2"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"regexp"
 	"strings"
@@ -114,6 +118,42 @@ func GenerateAuthHMAC(key []byte, method string, path string) (string, error) {
 
 	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
 	return fmt.Sprintf("HMAC %d %s", timestamp, hashBase64), nil
+}
+
+func GenerateKeyAndCert() (string, string, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		return "", "", nil
+	}
+	cert := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{CommonName: certCommonName},
+		NotBefore: time.Now().Add(-time.Hour * 24 * 7),
+		NotAfter:  time.Now().Add(time.Hour * 24 * 365 * 3),
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &cert, &cert, &key.PublicKey, key)
+	if err != nil {
+		return "", "", nil
+	}
+
+	out := &bytes.Buffer{}
+	if err := pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		return "", "", nil
+	}
+	pemCert := out.String()
+
+	out.Reset()
+	b, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return "", "", nil
+	}
+	if err := pem.Encode(out, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}); err != nil {
+		return "", "", nil
+	}
+	pemKey := out.String()
+
+	return pemKey, pemCert, nil
 }
 
 func ExpandHome(path string) string {

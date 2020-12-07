@@ -290,6 +290,14 @@ func getExecutable() (string, error) {
 	return realpath, nil
 }
 
+// infoResponse is the response returned by the / endpoint
+type infoResponse struct {
+	ServerAddr string `json:"serverAddr"`
+	Salt       string `json:"salt"`
+}
+
+const certCommonName = "pcopy"
+
 var listenAddrMissingError = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
 var keyFileMissingError = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
 var certFileMissingError = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")

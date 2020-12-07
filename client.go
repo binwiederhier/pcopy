@@ -15,17 +15,6 @@ type Client struct {
 	config *Config
 }
 
-type Info struct {
-	ServerAddr string
-	Salt       []byte
-	Certs      []*x509.Certificate
-}
-
-type infoResponse struct {
-	ServerAddr string `json:"serverAddr"`
-	Salt       string `json:"salt"`
-}
-
 func NewClient(config *Config) (*Client, error) {
 	if config.ServerAddr == "" {
 		return nil, missingServerAddrError
@@ -222,10 +211,16 @@ func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: rootCAs,
-				ServerName: "pcopy",
+				ServerName: certCommonName, // Note: This is checked despite the insecure config
 			},
 		},
 	}, nil
+}
+
+type Info struct {
+	ServerAddr string
+	Salt       []byte
+	Certs      []*x509.Certificate
 }
 
 var missingServerAddrError = errors.New("server address missing")

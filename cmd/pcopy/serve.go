@@ -31,10 +31,10 @@ func execServe(args []string) {
 	// Load defaults
 	if configFile != "" {
 		if config.KeyFile == "" {
-			config.KeyFile = pcopy.DefaultKeyFile(configFile)
+			config.KeyFile = pcopy.DefaultKeyFile(configFile, true)
 		}
 		if config.CertFile == "" {
-			config.CertFile = pcopy.DefaultCertFile(configFile)
+			config.CertFile = pcopy.DefaultCertFile(configFile, true)
 		}
 	}
 

@@ -55,7 +55,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 
 	// Load defaults
 	if config.CertFile == "" {
-		config.CertFile = pcopy.DefaultCertFile(configFile)
+		config.CertFile = pcopy.DefaultCertFile(configFile, true)
 	}
 
 	// Command line overrides

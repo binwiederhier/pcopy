@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 )
 
 const (
@@ -49,6 +50,24 @@ var DefaultConfig = &Config{
 	MaxJoinAge:    3600,
 }
 
+func (c *Config) Write(filename string) error {
+	dir := filepath.Dir(filename)
+	if err := os.MkdirAll(dir, 0744); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(filename, os.O_CREATE | os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := configTemplate.Execute(f, c); err != nil {
+		return err
+	}
+
+	return nil
+}
 func FindConfigFile(alias string) string {
 	userConfigFile := filepath.Join(ExpandHome(UserConfigDir), alias + ".conf")
 	systemConfigFile := filepath.Join(SystemConfigDir, alias + ".conf")
@@ -113,19 +132,22 @@ func ExpandServerAddr(serverAddr string) string {
 	return serverAddr
 }
 
-func DefaultCertFile(configFile string) string {
-	certFile := strings.TrimSuffix(configFile, ".conf") + ".crt"
-	if _, err := os.Stat(certFile); err != nil {
-		return ""
-	}
-	return certFile
+func DefaultCertFile(configFile string, mustExist bool) string {
+	return defaultFileWithNewExt(".crt", configFile, mustExist)
 }
 
-func DefaultKeyFile(configFile string) string {
-	keyFile := strings.TrimSuffix(configFile, ".conf") + ".key"
-	if _, err := os.Stat(keyFile); err != nil {
-		return ""
+func DefaultKeyFile(configFile string, mustExist bool) string {
+	return defaultFileWithNewExt(".key", configFile, mustExist)
+}
+
+func defaultFileWithNewExt(newExtension string, configFile string, mustExist bool) string {
+	keyFile := strings.TrimSuffix(configFile, ".conf") + newExtension
+	if mustExist {
+		if _, err := os.Stat(keyFile); err != nil {
+			return ""
+		}
 	}
+
 	return keyFile
 }
 
@@ -237,3 +259,71 @@ func loadRawConfig(filename string) (map[string]string, error) {
 	return rawconfig, nil
 }
 
+
+var templateFuncMap = template.FuncMap{"encodeKey": EncodeKey}
+var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse(
+	`# pcopy config file
+
+# Hostname and port of the pcopy server
+#
+# For servers: This address is advertised to clients. It is not strictly necessary for normal copy/paste operations, 
+# but required for the easy-install process via 'pcopy invite'. If PORT is not defined, the default port 1986 is used. 
+# 
+# Format:    HOST[:PORT]
+# Default:   None
+#
+ServerAddr {{.ServerAddr}}
+
+# Address and port to use to bind the server. To bind to all addresses, you may omit the address,
+# e.g. :2586.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  [ADDR]:PORT
+# Default: :1986
+#
+ListenAddr {{.ListenAddr}}
+
+# If a key is defined, clients need to auth whenever they want copy/paste values
+# to the clipboard. A key is derived from a password and can be generated using
+# the 'pcopy keygen' command.
+# 
+# Format:  SALT:KEY (both base64 encoded)
+# Default: None
+#
+{{if .Key}}Key {{encodeKey .Key}}{{else}}# Key{{end}}
+
+# Path to the TLS certificate used for the HTTPS traffic. If not set, the config file path (with 
+# a .crt extension) is assumed to be the path to the certificate, e.g. server.crt (if the config
+# file is server.conf). 
+#
+# For servers: This certificate is served to clients.
+# For clients: If a certificate is present, it is used as the only allowed certificate to communicate
+#              with a server (cert pinning). 
+#
+# Format:  /some/path/to/server.crt (PEM formatted)
+# Default: Config path, but with .crt extension
+#
+{{if .CertFile}}CertFile {{.CertFile}}{{else}}# CertFile{{end}}
+
+# Path to the private key for the matching certificate. If not set, the config file path (with 
+# a .key extension) is assumed to be the path to the private key, e.g. server.key (if the config
+# file is server.conf).
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  /some/path/to/server.key (PEM formatted)
+# Default: Config path, but with .key extension
+#
+{{if .KeyFile}}KeyFile {{.KeyFile}}{{else}}# KeyFile{{end}}
+
+# Path to the directory in which the clipboard resides. If not set, this defaults to 
+# the path /var/cache/pcopy.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  /some/folder
+# Default: /var/cache/pcopy
+#
+{{if .CacheDir}}CacheDir {{.CacheDir}}{{else}}# CacheDir{{end}}
+`))

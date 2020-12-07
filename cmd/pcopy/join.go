@@ -7,7 +7,6 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"pcopy"
 	"syscall"
 )
@@ -83,27 +82,18 @@ func execJoin(args []string) {
 		}
 	}
 
-	// TODO write config via Config.write()
-
-	// Save config file
-	configDir := filepath.Dir(configFile)
-	if err := os.MkdirAll(configDir, 0744); err != nil {
-		fail(err)
+	// Write config file
+	config := &pcopy.Config{
+		ServerAddr: serverAddr,
+		Key: key, // May be nil, but that's ok
 	}
-
-	var config string
-	if key != nil {
-		config = fmt.Sprintf("ServerAddr %s\nKey %s\n", serverAddr, pcopy.EncodeKey(key))
-	} else {
-		config = fmt.Sprintf("ServerAddr %s\n", serverAddr)
-	}
-	if err := ioutil.WriteFile(configFile, []byte(config), 0644); err != nil {
+	if err := config.Write(configFile); err != nil {
 		fail(err)
 	}
 
 	// Write self-signed certs (only if Verify didn't work with secure client)
 	if info.Certs != nil {
-		certFile := filepath.Join(configDir, clipboard + ".crt")
+		certFile := pcopy.DefaultCertFile(configFile, false)
 		certsEncoded, err := pcopy.EncodeCerts(info.Certs)
 		if err != nil {
 			fail(err)
