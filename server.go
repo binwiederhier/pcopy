@@ -308,8 +308,8 @@ var invalidFileError = errors.New("invalid file name")
 const scriptHeader = `#!/bin/sh
 set -e
 `
-const notConfiguredCommands = `echo 'Server not configured to allow simple install.
-echo 'If you are the administrator, set ServerAddr in config.
+const notConfiguredCommands = `echo 'Server not configured to allow simple install.'
+echo 'If you are the administrator, set ServerAddr in config.'
 `
 const installCommands = `if [ ! -f /usr/bin/pcopy ]; then
   [ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }

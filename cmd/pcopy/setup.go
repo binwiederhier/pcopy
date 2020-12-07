@@ -33,11 +33,17 @@ func execSetup(args []string) {
 	}
 	fmt.Println()
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = ""
+	}
 	fmt.Println("The hostname will be used to advertise to clients. It must be resolvable by clients.")
-	fmt.Print("Hostname (default: empty): ")
+	fmt.Printf("Hostname (default: %s): ", hostname)
 	serverAddr := readLine(reader)
 	if serverAddr != "" {
 		config.ServerAddr = serverAddr
+	} else {
+		config.ServerAddr = hostname
 	}
 	fmt.Println()
 
@@ -73,27 +79,26 @@ func execSetup(args []string) {
 		}
 	}
 
-	configFile := pcopy.GetConfigFileForAlias("server")
-	keyFile := pcopy.DefaultKeyFile(configFile, false)
-	certFile := pcopy.DefaultCertFile(configFile, false)
-
 	// Create clipboard dir
 	if err := os.MkdirAll(clipboardDir, 0700); err != nil {
 		fail(err)
 	}
 
+	// Write config file
+	configFile := pcopy.GetConfigFileForAlias("server")
+	if err := config.Write(configFile); err != nil {
+		fail(err)
+	}
+
 	// Write private key file
+	keyFile := pcopy.DefaultKeyFile(configFile, false)
 	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
 		fail(err)
 	}
 
 	// Write cert file
+	certFile := pcopy.DefaultCertFile(configFile, false)
 	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
-		fail(err)
-	}
-
-	// Write config file (write this last, in case we crash)
-	if err := config.Write(configFile); err != nil {
 		fail(err)
 	}
 
