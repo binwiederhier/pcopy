@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"io"
+	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
@@ -21,6 +22,11 @@ import (
 	"time"
 )
 
+const (
+	purgerTicketInterval = time.Second * 10
+	maxAuthRequestAge = time.Minute
+)
+
 type server struct {
 	config *Config
 }
@@ -29,6 +35,9 @@ func Serve(config *Config) error {
 	server := &server{config: config}
 	if err := server.checkConfig(); err != nil {
 		return err
+	}
+	if config.ExpireAfter > 0 {
+		go server.clipboardPurger()
 	}
 	return server.listenAndServeTLS()
 }
@@ -60,6 +69,25 @@ func (s *server) listenAndServeTLS() error {
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
 
+func (s *server) clipboardPurger() {
+	ticker := time.NewTicker(purgerTicketInterval)
+	for {
+		<-ticker.C
+		files, err := ioutil.ReadDir(s.config.ClipboardDir)
+		if err != nil {
+			log.Printf("failed to read clipboard dir: %s", err.Error())
+			continue
+		}
+		for _, f := range files {
+			if time.Now().Sub(f.ModTime()) > s.config.ExpireAfter {
+				if err := os.Remove(filepath.Join(s.config.ClipboardDir, f.Name())); err != nil {
+					log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
+				}
+			}
+		}
+	}
+}
+
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
@@ -81,7 +109,7 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r, s.config.MaxRequestAge); err != nil {
+	if err := s.authorize(r, maxAuthRequestAge); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -90,7 +118,7 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r, s.config.MaxRequestAge); err != nil {
+	if err := s.authorize(r, maxAuthRequestAge); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -203,7 +231,7 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) authorize(r *http.Request, maxRequestAge int) error {
+func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
 	if s.config.Key == nil {
 		return nil
 	}
@@ -243,9 +271,11 @@ func (s *server) authorize(r *http.Request, maxRequestAge int) error {
 	}
 
 	// Compare timestamp (to prevent replay attacks)
-	if math.Abs(float64(time.Now().Unix()) - float64(timestamp)) > float64(maxRequestAge) {
-		log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
-		return invalidAuthError
+	if maxAge > 0 {
+		if math.Abs(float64(time.Now().Unix()) - float64(timestamp)) > float64(maxAge) {
+			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
+			return invalidAuthError
+		}
 	}
 
 	return nil
