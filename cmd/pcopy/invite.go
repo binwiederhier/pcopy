@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"pcopy"
+	"heckel.io/pcopy"
 	"strings"
 	"syscall"
 )

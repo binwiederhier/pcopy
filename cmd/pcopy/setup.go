@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"os"
-	"pcopy"
+	"heckel.io/pcopy"
 	"strings"
 	"syscall"
 )

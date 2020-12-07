@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
-	"pcopy"
+	"heckel.io/pcopy"
 	"syscall"
 )
 

@@ -1,4 +1,4 @@
-module pcopy
+module heckel.io/pcopy
 
 go 1.14
 

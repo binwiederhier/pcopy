@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"pcopy"
+	"heckel.io/pcopy"
 	"regexp"
 	"syscall"
 )
