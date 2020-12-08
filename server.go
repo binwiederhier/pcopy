@@ -302,7 +302,7 @@ func (s *server) joinScript() string {
 }
 
 func (s *server) replaceScriptVars(template string) string {
-	template = strings.ReplaceAll(template, "${serverAddr}", s.config.ServerAddr)
+	template = strings.ReplaceAll(template, "${serverAddr}", ExpandServerAddr(s.config.ServerAddr))
 	template = strings.ReplaceAll(template, "${key}", EncodeKey(s.config.Key))
 	return template
 }

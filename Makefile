@@ -36,6 +36,7 @@ install:
 	sudo cp -a dist/pcopy_linux_amd64/pcopy /usr/bin/pcopy
 
 install-deb:
+	sudo systemctl stop pcopy || true
 	sudo apt-get purge pcopy || true
 	sudo dpkg -i dist/*.deb
 

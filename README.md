@@ -4,8 +4,12 @@ across different computers. Other users can be invited to join (`pcopy invite`),
 the hostname (`pcopy join`). Clipboards can have passwords, or they can be open for everyone.  
 
 ## Installation
+Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). Alternatively, for a quick install, run:
+```bash
+curl -sSL https://heckel.io:1986/install | sudo sh
+```
 
-tbd
+Once you've installed pcopy, you may run `pcopy invite` to generate your own quick download links and quick join instructions.
 
 ## Usage
 **To setup a new pcopy server**, run `sudo pcopy setup`. It'll walk you through a setup wizard. After that, you can run

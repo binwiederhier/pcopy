@@ -159,3 +159,12 @@ func GenerateKeyAndCert() (string, string, error) {
 func ExpandHome(path string) string {
 	return os.ExpandEnv(strings.ReplaceAll(path, "~", "$HOME"))
 }
+
+func CollapseHome(path string) string {
+	home := os.Getenv("HOME")
+	if home != "" && strings.HasPrefix(path, home) {
+		return fmt.Sprintf("~%s", strings.TrimPrefix(path, home))
+	} else {
+		return path
+	}
+}

@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
-id pcopy >/dev/null 2>&1 && userdel pcopy
+systemctl stop pcopy >/dev/null 2>&1 || true
 if [ "$1" = "purge" ]; then
+  id pcopy >/dev/null 2>&1 && userdel pcopy
   rm -rf /var/cache/pcopy
   rm -rf /etc/pcopy
 fi
