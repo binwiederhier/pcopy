@@ -16,6 +16,7 @@ func execJoin(args []string) {
 	flags.Usage = func() { showJoinUsage(flags) }
 	force := flags.Bool("force", false, "Overwrite config if it already exists")
 	auto := flags.Bool("auto", false, "Automatically choose clipboard alias")
+	quiet := flags.Bool("quiet", false, "Don't print instructions")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
@@ -103,7 +104,9 @@ func execJoin(args []string) {
 		}
 	}
 
-	printInstructions(configFile, clipboard, info)
+	if !*quiet {
+		printInstructions(configFile, clipboard, info)
+	}
 }
 
 func readPassword() []byte {
@@ -123,9 +126,9 @@ func printInstructions(configFile string, clipboard string, info *pcopy.Info) {
 	}
 
 	if clipboard == pcopy.DefaultClipboard {
-		fmt.Printf("Successfully joined clipboard, config written to %s\n", configFile)
+		fmt.Printf("Successfully joined clipboard, config written to %s\n", pcopy.CollapseHome(configFile))
 	} else {
-		fmt.Printf("Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, configFile)
+		fmt.Printf("Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, pcopy.CollapseHome(configFile))
 	}
 
 	if info.Certs != nil {

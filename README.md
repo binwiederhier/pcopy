@@ -3,6 +3,8 @@ pcopy is cross-machine clipboard that allows copying (`pcp < file.txt`) and past
 across different computers. Other users can be invited to join (`pcopy invite`), or simply join by specifying 
 the hostname (`pcopy join`). Clipboards can have passwords, or they can be open for everyone.  
 
+![Demo](assets/demo.gif)
+
 ## Installation
 Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). Alternatively, for a quick install, run:
 ```bash
