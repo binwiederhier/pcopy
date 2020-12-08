@@ -28,12 +28,12 @@ func execInvite(args []string)  {
 
 	fmt.Printf("# Instructions for clipboard '%s'\n", alias)
 	fmt.Println()
-	fmt.Println("# Install pcopy on other computers:")
-	fmt.Printf("%s\n", curlCommand("install", config.ServerAddr, certs, nil))
+	fmt.Println("# Install pcopy on other computers (as root):")
+	fmt.Printf("%s | sudo sh\n", curlCommand("install", config.ServerAddr, certs, nil))
 
 	fmt.Println()
-	fmt.Println("# Install and join this clipboard on other computers:")
-	fmt.Printf("%s\n", curlCommand("join", config.ServerAddr, certs, config.Key))
+	fmt.Println("# Join this clipboard on other computers:")
+	fmt.Printf("%s | sh\n", curlCommand("join", config.ServerAddr, certs, config.Key))
 	fmt.Println()
 }
 
@@ -83,7 +83,7 @@ func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key *
 			args = append(args, "-sk")
 		}
 	}
-	return fmt.Sprintf("sudo bash -c 'curl %s https://%s/%s | sh'", strings.Join(args, " "), serverAddr, cmd)
+	return fmt.Sprintf("curl %s https://%s/%s", strings.Join(args, " "), serverAddr, cmd)
 }
 
 func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {

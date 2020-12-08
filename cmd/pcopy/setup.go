@@ -5,12 +5,32 @@ import (
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
+	"heckel.io/pcopy"
 	"io/ioutil"
 	"os"
-	"heckel.io/pcopy"
+	"os/exec"
+	"os/user"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 )
+
+const (
+	systemdFile = "/etc/systemd/system/pcopy.service"
+	serviceUser = "pcopy"
+)
+
+type wizard struct {
+	config *pcopy.Config
+	reader *bufio.Reader
+
+	configFile   string
+	clipboardDir string
+	service      bool
+	uid          int
+	gid          int
+}
 
 func execSetup(args []string) {
 	flags := flag.NewFlagSet("setup", flag.ExitOnError)
@@ -20,97 +40,202 @@ func execSetup(args []string) {
 		fail(err)
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-	config := &pcopy.Config{}
+	setup := &wizard{
+		config: &pcopy.Config{},
+		reader: bufio.NewReader(os.Stdin),
+		configFile: *configFile,
+	}
 
 	fmt.Println("pcopy server setup")
 	fmt.Println("--")
 
+	// TODO check root
+	// TODO check overwrite config file
+	// TODO write access to config file
+
+	// Ask questions and populate the config & wizard struct
+	setup.askListenAddr()
+	setup.askServerAddr()
+	setup.askClipboardDir()
+	setup.askPassword()
+	setup.askService()
+
+	// TODO summary
+
+	// Do stuff
+	if setup.service {
+		setup.createUserAndGroup()
+	}
+	setup.createClipboardDir()
+	setup.writeConfigFile()
+	setup.writeKeyAndCert()
+	if setup.service {
+		setup.writeSystemdUnit()
+	}
+
+	fmt.Println("Done.")
+}
+
+func (s *wizard) askListenAddr() {
 	fmt.Println("The listen address is used to bind the local server.")
 	fmt.Printf("Listen address (default: :%d): ", pcopy.DefaultPort)
-	listenAddr := readLine(reader)
-	if listenAddr != "" {
-		config.ListenAddr = listenAddr
-	}
+	s.config.ListenAddr = s.readLine()
 	fmt.Println()
+}
 
+func (s *wizard) askServerAddr() {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = ""
 	}
 	fmt.Println("The hostname will be used to advertise to clients. It must be resolvable by clients.")
 	fmt.Printf("Hostname (default: %s): ", hostname)
-	serverAddr := readLine(reader)
+	serverAddr := s.readLine()
 	if serverAddr != "" {
-		config.ServerAddr = serverAddr
+		s.config.ServerAddr = serverAddr
 	} else {
-		config.ServerAddr = hostname
+		s.config.ServerAddr = hostname
 	}
 	fmt.Println()
+}
 
+func (s *wizard) askClipboardDir() {
 	fmt.Println("The clipboard dir is where the clipboard contents are stored.")
 	fmt.Printf("Clipboard dir (default: %s): ", pcopy.DefaultClipboardDir)
-	clipboardDir := readLine(reader)
+	clipboardDir := s.readLine()
 	if clipboardDir != "" {
-		config.ClipboardDir = clipboardDir
+		s.config.ClipboardDir = clipboardDir
 	} else {
-		clipboardDir = pcopy.DefaultClipboardDir
+		s.clipboardDir = pcopy.DefaultClipboardDir
 	}
 	fmt.Println()
+}
 
+func (s *wizard) askPassword() {
 	fmt.Println("To protect the server with a key, enter a password. A key will be derived from it.")
-	fmt.Print("Password (default: empty): ")
+	fmt.Print("Password: ")
 	password, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		fail(err)
 	}
 	fmt.Println()
 	fmt.Println()
+	if string(password) != "" {
+		s.config.Key, err = pcopy.GenerateKey(password)
+		if err != nil {
+			fail(err)
+		}
+	}
+}
 
-	// Generate private key, certificate and key
+func (s *wizard) readLine() string {
+	line, err := s.reader.ReadString('\n')
+	if err != nil {
+		fail(err)
+	}
+	return strings.TrimSpace(line)
+}
+
+func (s *wizard) askService() {
+	fmt.Println("If your system supports systemd, installing the pcopy server as a service is recommended.")
+	fmt.Println("We'll also create a 'pcopy' user/group to run the service as.")
+	fmt.Print("Install systemd service [Y/n]?: ")
+	answer := strings.ToLower(s.readLine())
+	s.service = answer == "y" || answer == ""
+	fmt.Println()
+}
+
+func (s *wizard) createClipboardDir() {
+	fmt.Printf("Creating clipboard directory %s ... ", s.clipboardDir)
+	if err := os.MkdirAll(s.clipboardDir, 0700); err != nil {
+		fail(err)
+	}
+	if s.service {
+		if err := os.Chown(s.clipboardDir, s.uid, s.gid); err != nil {
+			fail(err)
+		}
+	}
+	fmt.Println("ok")
+}
+
+func (s *wizard) writeConfigFile() {
+	fmt.Printf("Writing server config file %s ... ", s.configFile)
+	if err := s.config.WriteFile(s.configFile); err != nil {
+		fail(err)
+	}
+	if s.service {
+		if err := os.Chown(filepath.Dir(s.configFile), s.uid, -1); err != nil {
+			fail(err)
+		}
+		if err := os.Chown(s.configFile, s.uid, s.gid); err != nil {
+			fail(err)
+		}
+	}
+	fmt.Println("ok")
+}
+
+func (s *wizard) writeKeyAndCert() {
 	pemKey, pemCert, err := pcopy.GenerateKeyAndCert()
 	if err != nil {
 		fail(err)
 	}
 
-	if string(password) != "" {
-		config.Key, err = pcopy.GenerateKey(password)
-		if err != nil {
-			fail(err)
-		}
-	}
-
-	// Create clipboard dir
-	if err := os.MkdirAll(clipboardDir, 0700); err != nil {
-		fail(err)
-	}
-
-	// Write config file
-	if err := config.WriteFile(*configFile); err != nil {
-		fail(err)
-	}
-
-	// Write private key file
-	keyFile := pcopy.DefaultKeyFile(*configFile, false)
+	keyFile := pcopy.DefaultKeyFile(s.configFile, false)
+	fmt.Printf("Writing private key file %s ... ", keyFile)
 	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
 		fail(err)
 	}
+	if s.service {
+		if err := os.Chown(keyFile, s.uid, s.gid); err != nil {
+			fail(err)
+		}
+	}
+	fmt.Println("ok")
 
-	// Write cert file
-	certFile := pcopy.DefaultCertFile(*configFile, false)
+	certFile := pcopy.DefaultCertFile(s.configFile, false)
+	fmt.Printf("Writing certificate %s ... ", certFile)
 	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
 		fail(err)
 	}
-
-	fmt.Printf("Server config written to %s, with key/cert file next to it\n", *configFile)
+	if s.service {
+		if err := os.Chown(certFile, s.uid, s.gid); err != nil {
+			fail(err)
+		}
+	}
+	fmt.Println("ok")
 }
 
-func readLine(reader *bufio.Reader) string {
-	line, err := reader.ReadString('\n')
+func (s *wizard) writeSystemdUnit() {
+	fmt.Printf("Writing systemd unit file %s ... ", systemdFile)
+	if err := ioutil.WriteFile(systemdFile, []byte(systemdUnit), 0644); err != nil {
+		fail(err)
+	}
+	fmt.Println("ok")
+}
+
+func (s *wizard) createUserAndGroup() {
+	u, err := user.Lookup(serviceUser)
+	if _, ok := err.(*user.UnknownUserError); ok {
+		cmd := exec.Command("useradd", serviceUser)
+		err := cmd.Run()
+		if err != nil {
+			fail(err)
+		}
+		u, err = user.Lookup(serviceUser)
+		if err != nil {
+			fail(err)
+		}
+	} else if err != nil {
+		fail(err)
+	}
+	s.uid, err = strconv.Atoi(u.Uid)
 	if err != nil {
 		fail(err)
 	}
-	return strings.TrimSpace(line)
+	s.gid, err = strconv.Atoi(u.Gid)
+	if err != nil {
+		fail(err)
+	}
 }
 
 func showSetupUsage() {
@@ -123,3 +248,17 @@ func showSetupUsage() {
 	fmt.Println("  pcopy setup")
 	syscall.Exit(1)
 }
+
+const systemdUnit = `[Unit]
+Description=pcopy server
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/pcopy serve
+Restart=on-failure
+User=pcopy
+Group=pcopy
+
+[Install]
+WantedBy=multi-user.target
+`

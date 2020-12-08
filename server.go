@@ -296,7 +296,7 @@ func (s *server) installScript() string {
 }
 
 func (s *server) joinScript() string {
-	template := strings.Join([]string{scriptHeader, installCommands, joinCommands}, "\n")
+	template := strings.Join([]string{scriptHeader, joinCommands}, "\n")
 	return s.replaceScriptVars(template)
 }
 
@@ -336,7 +336,7 @@ var invalidAuthError = errors.New("invalid auth")
 var invalidFileError = errors.New("invalid file name")
 
 const scriptHeader = `#!/bin/sh
-set -e
+set -eu
 `
 const notConfiguredCommands = `echo 'Server not configured to allow simple install.'
 echo 'If you are the administrator, set ServerAddr in config.'
@@ -350,11 +350,7 @@ const installCommands = `if [ ! -f /usr/bin/pcopy ]; then
   echo "Successfully installed /usr/bin/pcopy."
 fi
 `
-const joinInstructionsCommands = `echo "To join this server's clipboard, use the following command:"
-echo
-echo '  $ pcopy join ${serverAddr}'
-echo
-echo "For more help, type 'pcopy -help'."
+const joinInstructionsCommands = `echo "To join this clipboard, run 'pcopy join ${serverAddr}', or type 'pcopy -help' for more help'."
 `
 const joinCommands = `PCOPY_KEY=${key} /usr/bin/pcopy join -auto ${serverAddr}
 `

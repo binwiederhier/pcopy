@@ -32,6 +32,7 @@ release-snapshot:
 	goreleaser release --snapshot --skip-publish --rm-dist
 
 install:
+	sudo rm -f /usr/bin/pcopy
 	sudo cp -a dist/pcopy_linux_amd64/pcopy /usr/bin/pcopy
 
 clean: .PHONY
