@@ -38,7 +38,7 @@ func execInvite(args []string)  {
 }
 
 func parseInviteArgs(args []string) (*pcopy.Config, string) {
-	flags := flag.NewFlagSet("invite", flag.ExitOnError)
+	flags := flag.NewFlagSet("pcopy invite", flag.ExitOnError)
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
 	flags.Usage = func() { showInviteUsage(flags) }
 	if err := flags.Parse(args); err != nil {
@@ -75,12 +75,12 @@ func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key *
 		args = append(args, fmt.Sprintf("-H \"Authorization: %s\"", auth))
 	}
 	if certs == nil {
-		args = append(args, "-s")
+		args = append(args, "-sSL")
 	} else {
 		if hashes, err := calculatePublicKeyHashes(certs); err == nil {
-			args = append(args, "-sk", fmt.Sprintf("--pinnedpubkey %s", strings.Join(hashes, ";")))
+			args = append(args, "-sSLk", fmt.Sprintf("--pinnedpubkey %s", strings.Join(hashes, ";")))
 		} else {
-			args = append(args, "-sk")
+			args = append(args, "-sSLk")
 		}
 	}
 	return fmt.Sprintf("curl %s https://%s/%s", strings.Join(args, " "), serverAddr, cmd)

@@ -10,11 +10,31 @@ builds:
       - linux
     goarch:
       - amd64
+nfpms:
+  -
+    package_name: pcopy
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+    homepage: https://heckel.io/pcopy
+    maintainer: Philipp C. Heckel <philipp.heckel@gmail.com>
+    description: Cross-machine clipboard application
+    license: Apache 2.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    empty_folders:
+      - /etc/pcopy
+      - /var/cache/pcopy
+    files:
+      "init/pcopy.service": "/lib/systemd/system/pcopy.service"
+    symlinks:
+      /usr/bin/pcp: /usr/bin/pcopy
+      /usr/bin/ppaste: /usr/bin/pcopy
+    scripts:
+      postinstall: "scripts/postinst.sh"
+      postremove: "scripts/postrm.sh"
 archives:
   - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
       386: i386
       amd64: x86_64
 checksum:

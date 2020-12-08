@@ -12,7 +12,7 @@ import (
 )
 
 func execJoin(args []string) {
-	flags := flag.NewFlagSet("join", flag.ExitOnError)
+	flags := flag.NewFlagSet("pcopy join", flag.ExitOnError)
 	flags.Usage = func() { showJoinUsage(flags) }
 	force := flags.Bool("force", false, "Overwrite config if it already exists")
 	auto := flags.Bool("auto", false, "Automatically choose clipboard alias")

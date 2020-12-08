@@ -16,9 +16,9 @@ var (
 
 func main() {
 	if os.Args[0] == "pcp" {
-		execCopy(os.Args[1:])
+		execCopy("pcp", os.Args[1:])
 	} else if os.Args[0] == "ppaste" {
-		execPaste(os.Args[1:])
+		execPaste("ppaste", os.Args[1:])
 	} else {
 		flag.Usage = showUsage
 		flag.Parse()
@@ -32,9 +32,9 @@ func main() {
 
 		switch command {
 		case "copy":
-			execCopy(args)
+			execCopy("pcopy copy", args)
 		case "paste":
-			execPaste(args)
+			execPaste("pcopy paste", args)
 		case "serve":
 			execServe(args)
 		case "join":

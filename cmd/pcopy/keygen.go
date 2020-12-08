@@ -9,7 +9,7 @@ import (
 )
 
 func execKeygen(args []string) {
-	flags := flag.NewFlagSet("keygen", flag.ExitOnError)
+	flags := flag.NewFlagSet("pcopy keygen", flag.ExitOnError)
 	flags.Usage = showKeygenUsage
 	if err := flags.Parse(args); err != nil {
 		fail(err)

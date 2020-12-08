@@ -1,0 +1,12 @@
+[Unit]
+Description=pcopy server
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/pcopy serve
+Restart=on-failure
+User=pcopy
+Group=pcopy
+
+[Install]
+WantedBy=multi-user.target

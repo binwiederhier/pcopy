@@ -12,7 +12,7 @@ tbd
 the server via `sudo systemctl start pcopy` (or manually via `sudo -u pcopy pcopy serve`).
 
 **To join an existing clipboard**, simple run `pcopy join <host>>`:
-```
+```bash
 $ pcopy join pcopy.example.com
 Successfully joined clipboard, config written to ~/.config/pcopy/default.conf
 
@@ -20,8 +20,23 @@ You may now use 'pcp' and 'ppaste'. See 'pcopy -h' for usage details.
 To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.
 ```
 
-More details can be found on the help page:
+**Now you can start copying and pasting** by using `pcp` (`pcopy copy`) and `ppaste` (`pcopy paste`). Any connected
+client, regardless of what computer it's on, can copy/paste like this:
+
+```bash
+$ pcp < foo.txt            # Copies foo.txt to the default clipboard
+$ pcp bar < bar.txt        # Copies bar.txt to the default clipboard as 'bar'
+$ echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
+$ echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
+
+$ ppaste                   # Reads from the default clipboard and prints its contents
+$ ppaste bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'
+$ ppaste work:             # Reads from the 'work' clipboard and prints its contents
+$ ppaste work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'
 ```
+
+More details can be found on the help page:
+```bash 
 $ pcopy -help
 Usage: pcopy COMMAND [OPTION..] [ARG..]
 

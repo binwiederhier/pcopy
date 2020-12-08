@@ -33,7 +33,7 @@ type wizard struct {
 }
 
 func execSetup(args []string) {
-	flags := flag.NewFlagSet("setup", flag.ExitOnError)
+	flags := flag.NewFlagSet("pcopy setup", flag.ExitOnError)
 	configFile := flags.String("config", pcopy.DefaultServerConfigFile, "Config file this wizard will write")
 	flags.Usage = showSetupUsage
 	if err := flags.Parse(args); err != nil {

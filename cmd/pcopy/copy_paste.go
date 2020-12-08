@@ -10,8 +10,8 @@ import (
 	"syscall"
 )
 
-func execCopy(args []string) {
-	config, file := parseClientArgs("copy", args)
+func execCopy(cmd string, args []string) {
+	config, file := parseClientArgs(cmd, args)
 	client, err := pcopy.NewClient(config)
 	if err != nil {
 		fail(err)
@@ -22,8 +22,8 @@ func execCopy(args []string) {
 	}
 }
 
-func execPaste(args []string)  {
-	config, fileId := parseClientArgs("paste", args)
+func execPaste(cmd string, args []string)  {
+	config, fileId := parseClientArgs(cmd, args)
 	client, err := pcopy.NewClient(config)
 	if err != nil {
 		fail(err)
@@ -36,7 +36,7 @@ func execPaste(args []string)  {
 
 func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
-	flags.Usage = func() { showCopyPasteUsage(command, flags) }
+	flags.Usage = func() { showCopyPasteUsage(flags) }
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
 	certFile := flags.String("cert", "", "Certificate file to use for cert pinning")
 	serverAddr := flags.String("server", "", "Server address")
@@ -97,8 +97,8 @@ func parseClipboardAndFile(flags *flag.FlagSet, configFileOverride string) (stri
 	return clipboard, file
 }
 
-func showCopyPasteUsage(command string, flags *flag.FlagSet) {
-	if command == "copy" {
+func showCopyPasteUsage(flags *flag.FlagSet) {
+	if flags.Name() == "pcopy copy" || flags.Name() == "pcp" {
 		showCopyUsage(flags)
 	} else {
 		showPasteUsage(flags)
@@ -106,7 +106,7 @@ func showCopyPasteUsage(command string, flags *flag.FlagSet) {
 }
 
 func showCopyUsage(flags *flag.FlagSet) {
-	fmt.Println("Usage: pcopy copy [OPTIONS..] [[CLIPBOARD:]FILE]")
+	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]FILE]\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Description:")
 	fmt.Println("  Read from STDIN and copy to remote clipboard. FILE is the remote file name, and")
@@ -116,8 +116,10 @@ func showCopyUsage(flags *flag.FlagSet) {
 	fmt.Println("  /etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  pcopy copy < myfile.txt        # Copies myfile.txt to default clipboard & file")
-	fmt.Println("  echo hi | pcopy copy work:     # Copies 'hi' to default file in clipboard 'work'")
+	fmt.Printf("  %s < foo.txt            # Copies foo.txt to the default clipboard\n", flags.Name())
+	fmt.Printf("  %s bar < bar.txt        # Copies bar.txt to the default clipboard as 'bar'\n", flags.Name())
+	fmt.Printf("  echo hi | %s work:      # Copies 'hi' to the 'work' clipboard\n", flags.Name())
+	fmt.Printf("  echo ho | %s work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Options:")
 	flags.PrintDefaults()
@@ -127,7 +129,7 @@ func showCopyUsage(flags *flag.FlagSet) {
 }
 
 func showPasteUsage(flags *flag.FlagSet) {
-	fmt.Println("Usage: pcopy paste [OPTIONS..] [[CLIPBOARD:]FILE]")
+	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]FILE]\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Description:")
 	fmt.Println("  Write remote clipboard contents to STDOUT. FILE is the remote file name, and CLIPBOARD is")
@@ -137,8 +139,10 @@ func showPasteUsage(flags *flag.FlagSet) {
 	fmt.Println("  /etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  pcopy paste phil > phil.jpg    -- Reads file 'phil' from default clipboard to 'phil.jpg'")
-	fmt.Println("  pcopy paste work:dog           -- Reads file 'dog' from 'work' clipboard and prints it")
+	fmt.Printf("  %s                   # Reads from the default clipboard and prints its contents\n", flags.Name())
+	fmt.Printf("  %s bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'\n", flags.Name())
+	fmt.Printf("  %s work:             # Reads from the 'work' clipboard and prints its contents\n", flags.Name())
+	fmt.Printf("  %s work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Options:")
 	flags.PrintDefaults()

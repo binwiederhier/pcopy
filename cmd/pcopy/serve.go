@@ -10,7 +10,7 @@ import (
 )
 
 func execServe(args []string) {
-	flags := flag.NewFlagSet("serve", flag.ExitOnError)
+	flags := flag.NewFlagSet("pcopy serve", flag.ExitOnError)
 	flags.Usage = func() { showServeUsage(flags) }
 	configFileOverride := flags.String("config", "", "Alternate config file")
 	listenAddr := flags.String("listen", "", "Address and port to use to bind the server")
