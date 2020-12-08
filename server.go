@@ -59,7 +59,7 @@ func (s *server) checkConfig() error {
 }
 
 func (s *server) listenAndServeTLS() error {
-	http.HandleFunc("/", s.handleInfo)
+	http.HandleFunc("/info", s.handleInfo)
 	http.HandleFunc("/verify", s.handleVerify)
 	http.HandleFunc("/install", s.handleInstall)
 	http.HandleFunc("/join", s.handleJoin)

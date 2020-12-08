@@ -161,7 +161,7 @@ func (c *Client) addAuthHeader(req *http.Request, key *Key) error {
 }
 
 func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
-	resp, err := client.Get(fmt.Sprintf("https://%s/", c.config.ServerAddr))
+	resp, err := client.Get(fmt.Sprintf("https://%s/info", c.config.ServerAddr))
 	if err != nil {
 		return nil, err
 	}
