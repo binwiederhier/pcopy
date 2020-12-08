@@ -35,5 +35,9 @@ install:
 	sudo rm -f /usr/bin/pcopy
 	sudo cp -a dist/pcopy_linux_amd64/pcopy /usr/bin/pcopy
 
+install-deb:
+	sudo apt-get purge pcopy || true
+	sudo dpkg -i dist/*.deb
+
 clean: .PHONY
 	rm -rf dist

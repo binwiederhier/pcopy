@@ -83,6 +83,7 @@ func (s *server) clipboardPurger() {
 				if err := os.Remove(filepath.Join(s.config.ClipboardDir, f.Name())); err != nil {
 					log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
 				}
+				log.Printf("removed expired entry %s", f.Name())
 			}
 		}
 	}

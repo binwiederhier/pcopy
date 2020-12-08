@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	systemdFile = "/etc/systemd/system/pcopy.service"
+	serviceFile = "/lib/systemd/system/pcopy.service"
 	serviceUser = "pcopy"
 )
 
@@ -63,9 +63,7 @@ func execSetup(args []string) {
 	// TODO summary
 
 	// Do stuff
-	if setup.service {
-		setup.createUserAndGroup()
-	}
+	setup.createUserAndGroup()
 	setup.createClipboardDir()
 	setup.writeConfigFile()
 	setup.writeKeyAndCert()
@@ -137,12 +135,13 @@ func (s *wizard) readLine() string {
 }
 
 func (s *wizard) askService() {
-	fmt.Println("If your system supports systemd, installing the pcopy server as a service is recommended.")
-	fmt.Println("We'll also create a 'pcopy' user/group to run the service as.")
-	fmt.Print("Install systemd service [Y/n]?: ")
-	answer := strings.ToLower(s.readLine())
-	s.service = answer == "y" || answer == ""
-	fmt.Println()
+	if _, err := os.Stat(serviceFile); err != nil {
+		fmt.Println("If your system supports systemd, installing the pcopy server as a service is recommended.")
+		fmt.Print("Install systemd service [Y/n]?: ")
+		answer := strings.ToLower(s.readLine())
+		s.service = answer == "y" || answer == ""
+		fmt.Println()
+	}
 }
 
 func (s *wizard) createClipboardDir() {
@@ -150,10 +149,8 @@ func (s *wizard) createClipboardDir() {
 	if err := os.MkdirAll(s.clipboardDir, 0700); err != nil {
 		fail(err)
 	}
-	if s.service {
-		if err := os.Chown(s.clipboardDir, s.uid, s.gid); err != nil {
-			fail(err)
-		}
+	if err := os.Chown(s.clipboardDir, s.uid, s.gid); err != nil {
+		fail(err)
 	}
 	fmt.Println("ok")
 }
@@ -163,13 +160,11 @@ func (s *wizard) writeConfigFile() {
 	if err := s.config.WriteFile(s.configFile); err != nil {
 		fail(err)
 	}
-	if s.service {
-		if err := os.Chown(filepath.Dir(s.configFile), s.uid, -1); err != nil {
-			fail(err)
-		}
-		if err := os.Chown(s.configFile, s.uid, s.gid); err != nil {
-			fail(err)
-		}
+	if err := os.Chown(filepath.Dir(s.configFile), s.uid, s.gid); err != nil {
+		fail(err)
+	}
+	if err := os.Chown(s.configFile, s.uid, s.gid); err != nil {
+		fail(err)
 	}
 	fmt.Println("ok")
 }
@@ -185,10 +180,8 @@ func (s *wizard) writeKeyAndCert() {
 	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
 		fail(err)
 	}
-	if s.service {
-		if err := os.Chown(keyFile, s.uid, s.gid); err != nil {
-			fail(err)
-		}
+	if err := os.Chown(keyFile, s.uid, s.gid); err != nil {
+		fail(err)
 	}
 	fmt.Println("ok")
 
@@ -197,17 +190,15 @@ func (s *wizard) writeKeyAndCert() {
 	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
 		fail(err)
 	}
-	if s.service {
-		if err := os.Chown(certFile, s.uid, s.gid); err != nil {
-			fail(err)
-		}
+	if err := os.Chown(certFile, s.uid, s.gid); err != nil {
+		fail(err)
 	}
 	fmt.Println("ok")
 }
 
 func (s *wizard) writeSystemdUnit() {
-	fmt.Printf("Writing systemd unit file %s ... ", systemdFile)
-	if err := ioutil.WriteFile(systemdFile, []byte(systemdUnit), 0644); err != nil {
+	fmt.Printf("Writing systemd unit file %s ... ", serviceFile)
+	if err := ioutil.WriteFile(serviceFile, []byte(systemdUnit), 0644); err != nil {
 		fail(err)
 	}
 	fmt.Println("ok")
@@ -243,9 +234,11 @@ func showSetupUsage() {
 	fmt.Println()
 	fmt.Println("Description:")
 	fmt.Println("  Starts an interactive wizard to generate server config, private key and certificate.")
+	fmt.Println("  This command must be run as root, since it (potentially) creates users and installs a")
+	fmt.Println("  systemd service.")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  pcopy setup")
+	fmt.Println("  sudo pcopy setup")
 	syscall.Exit(1)
 }
 
