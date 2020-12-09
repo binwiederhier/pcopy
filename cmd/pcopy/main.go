@@ -45,6 +45,8 @@ func main() {
 			execKeygen(args)
 		case "setup":
 			execSetup(args)
+		case "list":
+			execList(args)
 		default:
 			showUsageWithError(fmt.Sprintf("invalid command: %s", command))
 		}
@@ -67,6 +69,7 @@ func showUsageWithError(error string) {
 	fmt.Println("  invite    Generate commands to invite others to join a clipboard")
 	fmt.Println("  copy      Read from STDIN and copy to remote clipboard")
 	fmt.Println("  paste     Write remote clipboard contents to STDOUT")
+	fmt.Println("  list      Lists all of the clipboards that have been joined")
 	fmt.Println()
 	fmt.Println("Server-side commands:")
 	fmt.Println("  setup     Initial setup wizard for a new pcopy server")

@@ -3,6 +3,7 @@ package pcopy
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -41,15 +42,17 @@ type Key struct {
 	Salt  []byte
 }
 
-var DefaultConfig = &Config{
-	ListenAddr:   fmt.Sprintf(":%d", DefaultPort),
-	ServerAddr:   "",
-	KeyFile:      "",
-	CertFile:     "",
-	Key:          nil,
-	ClipboardDir: DefaultClipboardDir,
-	MaxJoinAge:   DefaultMaxJoinAge,
-	ExpireAfter:  DefaultExpireAfter,
+func newConfig() *Config {
+	return &Config{
+		ListenAddr:   fmt.Sprintf(":%d", DefaultPort),
+		ServerAddr:   "",
+		KeyFile:      "",
+		CertFile:     "",
+		Key:          nil,
+		ClipboardDir: DefaultClipboardDir,
+		MaxJoinAge:   DefaultMaxJoinAge,
+		ExpireAfter:  DefaultExpireAfter,
+	}
 }
 
 func (c *Config) WriteFile(filename string) error {
@@ -120,6 +123,34 @@ func GetConfigFileForClipboard(clipboard string) string {
 	}
 }
 
+func ListConfigs() map[string]*Config {
+	configs := make(map[string]*Config, 0)
+	dirs := []string {
+		systemConfigDir,
+		ExpandHome(userConfigDir),
+	}
+	for _, dir := range dirs {
+		files, err := ioutil.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			if strings.HasSuffix(f.Name(), ".conf") {
+				filename := filepath.Join(dir, f.Name())
+				_, config, err := loadConfigFromFile(filename)
+				if err == nil {
+					configs[filename] = config
+				}
+			}
+		}
+	}
+	return configs
+}
+
+func ExtractClipboard(filename string) string {
+	return strings.TrimSuffix(filepath.Base(filename), ".conf")
+}
+
 func LoadConfig(file string, clipboard string) (string, *Config, error) {
 	if file != "" {
 		return loadConfigFromFile(file)
@@ -164,12 +195,12 @@ func loadConfigFromClipboardIfExists(alias string) (string, *Config, error) {
 		}
 		return file, config, nil
 	} else {
-		return "", DefaultConfig, nil
+		return "", newConfig(), nil
 	}
 }
 
 func loadConfigFromFile(filename string) (string, *Config, error) {
-	config := DefaultConfig
+	config := newConfig()
 	raw, err := loadRawConfig(filename)
 	if err != nil {
 		return "", nil, err
@@ -261,7 +292,6 @@ func loadRawConfig(filename string) (map[string]string, error) {
 
 	return rawconfig, nil
 }
-
 
 var templateFuncMap = template.FuncMap{"encodeKey": EncodeKey}
 var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse(
