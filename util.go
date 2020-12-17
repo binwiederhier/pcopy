@@ -128,6 +128,7 @@ func GenerateKeyAndCert() (string, string, error) {
 	cert := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{CommonName: certCommonName},
+		DNSNames: []string{certCommonName},
 		NotBefore: time.Now().Add(-time.Hour * 24 * 7),
 		NotAfter:  time.Now().Add(time.Hour * 24 * 365 * 3),
 	}
