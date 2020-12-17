@@ -29,14 +29,20 @@ func execCopy(cmd string, args []string) {
 }
 
 func execPaste(cmd string, args []string)  {
-	config, id, _ := parseClientArgs(cmd, args)
+	config, id, files := parseClientArgs(cmd, args)
 	client, err := pcopy.NewClient(config)
 	if err != nil {
 		fail(err)
 	}
 
-	if err := client.Paste(os.Stdout, id); err != nil {
-		fail(err)
+	if len(files) > 0 {
+		if err := client.PasteFiles(files[0], id); err != nil {
+			fail(err)
+		}
+	} else {
+		if err := client.Paste(os.Stdout, id); err != nil {
+			fail(err)
+		}
 	}
 }
 
@@ -143,11 +149,14 @@ func showCopyUsage(flags *flag.FlagSet) {
 }
 
 func showPasteUsage(flags *flag.FlagSet) {
-	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]ID]\n", flags.Name())
+	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]ID] [DIR]\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Description:")
-	fmt.Println("  Write remote clipboard contents to STDOUT. ID is the remote file name, and CLIPBOARD is")
-	fmt.Println("  the name of the clipboard (both default to 'default').")
+	fmt.Println("  Without DIR argument, this command write the remote clipboard contents to STDOUT. ID is the")
+	fmt.Println("  remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').")
+	fmt.Println()
+	fmt.Println("  If a DIR argument are passed, the command will assume the clipboard contents are a ZIP archive")
+	fmt.Println("  and will extract its contents for DIR. If DIR does not exist, it will be created.")
 	fmt.Println()
 	fmt.Println("  The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or")
 	fmt.Println("  /etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.")
@@ -157,6 +166,7 @@ func showPasteUsage(flags *flag.FlagSet) {
 	fmt.Printf("  %s bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'\n", flags.Name())
 	fmt.Printf("  %s work:             # Reads from the 'work' clipboard and prints its contents\n", flags.Name())
 	fmt.Printf("  %s work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'\n", flags.Name())
+	fmt.Printf("  %s : images/         # Extracts ZIP from default clipboard to folder images/\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Options:")
 	flags.PrintDefaults()

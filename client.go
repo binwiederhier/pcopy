@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Client struct {
@@ -85,6 +87,72 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 		return err
 	}
 
+	return nil
+}
+
+
+func (c *Client) PasteFiles(dir string, id string) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	tmpFile, err := ioutil.TempFile(dir, ".pcopy-paste.*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name())
+
+	f, err := os.OpenFile(tmpFile.Name(), os.O_RDWR | os.O_TRUNC, 0700)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := c.Paste(f, id); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	z, err := zip.OpenReader(tmpFile.Name())
+	if err != nil {
+		return err
+	}
+	defer z.Close()
+
+	for _, zf := range z.File {
+		filename := filepath.Join(dir, zf.Name)
+
+		if !strings.HasPrefix(filename, filepath.Clean(dir) + string(os.PathSeparator)) {
+			return fmt.Errorf("%s: illegal file path", filename) // ZipSlip, see https://snyk.io/research/zip-slip-vulnerability#go
+		}
+
+		if zf.FileInfo().IsDir() {
+			os.MkdirAll(filename, 0755)
+			continue
+		}
+
+		if err = os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+			return  err
+		}
+		outFile, err := os.OpenFile(filename, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, zf.Mode())
+		if err != nil {
+			return  err
+		}
+		entry, err := zf.Open()
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(outFile, entry)
+		outFile.Close()
+		entry.Close()
+		if err != nil {
+			return err
+		}
+	}
+	
 	return nil
 }
 
