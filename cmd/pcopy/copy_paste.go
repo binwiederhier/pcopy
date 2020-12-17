@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"heckel.io/pcopy"
 	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"syscall"
 )
@@ -118,22 +120,61 @@ func createZipReader(files []string) io.Reader {
 		defer z.Close()
 
 		for _, file := range files {
-			zf, err := z.Create(file)
-			if err != nil {
-				fail(err)
-			}
-			f, err := os.Open(file)
+			stat, err := os.Stat(file)
 			if err != nil {
 				fail(err)
 			}
 
-			if _, err := io.Copy(zf, f); err != nil {
-				fail(err)
+			if stat.IsDir() {
+				if err := addZipDir(z, file); err != nil {
+					fail(err)
+				}
+			} else {
+				if err := addZipFile(z, file, stat); err != nil {
+					fail(err)
+				}
 			}
 		}
 	}()
 
 	return pr
+}
+
+func addZipFile(z *zip.Writer, file string, stat os.FileInfo) error {
+	zf, err := z.CreateHeader(&zip.FileHeader{
+		Name: file,
+		Modified: stat.ModTime(),
+		Method: zip.Deflate,
+	})
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := io.Copy(zf, f); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addZipDir(z *zip.Writer, dir string) error {
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Printf("Skipping %s due to error: %s\n", path, err.Error())
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if err := addZipFile(z, path, info); err != nil {
+			log.Printf("Cannot add %s due to error: %s\n", path, err.Error())
+			return nil
+		}
+		return nil
+	})
 }
 
 func showCopyPasteUsage(flags *flag.FlagSet) {

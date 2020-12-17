@@ -7,7 +7,6 @@ import (
 )
 
 // TODO add progress bar when pcp or ppaste take to long, add -quiet option
-// TODO folder support
 // TODO print all error messages to STDERR
 
 var (
