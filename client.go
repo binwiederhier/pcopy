@@ -92,6 +92,8 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 
 
 func (c *Client) PasteFiles(dir string, id string) error {
+	// From: https://golangcode.com/unzip-files-in-go/
+	
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -152,7 +154,7 @@ func (c *Client) PasteFiles(dir string, id string) error {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
