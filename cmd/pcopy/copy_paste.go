@@ -1,40 +1,47 @@
 package main
 
 import (
+	"archive/zip"
 	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"heckel.io/pcopy"
+	"io"
+	"os"
 	"regexp"
 	"syscall"
 )
 
 func execCopy(cmd string, args []string) {
-	config, file := parseClientArgs(cmd, args)
+	config, id, files := parseClientArgs(cmd, args)
 	client, err := pcopy.NewClient(config)
 	if err != nil {
 		fail(err)
 	}
 
-	if err := client.Copy(os.Stdin, file); err != nil {
+	reader := io.Reader(os.Stdin)
+	if len(files) > 0 {
+		reader = createZipReader(files)
+	}
+
+	if err := client.Copy(reader, id); err != nil {
 		fail(err)
 	}
 }
 
 func execPaste(cmd string, args []string)  {
-	config, fileId := parseClientArgs(cmd, args)
+	config, id, _ := parseClientArgs(cmd, args)
 	client, err := pcopy.NewClient(config)
 	if err != nil {
 		fail(err)
 	}
 
-	if err := client.Paste(os.Stdout, fileId); err != nil {
+	if err := client.Paste(os.Stdout, id); err != nil {
 		fail(err)
 	}
 }
 
-func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
+func parseClientArgs(command string, args []string) (*pcopy.Config, string, []string) {
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
 	flags.Usage = func() { showCopyPasteUsage(flags) }
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
@@ -44,8 +51,8 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 		fail(err)
 	}
 
-	// Parse clipboard and file
-	clipboard, file := parseClipboardAndFile(flags, *configFileOverride)
+	// Parse clipboard and id
+	clipboard, id, files := parseClipboardAndId(flags, *configFileOverride)
 
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(*configFileOverride, clipboard)
@@ -72,17 +79,18 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string) {
 		}
 	}
 
-	return config, file
+	return config, id, files
 }
 
-func parseClipboardAndFile(flags *flag.FlagSet, configFileOverride string) (string, string) {
+func parseClipboardAndId(flags *flag.FlagSet, configFileOverride string) (string, string, []string) {
 	clipboard := pcopy.DefaultClipboard
-	file := pcopy.DefaultFile
+	id := pcopy.DefaultId
+	files := make([]string, 0)
 	if flags.NArg() > 0 {
-		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]+):)?([-_a-zA-Z0-9]*)$`)
+		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]*):)?([-_a-zA-Z0-9]*)$`)
 		parts := re.FindStringSubmatch(flags.Arg(0))
 		if len(parts) != 3 {
-			fail(errors.New("invalid argument, must be in format [CLIPBOARD:]FILE"))
+			fail(errors.New("invalid argument, must be in format [[CLIPBOARD]:]FILE"))
 		}
 		if parts[1] != "" {
 			if configFileOverride != "" {
@@ -91,10 +99,41 @@ func parseClipboardAndFile(flags *flag.FlagSet, configFileOverride string) (stri
 			clipboard = parts[1]
 		}
 		if parts[2] != "" {
-			file = parts[2]
+			id = parts[2]
 		}
 	}
-	return clipboard, file
+	if flags.NArg() > 1 {
+		files = flags.Args()[1:]
+	}
+	return clipboard, id, files
+}
+
+func createZipReader(files []string) io.Reader {
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+
+		z := zip.NewWriter(pw)
+		defer z.Close()
+
+		for _, file := range files {
+			zf, err := z.Create(file)
+			if err != nil {
+				fail(err)
+			}
+			f, err := os.Open(file)
+			if err != nil {
+				fail(err)
+			}
+
+			if _, err := io.Copy(zf, f); err != nil {
+				fail(err)
+			}
+		}
+	}()
+
+	return pr
 }
 
 func showCopyPasteUsage(flags *flag.FlagSet) {

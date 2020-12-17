@@ -24,13 +24,13 @@ func NewClient(config *Config) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Copy(reader io.Reader, fileId string) error {
+func (c *Client) Copy(reader io.Reader, id string) error {
 	client, err := c.newHttpClient(nil)
 	if err != nil {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, fileId)
+	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, id)
 	req, err := http.NewRequest(http.MethodPut, url, reader)
 	if err != nil {
 		return err
@@ -49,13 +49,13 @@ func (c *Client) Copy(reader io.Reader, fileId string) error {
 	return nil
 }
 
-func (c *Client) Paste(writer io.Writer, fileId string) error {
+func (c *Client) Paste(writer io.Writer, id string) error {
 	client, err := c.newHttpClient(nil)
 	if err != nil {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, fileId)
+	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, id)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ const (
 	DefaultServerConfigFile = "/etc/pcopy/server.conf"
 	DefaultClipboardDir     = "/var/cache/pcopy"
 	DefaultClipboard        = "default"
-	DefaultFile             = "default"
+	DefaultId               = "default"
 	DefaultMaxJoinAge       = time.Hour
 	DefaultExpireAfter      = time.Hour * 24 * 7
 
