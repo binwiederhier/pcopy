@@ -1,15 +1,11 @@
 package main
 
 import (
-	"archive/zip"
 	"errors"
 	"flag"
 	"fmt"
 	"heckel.io/pcopy"
-	"io"
-	"log"
 	"os"
-	"path/filepath"
 	"regexp"
 	"syscall"
 )
@@ -21,13 +17,14 @@ func execCopy(cmd string, args []string) {
 		fail(err)
 	}
 
-	reader := io.Reader(os.Stdin)
 	if len(files) > 0 {
-		reader = createZipReader(files)
-	}
-
-	if err := client.Copy(reader, id); err != nil {
-		fail(err)
+		if err := client.CopyFiles(files, id); err != nil {
+			fail(err)
+		}
+	} else {
+		if err := client.Copy(os.Stdin, id); err != nil {
+			fail(err)
+		}
 	}
 }
 
@@ -92,7 +89,7 @@ func parseClipboardAndId(flags *flag.FlagSet, configFileOverride string) (string
 		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]*):)?([-_a-zA-Z0-9]*)$`)
 		parts := re.FindStringSubmatch(flags.Arg(0))
 		if len(parts) != 3 {
-			fail(errors.New("invalid argument, must be in format [[CLIPBOARD]:]FILE"))
+			fail(errors.New("invalid argument, must be in format [[CLIPBOARD]:]ID"))
 		}
 		if parts[1] != "" {
 			if configFileOverride != "" {
@@ -110,73 +107,6 @@ func parseClipboardAndId(flags *flag.FlagSet, configFileOverride string) (string
 	return clipboard, id, files
 }
 
-func createZipReader(files []string) io.Reader {
-	pr, pw := io.Pipe()
-
-	go func() {
-		defer pw.Close()
-
-		z := zip.NewWriter(pw)
-		defer z.Close()
-
-		for _, file := range files {
-			stat, err := os.Stat(file)
-			if err != nil {
-				fail(err)
-			}
-
-			if stat.IsDir() {
-				if err := addZipDir(z, file); err != nil {
-					fail(err)
-				}
-			} else {
-				if err := addZipFile(z, file, stat); err != nil {
-					fail(err)
-				}
-			}
-		}
-	}()
-
-	return pr
-}
-
-func addZipFile(z *zip.Writer, file string, stat os.FileInfo) error {
-	zf, err := z.CreateHeader(&zip.FileHeader{
-		Name: file,
-		Modified: stat.ModTime(),
-		Method: zip.Deflate,
-	})
-	if err != nil {
-		return err
-	}
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err := io.Copy(zf, f); err != nil {
-		return err
-	}
-	return nil
-}
-
-func addZipDir(z *zip.Writer, dir string) error {
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			log.Printf("Skipping %s due to error: %s\n", path, err.Error())
-			return nil
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if err := addZipFile(z, path, info); err != nil {
-			log.Printf("Cannot add %s due to error: %s\n", path, err.Error())
-			return nil
-		}
-		return nil
-	})
-}
-
 func showCopyPasteUsage(flags *flag.FlagSet) {
 	if flags.Name() == "pcopy copy" || flags.Name() == "pcp" {
 		showCopyUsage(flags)
@@ -186,20 +116,24 @@ func showCopyPasteUsage(flags *flag.FlagSet) {
 }
 
 func showCopyUsage(flags *flag.FlagSet) {
-	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]FILE]\n", flags.Name())
+	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]ID] [FILE..]\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Description:")
-	fmt.Println("  Read from STDIN and copy to remote clipboard. FILE is the remote file name, and")
-	fmt.Println("  CLIPBOARD is the name of the clipboard (both default to 'default').")
+	fmt.Println("  Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is")
+	fmt.Println("  the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').")
+	fmt.Println()
+	fmt.Println("  If FILE arguments are passed, the command creates a ZIP archive of the passed files and copies")
+	fmt.Println("  it to the remote clipboard.")
 	fmt.Println()
 	fmt.Println("  The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or")
 	fmt.Println("  /etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Printf("  %s < foo.txt            # Copies foo.txt to the default clipboard\n", flags.Name())
-	fmt.Printf("  %s bar < bar.txt        # Copies bar.txt to the default clipboard as 'bar'\n", flags.Name())
+	fmt.Printf("  %s < foo.txt            # Copies contents of foo.txt to the default clipboard\n", flags.Name())
+	fmt.Printf("  %s bar < bar.txt        # Copies contents of bar.txt to the default clipboard as 'bar'\n", flags.Name())
 	fmt.Printf("  echo hi | %s work:      # Copies 'hi' to the 'work' clipboard\n", flags.Name())
 	fmt.Printf("  echo ho | %s work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'\n", flags.Name())
+	fmt.Printf("  %s : img1/ img2/        # Creates ZIP from two folders and copies it to the default clipboard\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Options:")
 	flags.PrintDefaults()
@@ -209,10 +143,10 @@ func showCopyUsage(flags *flag.FlagSet) {
 }
 
 func showPasteUsage(flags *flag.FlagSet) {
-	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]FILE]\n", flags.Name())
+	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]ID]\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Description:")
-	fmt.Println("  Write remote clipboard contents to STDOUT. FILE is the remote file name, and CLIPBOARD is")
+	fmt.Println("  Write remote clipboard contents to STDOUT. ID is the remote file name, and CLIPBOARD is")
 	fmt.Println("  the name of the clipboard (both default to 'default').")
 	fmt.Println()
 	fmt.Println("  The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or")
