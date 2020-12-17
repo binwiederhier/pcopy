@@ -141,6 +141,12 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, fileId)
 
 	if r.Method == http.MethodGet {
+		stat, err := os.Stat(file)
+		if err != nil {
+			s.fail(w, r, http.StatusNotFound, err)
+			return
+		}
+		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
 		f, err := os.Open(file)
 		if err != nil {
 			s.fail(w, r, http.StatusNotFound, err)

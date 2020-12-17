@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -30,14 +31,14 @@ func NewClient(config *Config) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Copy(reader io.Reader, id string) error {
+func (c *Client) Copy(reader io.ReadCloser, id string) error {
 	client, err := c.newHttpClient(nil)
 	if err != nil {
 		return err
 	}
 
 	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, id)
-	req, err := http.NewRequest(http.MethodPut, url, reader)
+	req, err := http.NewRequest(http.MethodPut, url, c.withProgressReader(reader, -1))
 	if err != nil {
 		return err
 	}
@@ -83,17 +84,25 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 		return errors.New(resp.Status)
 	}
 
-	if _, err := io.Copy(writer, resp.Body); err != nil {
+	var total int
+	total, err = strconv.Atoi(resp.Header.Get("Length"))
+	if err != nil {
+		total = 0
+	}
+
+	reader := c.withProgressReader(resp.Body, int64(total))
+	defer reader.Close()
+
+	if _, err := io.Copy(writer, reader); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-
 func (c *Client) PasteFiles(dir string, id string) error {
 	// From: https://golangcode.com/unzip-files-in-go/
-	
+
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -238,6 +247,14 @@ func (c *Client) addAuthHeader(req *http.Request, key *Key) error {
 	return nil
 }
 
+func (c *Client) withProgressReader(reader io.ReadCloser, total int64) io.ReadCloser {
+	if c.config.ProgressFunc != nil {
+		return newProgressReader(reader, total, c.config.ProgressFunc)
+	} else {
+		return reader
+	}
+}
+
 func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
 	resp, err := client.Get(fmt.Sprintf("https://%s/info", c.config.ServerAddr))
 	if err != nil {
@@ -295,7 +312,7 @@ func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 	}, nil
 }
 
-func (c *Client) createZipReader(files []string) io.Reader {
+func (c *Client) createZipReader(files []string) io.ReadCloser {
 	pr, pw := io.Pipe()
 
 	go func() {

@@ -7,6 +7,7 @@ import (
 	"heckel.io/pcopy"
 	"os"
 	"regexp"
+	"strings"
 	"syscall"
 )
 
@@ -52,6 +53,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string, []st
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
 	certFile := flags.String("cert", "", "Certificate file to use for cert pinning")
 	serverAddr := flags.String("server", "", "Server address")
+	quiet := flags.Bool("quiet", false, "Do not output progress")
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}
@@ -76,6 +78,24 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string, []st
 	}
 	if *certFile != "" {
 		config.CertFile = *certFile
+	}
+	if !*quiet {
+		previousProgressLen := 0
+		config.ProgressFunc = func(processed int64, total int64) {
+			if processed == -1 {
+				fmt.Printf("\r%s\r", strings.Repeat(" ", previousProgressLen))
+			} else {
+				var progress string
+				if total > 0 {
+					progress = fmt.Sprintf("%s / %s (%.f%%)", pcopy.BytesToHuman(processed),
+						pcopy.BytesToHuman(total), float64(processed)/float64(total)*100)
+				} else {
+					progress = pcopy.BytesToHuman(processed)
+				}
+				previousProgressLen = len(progress)
+				fmt.Printf("\r%s", progress)
+			}
+		}
 	}
 	if os.Getenv("PCOPY_KEY") != "" {
 		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))

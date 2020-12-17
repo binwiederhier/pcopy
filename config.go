@@ -35,12 +35,15 @@ type Config struct {
 	ClipboardDir string
 	MaxJoinAge   time.Duration     // Max age in seconds for join HMAC authorization to time out
 	ExpireAfter  time.Duration
+	ProgressFunc ProgressFunc
 }
 
 type Key struct {
 	Bytes []byte
 	Salt  []byte
 }
+
+type ProgressFunc func(processed int64, total int64)
 
 func newConfig() *Config {
 	return &Config{
