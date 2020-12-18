@@ -80,22 +80,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string, []st
 		config.CertFile = *certFile
 	}
 	if !*quiet {
-		previousProgressLen := 0
-		config.ProgressFunc = func(processed int64, total int64) {
-			if processed == -1 {
-				fmt.Printf("\r%s\r", strings.Repeat(" ", previousProgressLen))
-			} else {
-				var progress string
-				if total > 0 {
-					progress = fmt.Sprintf("%s / %s (%.f%%)", pcopy.BytesToHuman(processed),
-						pcopy.BytesToHuman(total), float64(processed)/float64(total)*100)
-				} else {
-					progress = pcopy.BytesToHuman(processed)
-				}
-				previousProgressLen = len(progress)
-				fmt.Printf("\r%s", progress)
-			}
-		}
+		config.ProgressFunc = progressOutput
 	}
 	if os.Getenv("PCOPY_KEY") != "" {
 		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
@@ -131,6 +116,26 @@ func parseClipboardAndId(flags *flag.FlagSet, configFileOverride string) (string
 		files = flags.Args()[1:]
 	}
 	return clipboard, id, files
+}
+
+var previousProgressLen int
+func progressOutput(processed int64, total int64) {
+	if processed == -1 {
+		fmt.Printf("\r%s\r", strings.Repeat(" ", previousProgressLen))
+	} else {
+		var progress string
+		if total > 0 {
+			progress = fmt.Sprintf("%s / %s (%.f%%)", pcopy.BytesToHuman(processed),
+				pcopy.BytesToHuman(total), float64(processed)/float64(total)*100)
+		} else {
+			progress = pcopy.BytesToHuman(processed)
+		}
+		fmt.Printf("\r%s", progress)
+		if len(progress) < previousProgressLen {
+			fmt.Print(strings.Repeat(" ", previousProgressLen - len(progress)))
+		}
+		previousProgressLen = len(progress)
+	}
 }
 
 func showCopyPasteUsage(flags *flag.FlagSet) {
