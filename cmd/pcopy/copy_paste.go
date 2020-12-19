@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
 	"heckel.io/pcopy"
+	"io"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -23,10 +26,38 @@ func execCopy(cmd string, args []string) {
 			fail(err)
 		}
 	} else {
-		if err := client.Copy(os.Stdin, id); err != nil {
+		stat, err := os.Stdin.Stat()
+		if err != nil {
+			fail(err)
+		}
+
+		var reader io.ReadCloser
+		if (stat.Mode() & os.ModeCharDevice) == 0 {
+			reader = os.Stdin
+		} else {
+			reader = createInteractiveReader()
+		}
+
+		if err := client.Copy(reader, id); err != nil {
 			fail(err)
 		}
 	}
+}
+
+func createInteractiveReader() io.ReadCloser {
+	fmt.Println("(Reading from STDIN, two empty lines will send)")
+	fmt.Println()
+
+	lines := make([]string, 0)
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+		if len(lines) >= 2 && lines[len(lines)-1] == "" && lines[len(lines)-2] == "" {
+			break
+		}
+	}
+	content := strings.Join(lines[:len(lines)-1], "\n")
+	return ioutil.NopCloser(strings.NewReader(content))
 }
 
 func execPaste(cmd string, args []string)  {
