@@ -27,8 +27,9 @@ func execList(args []string)  {
 		for filename, config := range pcopy.ListConfigs() {
 			clipboard := pcopy.ExtractClipboard(filename)
 			shortName := pcopy.CollapseHome(filename)
+			serverAddr := pcopy.CollapseServerAddr(config.ServerAddr)
 			clipboardMaxLen = int(math.Max(float64(clipboardMaxLen), float64(len(clipboard))))
-			serverAddrMaxLen = int(math.Max(float64(serverAddrMaxLen), float64(len(config.ServerAddr))))
+			serverAddrMaxLen = int(math.Max(float64(serverAddrMaxLen), float64(len(serverAddr))))
 			configFileMaxLen = int(math.Max(float64(configFileMaxLen), float64(len(shortName))))
 		}
 
@@ -38,7 +39,8 @@ func execList(args []string)  {
 		for filename, config := range pcopy.ListConfigs() {
 			clipboard := pcopy.ExtractClipboard(filename)
 			shortName := pcopy.CollapseHome(filename)
-			fmt.Printf(lineFmt, clipboard, config.ServerAddr, shortName)
+			serverAddr := pcopy.CollapseServerAddr(config.ServerAddr)
+			fmt.Printf(lineFmt, clipboard, serverAddr, shortName)
 		}
 	} else {
 		fmt.Println("No clipboards found. You can use 'pcopy join' to connect to existing clipboards.")

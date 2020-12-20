@@ -169,6 +169,10 @@ func ExpandServerAddr(serverAddr string) string {
 	return serverAddr
 }
 
+func CollapseServerAddr(serverAddr string) string {
+	return strings.TrimSuffix(serverAddr,fmt.Sprintf(":%d", DefaultPort))
+}
+
 func DefaultCertFile(configFile string, mustExist bool) string {
 	return defaultFileWithNewExt(".crt", configFile, mustExist)
 }
