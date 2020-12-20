@@ -6,15 +6,17 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"net/http"
-	"os"
 	"heckel.io/pcopy"
+	"os"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func execInvite(args []string)  {
-	config, clipboard := parseInviteArgs(args)
+	config, clipboard, ttl := parseInviteArgs(args)
+
+	// FIXME Fail when clipboard that is passed is invalid
 
 	var certs []*x509.Certificate
 	if config.CertFile != "" {
@@ -29,17 +31,18 @@ func execInvite(args []string)  {
 	fmt.Printf("# Instructions for clipboard '%s'\n", clipboard)
 	fmt.Println()
 	fmt.Println("# Install pcopy on other computers (as root):")
-	fmt.Printf("%s | sudo sh\n", curlCommand("install", config.ServerAddr, certs, nil))
+	fmt.Printf("%s | sudo sh\n", curlCommand("install", config, certs, 0))
 
 	fmt.Println()
 	fmt.Println("# Join this clipboard on other computers:")
-	fmt.Printf("%s | sh\n", curlCommand("join", config.ServerAddr, certs, config.Key))
+	fmt.Printf("%s | sh\n", curlCommand("join", config, certs, ttl))
 	fmt.Println()
 }
 
-func parseInviteArgs(args []string) (*pcopy.Config, string) {
+func parseInviteArgs(args []string) (*pcopy.Config, string, time.Duration) {
 	flags := flag.NewFlagSet("pcopy invite", flag.ExitOnError)
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
+	ttl := flags.Duration("ttl", time.Hour * 24, "Defines the commands are valid for, only protected clipboards")
 	flags.Usage = func() { showInviteUsage(flags) }
 	if err := flags.Parse(args); err != nil {
 		fail(err)
@@ -62,18 +65,11 @@ func parseInviteArgs(args []string) (*pcopy.Config, string) {
 		config.CertFile = pcopy.DefaultCertFile(configFile, true)
 	}
 
-	return config, clipboard
+	return config, clipboard, *ttl
 }
 
-func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key *pcopy.Key) string {
+func curlCommand(cmd string, config *pcopy.Config, certs []*x509.Certificate, ttl time.Duration) string {
 	args := make([]string, 0)
-	if key != nil {
-		auth, err := pcopy.GenerateAuthHMAC(key.Bytes, http.MethodGet, fmt.Sprintf("/%s", cmd))
-		if err != nil {
-			fail(err)
-		}
-		args = append(args, fmt.Sprintf("-H \"Authorization: %s\"", auth))
-	}
 	if certs == nil {
 		args = append(args, "-sSL")
 	} else {
@@ -83,7 +79,12 @@ func curlCommand(cmd string, serverAddr string, certs []*x509.Certificate, key *
 			args = append(args, "-sSLk")
 		}
 	}
-	return fmt.Sprintf("curl %s https://%s/%s", strings.Join(args, " "), serverAddr, cmd)
+	path := fmt.Sprintf("/%s", cmd)
+	url, err := pcopy.GenerateUrl(config, path, ttl)
+	if err != nil {
+		fail(err)
+	}
+	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url)
 }
 
 func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {
@@ -114,8 +115,9 @@ func showInviteUsage(flags *flag.FlagSet) {
 	fmt.Println("  /etc/pcopy/$CLIPBOARD.conf. If not config exists, it will fail.")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  pcopy invite         # Generates links for the default clipboard")
-	fmt.Println("  pcopy invite work    # Generates links for the clipboard called 'work'")
+	fmt.Println("  pcopy invite          # Generates commands for the default clipboard")
+	fmt.Println("  pcopy invite -ttl 1h  # Generates commands for the default clipboard, valid for only 1h")
+	fmt.Println("  pcopy invite work     # Generates commands for the clipboard called 'work'")
 	fmt.Println()
 	fmt.Println("Options:")
 	flags.PrintDefaults()

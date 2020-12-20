@@ -23,15 +23,17 @@ import (
 
 const (
 	purgerTicketInterval = time.Second * 10
-	maxAuthRequestAge = time.Minute
+	defaultMaxAuthAge    = time.Minute
+	noAuthRequestAge     = 0
 )
 
 var (
-	hmacAuthRegex         = regexp.MustCompile(`^HMAC (\d+) (.+)$`)
-	hmacAuthFormat        = "HMAC %d %s"
+	hmacAuthFormat        = "HMAC %d %d %s" // timestamp ttl b64-hmac
+	hmacAuthRegex         = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	hmacAuthOverrideParam = "a"
-	clipboardRegex        = regexp.MustCompile(`^/c(?:lipboard)?/([-_a-zA-Z0-9]+)$`)
-	clipboardShortFormat  = "/c/%s"
+	clipboardRegex        = regexp.MustCompile(`^/c(?:/([-_a-zA-Z0-9]*))$`)
+	clipboardPathFormat   = "/c/%s"
+	clipboardDefaultPath  = "/c"
 )
 
 type server struct {
@@ -71,8 +73,8 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/install", s.handleInstall)
 	http.HandleFunc("/join", s.handleJoin)
 	http.HandleFunc("/download", s.handleDownload)
-	http.HandleFunc("/clipboard/", s.handleClipboard)
-	http.HandleFunc("/c/", s.handleClipboard) // For short links
+	http.HandleFunc("/c/", s.handleClipboard)
+	http.HandleFunc("/c", s.handleClipboard)
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -118,7 +120,7 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r, maxAuthRequestAge); err != nil {
+	if err := s.authorize(r); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -127,7 +129,7 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r, maxAuthRequestAge); err != nil {
+	if err := s.authorize(r); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -139,13 +141,14 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var id string
 	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
 	if matches == nil {
-		s.fail(w, r, http.StatusBadRequest, invalidFileError)
-		return
+		id = DefaultId
+	} else {
+		id = matches[1]
 	}
-	fileId := matches[1]
-	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, fileId)
+	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, id)
 
 	if r.Method == http.MethodGet {
 		stat, err := os.Stat(file)
@@ -225,7 +228,7 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r, s.config.MaxJoinAge); err != nil {
+	if err := s.authorize(r); err != nil {
 		s.fail(w, r, http.StatusUnauthorized, err)
 		return
 	}
@@ -245,7 +248,7 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
+func (s *server) authorize(r *http.Request) error {
 	if s.config.Key == nil {
 		return nil
 	}
@@ -268,18 +271,24 @@ func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
 
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
-		log.Printf("%s - %s %s - hmac number conversion: %w", r.RemoteAddr, r.Method, r.RequestURI, err)
+		log.Printf("%s - %s %s - hmac timestamp conversion: %w", r.RemoteAddr, r.Method, r.RequestURI, err)
 		return invalidAuthError
 	}
 
-	hash, err := base64.StdEncoding.DecodeString(matches[2])
+	ttlSecs, err := strconv.Atoi(matches[2])
+	if err != nil {
+		log.Printf("%s - %s %s - hmac ttl conversion: %w", r.RemoteAddr, r.Method, r.RequestURI, err)
+		return invalidAuthError
+	}
+
+	hash, err := base64.StdEncoding.DecodeString(matches[3])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return invalidAuthError
 	}
 
 	// Recalculate HMAC
-	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, r.Method, r.URL.Path))
+	data := []byte(fmt.Sprintf("%d:%d:%s:%s", timestamp, ttlSecs, r.Method, r.URL.Path))
 	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
 		log.Printf("%s - %s %s - hmac calculation: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
@@ -294,6 +303,10 @@ func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
 	}
 
 	// Compare timestamp (to prevent replay attacks)
+	maxAge := defaultMaxAuthAge
+	if ttlSecs > 0 {
+		maxAge = time.Second * time.Duration(ttlSecs)
+	}
 	if maxAge > 0 {
 		age := time.Now().Sub(time.Unix(int64(timestamp), 0))
 		if age > maxAge {
@@ -308,6 +321,7 @@ func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
 func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
 	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
+	w.Write([]byte(fmt.Sprintf("%d", code)))
 }
 
 func(s *server) notConfiguredScript() string {
@@ -357,7 +371,6 @@ var keyFileMissingError = errors.New("private key file missing, add 'KeyFile' to
 var certFileMissingError = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
 var clipboardDirNotWritableError = errors.New("clipboard dir not writable by user")
 var invalidAuthError = errors.New("invalid auth")
-var invalidFileError = errors.New("invalid file name")
 
 const scriptHeader = `#!/bin/sh
 set -eu

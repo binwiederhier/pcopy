@@ -23,9 +23,14 @@ import (
 	"time"
 )
 
-const keyLen = 32
-const saltLen = 10
-const pbkdfIter = 10000
+const (
+	keyLen = 32
+	saltLen = 10
+	pbkdfIter = 10000
+
+	certNotBeforeAge = -time.Hour * 24 * 7 // ~ 1 week
+	certNotAfterAge  = time.Hour * 24 * 365 * 3 // ~ 3 years
+)
 
 func DeriveKey(password []byte, salt []byte) *Key {
 	return &Key{
@@ -109,16 +114,17 @@ func LoadCertsFromFile(file string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func GenerateAuthHMAC(key []byte, method string, path string) (string, error) {
+func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration) (string, error) {
 	timestamp := time.Now().Unix()
-	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, method, path))
+	ttlSecs := int(ttl.Seconds())
+	data := []byte(fmt.Sprintf("%d:%d:%s:%s", timestamp, ttlSecs, method, path))
 	hash := hmac.New(sha256.New, key)
 	if _, err := hash.Write(data); err != nil {
 		return "", err
 	}
 
 	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	return fmt.Sprintf(hmacAuthFormat, timestamp, hashBase64), nil
+	return fmt.Sprintf(hmacAuthFormat, timestamp, ttlSecs, hashBase64), nil
 }
 
 func GenerateKeyAndCert() (string, string, error) {
@@ -138,8 +144,8 @@ func GenerateKeyAndCert() (string, string, error) {
 		SerialNumber: serial,
 		Subject: pkix.Name{CommonName: certCommonName},
 		DNSNames: []string{certCommonName},
-		NotBefore: time.Now().Add(-time.Hour * 24 * 7),
-		NotAfter:  time.Now().Add(time.Hour * 24 * 365 * 3),
+		NotBefore: time.Now().Add(certNotBeforeAge),
+		NotAfter:  time.Now().Add(certNotAfterAge),
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &cert, &cert, &key.PublicKey, key)
@@ -179,17 +185,26 @@ func CollapseHome(path string) string {
 	}
 }
 
-func GenerateUrl(config *Config, id string) (string, error) {
-	path := fmt.Sprintf(clipboardShortFormat, id)
+func GenerateUrl(config *Config, path string, ttl time.Duration) (string, error) {
 	url := fmt.Sprintf("https://%s%s", config.ServerAddr, path)
 	if config.Key != nil {
-		auth, err := GenerateAuthHMAC(config.Key.Bytes, http.MethodGet, path)
+		auth, err := GenerateAuthHMAC(config.Key.Bytes, http.MethodGet, path, ttl)
 		if err != nil {
 			return "", err
 		}
 		url = fmt.Sprintf("%s?%s=%s", url, hmacAuthOverrideParam, base64.StdEncoding.EncodeToString([]byte(auth)))
 	}
 	return url, nil
+}
+
+func GenerateClipUrl(config *Config, id string, ttl time.Duration) (string, error) {
+	var path string
+	if id == DefaultId {
+		path = clipboardDefaultPath
+	} else {
+		path = fmt.Sprintf(clipboardPathFormat, id)
+	}
+	return GenerateUrl(config, path, ttl)
 }
 
 // https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/

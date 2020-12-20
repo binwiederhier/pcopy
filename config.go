@@ -19,7 +19,6 @@ const (
 	DefaultClipboardDir     = "/var/cache/pcopy"
 	DefaultClipboard        = "default"
 	DefaultId               = "default"
-	DefaultMaxJoinAge       = time.Hour
 	DefaultExpireAfter      = time.Hour * 24 * 7
 
 	systemConfigDir = "/etc/pcopy"
@@ -33,7 +32,6 @@ type Config struct {
 	CertFile     string
 	Key          *Key
 	ClipboardDir string
-	MaxJoinAge   time.Duration     // Max age in seconds for join HMAC authorization to time out
 	ExpireAfter  time.Duration
 	ProgressFunc ProgressFunc
 }
@@ -53,7 +51,6 @@ func newConfig() *Config {
 		CertFile:     "",
 		Key:          nil,
 		ClipboardDir: DefaultClipboardDir,
-		MaxJoinAge:   DefaultMaxJoinAge,
 		ExpireAfter:  DefaultExpireAfter,
 	}
 }
@@ -253,14 +250,6 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		}
 	}
 
-	maxJoinAge, ok := raw["MaxJoinAge"]
-	if ok {
-		config.MaxJoinAge, err = time.ParseDuration(maxJoinAge)
-		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'MaxJoinAge': %w", err)
-		}
-	}
-
 	expireAfter, ok := raw["ExpireAfter"]
 	if ok {
 		config.ExpireAfter, err = time.ParseDuration(expireAfter)
@@ -376,15 +365,5 @@ var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse
 # Default: 7d  
 #
 {{if .ExpireAfter}}ExpireAfter {{.ExpireAfter}}{{else}}# ExpireAfter 7d{{end}}
-
-# Duration for which invitation/join requests are valid. This defines how long the command generated
-# by 'pcopy invite' is valid for. To disable, set to 0.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  <number>(hms)
-# Default: 1h
-#
-{{if .MaxJoinAge}}MaxJoinAge {{.MaxJoinAge}}{{else}}# MaxJoinAge 1h{{end}}
 
 `))

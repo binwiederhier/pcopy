@@ -37,7 +37,8 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, id)
+	path := fmt.Sprintf(clipboardPathFormat, id)
+	url := fmt.Sprintf("https://%s%s", c.config.ServerAddr, path)
 	req, err := http.NewRequest(http.MethodPut, url, c.withProgressReader(reader, -1))
 	if err != nil {
 		return err
@@ -66,7 +67,8 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/clipboard/%s", c.config.ServerAddr, id)
+	path := fmt.Sprintf(clipboardPathFormat, id)
+	url := fmt.Sprintf("https://%s%s", c.config.ServerAddr, path)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -238,7 +240,7 @@ func (c *Client) addAuthHeader(req *http.Request, key *Key) error {
 		return nil // No auth configured
 	}
 
-	auth, err := GenerateAuthHMAC(key.Bytes, req.Method, req.URL.Path) // RequestURI is empty!
+	auth, err := GenerateAuthHMAC(key.Bytes, req.Method, req.URL.Path, noAuthRequestAge) // RequestURI is empty!
 	if err != nil {
 		return err
 	}
