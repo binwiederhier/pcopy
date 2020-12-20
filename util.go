@@ -16,6 +16,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"io/ioutil"
 	"math/big"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -117,16 +118,24 @@ func GenerateAuthHMAC(key []byte, method string, path string) (string, error) {
 	}
 
 	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	return fmt.Sprintf("HMAC %d %s", timestamp, hashBase64), nil
+	return fmt.Sprintf(hmacAuthFormat, timestamp, hashBase64), nil
 }
 
 func GenerateKeyAndCert() (string, string, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	if err != nil {
-		return "", "", nil
+		return "", "", err
 	}
+
+	max := new(big.Int)
+	max.Exp(big.NewInt(2), big.NewInt(130), nil).Sub(max, big.NewInt(1))
+	serial, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return "", "", err
+	}
+
 	cert := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: serial,
 		Subject: pkix.Name{CommonName: certCommonName},
 		DNSNames: []string{certCommonName},
 		NotBefore: time.Now().Add(-time.Hour * 24 * 7),
@@ -135,22 +144,22 @@ func GenerateKeyAndCert() (string, string, error) {
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &cert, &cert, &key.PublicKey, key)
 	if err != nil {
-		return "", "", nil
+		return "", "", err
 	}
 
 	out := &bytes.Buffer{}
 	if err := pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		return "", "", nil
+		return "", "", err
 	}
 	pemCert := out.String()
 
 	out.Reset()
 	b, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
-		return "", "", nil
+		return "", "", err
 	}
 	if err := pem.Encode(out, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}); err != nil {
-		return "", "", nil
+		return "", "", err
 	}
 	pemKey := out.String()
 
@@ -168,6 +177,19 @@ func CollapseHome(path string) string {
 	} else {
 		return path
 	}
+}
+
+func GenerateUrl(config *Config, id string) (string, error) {
+	path := fmt.Sprintf(clipboardShortFormat, id)
+	url := fmt.Sprintf("https://%s%s", config.ServerAddr, path)
+	if config.Key != nil {
+		auth, err := GenerateAuthHMAC(config.Key.Bytes, http.MethodGet, path)
+		if err != nil {
+			return "", err
+		}
+		url = fmt.Sprintf("%s?%s=%s", url, hmacAuthOverrideParam, base64.StdEncoding.EncodeToString([]byte(auth)))
+	}
+	return url, nil
 }
 
 // https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/

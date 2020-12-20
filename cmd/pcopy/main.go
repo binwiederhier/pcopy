@@ -7,6 +7,12 @@ import (
 )
 
 // TODO print all error messages to STDERR
+// TODO web ui, with drag and drop
+// TODO TTL for "pcopy link" URLs
+// TODO go1.16 with embed stuff
+// TODO Let's Encrypt certs
+// TODO max file size for total cache
+// TODO max file size per file
 
 var (
 	version = "dev"
@@ -47,6 +53,8 @@ func main() {
 			execSetup(args)
 		case "list":
 			execList(args)
+		case "link":
+			execLink(args)
 		default:
 			showUsageWithError(fmt.Sprintf("invalid command: %s", command))
 		}
@@ -65,11 +73,12 @@ func showUsageWithError(error string) {
 	fmt.Println("Usage: pcopy COMMAND [OPTION..] [ARG..]")
 	fmt.Println()
 	fmt.Println("Client-side commands:")
+	fmt.Println("  copy      Read from STDIN/file(s) and copy to remote clipboard")
+	fmt.Println("  paste     Write remote clipboard contents to STDOUT/file(s)")
 	fmt.Println("  join      Join a remote clipboard")
-	fmt.Println("  invite    Generate commands to invite others to join a clipboard")
-	fmt.Println("  copy      Read from STDIN and copy to remote clipboard")
-	fmt.Println("  paste     Write remote clipboard contents to STDOUT")
 	fmt.Println("  list      Lists all of the clipboards that have been joined")
+	fmt.Println("  invite    Generate commands to invite others to join a clipboard")
+	fmt.Println("  link      Generate direct download link to clipboard content")
 	fmt.Println()
 	fmt.Println("Server-side commands:")
 	fmt.Println("  setup     Initial setup wizard for a new pcopy server")

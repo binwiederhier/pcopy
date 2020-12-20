@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,6 +24,14 @@ import (
 const (
 	purgerTicketInterval = time.Second * 10
 	maxAuthRequestAge = time.Minute
+)
+
+var (
+	hmacAuthRegex         = regexp.MustCompile(`^HMAC (\d+) (.+)$`)
+	hmacAuthFormat        = "HMAC %d %s"
+	hmacAuthOverrideParam = "a"
+	clipboardRegex        = regexp.MustCompile(`^/c(?:lipboard)?/([-_a-zA-Z0-9]+)$`)
+	clipboardShortFormat  = "/c/%s"
 )
 
 type server struct {
@@ -65,6 +72,7 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/join", s.handleJoin)
 	http.HandleFunc("/download", s.handleDownload)
 	http.HandleFunc("/clipboard/", s.handleClipboard)
+	http.HandleFunc("/c/", s.handleClipboard) // For short links
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -131,8 +139,7 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	re := regexp.MustCompile(`^/clipboard/([-_a-zA-Z0-9]+)$`)
-	matches := re.FindStringSubmatch(r.RequestURI)
+	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
 	if matches == nil {
 		s.fail(w, r, http.StatusBadRequest, invalidFileError)
 		return
@@ -243,8 +250,17 @@ func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
 		return nil
 	}
 
-	re := regexp.MustCompile(`^HMAC (\d+) (.+)$`)
-	matches := re.FindStringSubmatch(r.Header.Get("Authorization"))
+	auth := r.Header.Get("Authorization")
+	if encodedQueryAuth, ok := r.URL.Query()[hmacAuthOverrideParam]; ok && len(encodedQueryAuth) > 0 {
+		queryAuth, err := base64.StdEncoding.DecodeString(encodedQueryAuth[0])
+		if err != nil {
+			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
+			return invalidAuthError
+		}
+		auth = string(queryAuth)
+	}
+
+	matches := hmacAuthRegex.FindStringSubmatch(auth)
 	if matches == nil {
 		log.Printf("%s - %s %s - auth header missing", r.RemoteAddr, r.Method, r.RequestURI)
 		return invalidAuthError
@@ -263,7 +279,7 @@ func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
 	}
 
 	// Recalculate HMAC
-	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, r.Method, r.RequestURI))
+	data := []byte(fmt.Sprintf("%d:%s:%s", timestamp, r.Method, r.URL.Path))
 	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
 		log.Printf("%s - %s %s - hmac calculation: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
@@ -279,7 +295,8 @@ func (s *server) authorize(r *http.Request, maxAge time.Duration) error {
 
 	// Compare timestamp (to prevent replay attacks)
 	if maxAge > 0 {
-		if math.Abs(float64(time.Now().Unix()) - float64(timestamp)) > float64(maxAge) {
+		age := time.Now().Sub(time.Unix(int64(timestamp), 0))
+		if age > maxAge {
 			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
 			return invalidAuthError
 		}

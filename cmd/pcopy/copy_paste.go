@@ -89,8 +89,8 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string, []st
 		fail(err)
 	}
 
-	// Parse clipboard and id
-	clipboard, id, files := parseClipboardAndId(flags, *configFileOverride)
+	// Parse clipboard, id and files
+	clipboard, id, files := parseClipboardIdAndFiles(flags, *configFileOverride)
 
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(*configFileOverride, clipboard)
@@ -123,30 +123,37 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string, []st
 	return config, id, files
 }
 
-func parseClipboardAndId(flags *flag.FlagSet, configFileOverride string) (string, string, []string) {
+func parseClipboardIdAndFiles(flags *flag.FlagSet, configFileOverride string) (string, string, []string) {
 	clipboard := pcopy.DefaultClipboard
 	id := pcopy.DefaultId
 	files := make([]string, 0)
 	if flags.NArg() > 0 {
-		re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]*):)?([-_a-zA-Z0-9]*)$`)
-		parts := re.FindStringSubmatch(flags.Arg(0))
-		if len(parts) != 3 {
-			fail(errors.New("invalid argument, must be in format [[CLIPBOARD]:]ID"))
-		}
-		if parts[1] != "" {
-			if configFileOverride != "" {
-				fail(errors.New("invalid argument, -config cannot be set when clipboard is given"))
-			}
-			clipboard = parts[1]
-		}
-		if parts[2] != "" {
-			id = parts[2]
-		}
+		clipboard, id = parseClipboardAndId(flags.Arg(0), configFileOverride)
 	}
 	if flags.NArg() > 1 {
 		files = flags.Args()[1:]
 	}
 	return clipboard, id, files
+}
+
+func parseClipboardAndId(clipboardAndId string, configFileOverride string) (string, string) {
+	clipboard := pcopy.DefaultClipboard
+	id := pcopy.DefaultId
+	re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]*):)?([-_a-zA-Z0-9]*)$`)
+	parts := re.FindStringSubmatch(clipboardAndId)
+	if len(parts) != 3 {
+		fail(errors.New("invalid argument, must be in format [CLIPBOARD:]ID"))
+	}
+	if parts[1] != "" {
+		if configFileOverride != "" {
+			fail(errors.New("invalid argument, -config cannot be set when clipboard is given"))
+		}
+		clipboard = parts[1]
+	}
+	if parts[2] != "" {
+		id = parts[2]
+	}
+	return clipboard, id
 }
 
 var previousProgressLen int
@@ -178,7 +185,7 @@ func showCopyPasteUsage(flags *flag.FlagSet) {
 }
 
 func showCopyUsage(flags *flag.FlagSet) {
-	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]ID] [FILE..]\n", flags.Name())
+	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD]:[ID]] [FILE..]\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Description:")
 	fmt.Println("  Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is")
@@ -205,7 +212,7 @@ func showCopyUsage(flags *flag.FlagSet) {
 }
 
 func showPasteUsage(flags *flag.FlagSet) {
-	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD:]ID] [DIR]\n", flags.Name())
+	fmt.Printf("Usage: %s [OPTIONS..] [[CLIPBOARD]:[ID]] [DIR]\n", flags.Name())
 	fmt.Println()
 	fmt.Println("Description:")
 	fmt.Println("  Without DIR argument, this command write the remote clipboard contents to STDOUT. ID is the")

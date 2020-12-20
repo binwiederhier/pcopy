@@ -14,7 +14,7 @@ import (
 )
 
 func execInvite(args []string)  {
-	config, alias := parseInviteArgs(args)
+	config, clipboard := parseInviteArgs(args)
 
 	var certs []*x509.Certificate
 	if config.CertFile != "" {
@@ -26,7 +26,7 @@ func execInvite(args []string)  {
 		}
 	}
 
-	fmt.Printf("# Instructions for clipboard '%s'\n", alias)
+	fmt.Printf("# Instructions for clipboard '%s'\n", clipboard)
 	fmt.Println()
 	fmt.Println("# Install pcopy on other computers (as root):")
 	fmt.Printf("%s | sudo sh\n", curlCommand("install", config.ServerAddr, certs, nil))
