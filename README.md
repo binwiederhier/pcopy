@@ -76,4 +76,8 @@ Thanks [nakabonne](https://github.com/nakabonne) for making [pbgopy](https://git
 me to make pcopy. 
 
 ## License
-Made by Philipp Heckel, distributed under the [Apache License 2.0](LICENSE).
+Made with ❤️ by [Philipp C. Heckel](https://heckel.io), distributed under the [Apache License 2.0](LICENSE).
+
+Third party libraries:
+* [GoReleaser](https://goreleaser.com/) (MIT) is used to create releases 
+* [CryptoJS](https://github.com/brix/crypto-js) (MIT) is used in the Web UI

@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -76,7 +77,10 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/download", s.handleDownload)
 	http.HandleFunc("/c/", s.handleClipboard)
 	http.HandleFunc("/c", s.handleClipboard)
-	http.HandleFunc("/", s.handleWebUi)
+
+	if s.config.EnableWeb {
+		http.HandleFunc("/", s.handleWebRoot)
+	}
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -130,13 +134,25 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 }
 
-func (s *server) handleWebUi(w http.ResponseWriter, r *http.Request) {
-	bytes, err := webFs.ReadFile("web/index.html")
-	if err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
+func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		var config *webConfig
+		if s.config.Key != nil {
+			config = &webConfig{
+				Salt: base64.StdEncoding.EncodeToString(s.config.Key.Salt),
+				PbkdfIter: pbkdfIter,
+				KeyLen: keyLen,
+			}
+		} else {
+			config = &webConfig{}
+		}
+		if err := webIndexTemplate.Execute(w, config); err != nil {
+			s.fail(w, r, http.StatusInternalServerError, err)
+		}
+	} else if strings.HasPrefix(r.URL.Path, "/static") {
+		r.URL.Path = "/web" + r.URL.Path // This is a hack to get the embedded path
+		http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
 	}
-	w.Write(bytes)
 }
 
 func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
@@ -403,5 +419,15 @@ const joinInstructionsCommands = `echo "To join this clipboard, run 'pcopy join 
 const joinCommands = `PCOPY_KEY=${key} /usr/bin/pcopy join -auto ${serverAddr}
 `
 
-//go:embed web
-var webFs embed.FS
+type webConfig struct {
+	Salt string
+	PbkdfIter int
+	KeyLen int
+}
+
+//go:embed "web/index.gohtml"
+var webIndexTemplateSource string
+var webIndexTemplate = template.Must(template.New("index").Parse(webIndexTemplateSource))
+
+//go:embed web/static
+var webStaticFs embed.FS

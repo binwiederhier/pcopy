@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -34,6 +35,7 @@ type Config struct {
 	ClipboardDir string
 	ExpireAfter  time.Duration
 	ProgressFunc ProgressFunc
+	EnableWeb    bool
 }
 
 type Key struct {
@@ -52,6 +54,7 @@ func newConfig() *Config {
 		Key:          nil,
 		ClipboardDir: DefaultClipboardDir,
 		ExpireAfter:  DefaultExpireAfter,
+		EnableWeb:    false,
 	}
 }
 
@@ -258,6 +261,14 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		}
 	}
 
+	enableWeb, ok := raw["EnableWeb"]
+	if ok {
+		config.EnableWeb, err = strconv.ParseBool(enableWeb)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid config value for 'EnableWeb': %w", err)
+		}
+	}
+
 	return filename, config, nil
 }
 
@@ -365,5 +376,14 @@ var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse
 # Default: 7d  
 #
 {{if .ExpireAfter}}ExpireAfter {{.ExpireAfter}}{{else}}# ExpireAfter 7d{{end}}
+
+# If set to true, a simple web UI is served that allows uploading files and text snippets.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  Boolean (true/false)
+# Default: false
+#
+{{if .EnableWeb}}EnableWeb true{{else}}# EnableWeb false{{end}}
 
 `))

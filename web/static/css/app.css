@@ -1,0 +1,94 @@
+body {
+    font-family: sans-serif;
+}
+
+a {
+    color: #369;
+}
+
+#password-area {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+}
+
+#password-area div {
+    max-width: 300px;
+    margin: 50px auto;
+}
+
+#main-area {
+    max-width: 800px;
+    margin: 50px auto;
+    font-size: 1.1em;
+    color: #333;
+    text-align: center;
+}
+
+#text-area {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    width: 280px;
+    height: 200px;
+    margin: 50px 20px 10px 20px;
+    padding: 20px;
+    float: left;
+}
+
+#text {
+    width: 100%;
+    height: fit-content;
+}
+
+#drop-area {
+    border: 2px dashed #ccc;
+    border-radius: 5px;
+    width: 280px;
+    margin: 50px 20px 10px 20px;
+    padding: 20px;
+    float: left;
+}
+
+#drop-area.highlight {
+    border-color: purple;
+}
+
+p {
+    margin-top: 0;
+}
+
+.my-form {
+    margin-bottom: 10px;
+}
+
+#gallery {
+    margin-top: 10px;
+}
+
+#gallery img {
+    width: 150px;
+    margin-bottom: 10px;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.button {
+    display: inline-block;
+    padding: 10px;
+    background: #ccc;
+    cursor: pointer;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+}
+
+.button:hover {
+    background: #ddd;
+}
+
+.hidden {
+    display: none;
+}
+
+#fileElem {
+    display: none;
+}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>pcopy</title>
+    <link type="text/css" rel="stylesheet" href="static/css/app.css">
+</head>
+<body>
+
+<div id="main-area" class="hidden">
+    <h1>pcopy</h1>
+    <p>
+        pcopy is a shared clipboard that lets you share text snippets and files across computers. Use this web interface
+        or the command line tool to upload/download files.
+    </p>
+    <p>
+        File ID:
+        <input type="text" id="id" placeholder="default"/>
+    </p>
+    <div id="text-area">
+        <textarea id="text"></textarea>
+        <label class="button" for="text">Upload</label>
+    </div>
+    <div id="drop-area">
+        <form class="my-form">
+            <p>Upload multiple files with the file dialog or by dragging and dropping images onto the dashed region</p>
+            <input type="file" id="fileElem" onchange="handleFile(this.files)">
+            <label class="button" for="fileElem">Select some files</label>
+        </form>
+        <progress id="progress-bar" max=100 value=0></progress>
+        <div id="gallery"></div>
+    </div>
+</div>
+
+<div id="password-area" class="hidden">
+    <div>
+        <h1>pcopy</h1>
+        <p>
+            This clipboard is password-protected. Please log-in to upload files.
+        </p>
+        <input type="password" id="password"/>
+        <button id="login">Login</button><span id="password-status" class="hidden">Incorrect password</span>
+    </div>
+</div>
+
+<script>
+    {{/*gotype: heckel.io/pcopy.webConfig*/}}
+    let config = {
+        salt: "{{.Salt}}",
+        iterations: {{.PbkdfIter}},
+        keySize: {{.KeyLen}}
+    };
+</script>
+<script src="static/vendor/cryptojs/crypto-js.min.js"></script>
+<script src="static/js/app.js"></script>
+
+</body>
+</html>
