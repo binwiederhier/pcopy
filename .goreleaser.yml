@@ -2,7 +2,8 @@ before:
   hooks:
     - go mod download
 builds:
-  - dir: cmd/pcopy
+  - gobinary: "go1.16beta1"
+    dir: cmd/pcopy
     binary: pcopy
     env:
       - CGO_ENABLED=0

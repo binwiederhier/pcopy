@@ -19,7 +19,7 @@ build-snapshot:
 
 build-simple: clean
 	mkdir -p dist/pcopy_linux_amd64
-	go build \
+	go1.16beta1 build \
 		-o dist/pcopy_linux_amd64/pcopy \
 		-ldflags \
 		"-X main.version=${VERSION} -X main.commit=$(shell git rev-parse --short HEAD) -X main.date=$(shell date +%s)" \

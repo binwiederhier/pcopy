@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 )
 
 // TODO print all error messages to STDERR
@@ -88,7 +89,7 @@ func showUsageWithError(error string) {
 	fmt.Println("Try 'pcopy COMMAND -help' for more information.")
 	fmt.Println()
 
-	fmt.Printf("pcopy %s (%s), built at %s\n", version, commit[:7], date)
+	fmt.Printf("pcopy %s (%s, runtime %s), built at %s\n", version, commit[:7], runtime.Version(), date)
 	fmt.Printf("Copyright (C) 2020 Philipp Heckel, distributed under the Apache License 2.0\n")
 	os.Exit(1)
 }
