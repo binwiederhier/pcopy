@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>pcopy</title>
     <link type="text/css" rel="stylesheet" href="static/css/app.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -32,14 +34,18 @@
     </div>
 </div>
 
-<div id="password-area" class="hidden">
-    <div>
-        <h1>pcopy</h1>
-        <p>
-            This clipboard is password-protected. Please log-in to upload files.
-        </p>
-        <input type="password" id="password"/>
-        <button id="login">Login</button><span id="password-status" class="hidden">Incorrect password</span>
+<div id="password-area" class="container hidden">
+    <div id="password-container" class="section fit">
+        <div class="t">
+            <div class="tc">
+                <h1>pcopy</h1>
+                <p>This clipboard is password-protected. Please log-in to upload files.</p>
+                <label for="password">Password:</label>
+                <input type="password" id="password"/>
+                <input type="submit" id="login" value="Login">
+                <p><br/>&nbsp;<span id="password-status" class="hidden">Incorrect password</span></p>
+            </div>
+        </div>
     </div>
 </div>
 
