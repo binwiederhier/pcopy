@@ -1,20 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html id="root" lang="en">
 <head>
     <meta charset="UTF-8">
     <title>pcopy</title>
     <link type="text/css" rel="stylesheet" href="static/css/app.css">
     <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato&display=swap" rel="stylesheet">
 </head>
 <body>
 
+<div id="drop-area-new" class="container hidden">
+    <div class="section fit">
+        <div class="t">
+            <div class="tc">
+                Drop file anywhere to upload
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="main-area" class="hidden">
+    <img src="static/img/logo.png" width="150" />
     <h1>pcopy</h1>
-    <p>
-        pcopy is a shared clipboard that lets you share text snippets and files across computers. Use this web interface
-        or the command line tool to upload/download files.
-    </p>
+    <p>pcopy is a shared clipboard that lets you share text snippets and files across computers.</p>
     <p>
         File ID:
         <input type="text" id="id" placeholder="default"/>
@@ -25,24 +33,28 @@
     </div>
     <div id="drop-area">
         <form class="my-form">
-            <p>Upload multiple files with the file dialog or by dragging and dropping images onto the dashed region</p>
             <input type="file" id="fileElem" onchange="handleFile(this.files)">
-            <label class="button" for="fileElem">Select some files</label>
+            <label class="button" for="fileElem">Upload</label>
         </form>
         <progress id="progress-bar" max=100 value=0></progress>
         <div id="gallery"></div>
     </div>
 </div>
 
-<div id="password-area" class="container hidden">
-    <div id="password-container" class="section fit">
+<div id="login-area" class="container hidden">
+    <div class="section fit">
         <div class="t">
             <div class="tc">
+                <img src="static/img/logo.png" width="150" />
                 <h1>pcopy</h1>
-                <p>This clipboard is password-protected. Please log-in to upload files.</p>
-                <label for="password">Password:</label>
-                <input type="password" id="password"/>
-                <input type="submit" id="login" value="Login">
+                <p>
+                    pcopy is a shared clipboard that lets you share text snippets and files across computers.<br/>
+                    <em>This clipboard is password-protected. Please log-in to upload files.</em>
+                </p>
+                <form id="login-form">
+                    <input type="password" id="password" class="textfield"/>
+                    <input type="submit" id="login" value="Login" class="button">
+                </form>
                 <p><br/>&nbsp;<span id="password-status" class="hidden">Incorrect password</span></p>
             </div>
         </div>

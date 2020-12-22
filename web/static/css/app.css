@@ -1,15 +1,65 @@
+/* general styling */
+
 html, body {
-    font-family: Roboto, Arial, sans-serif;
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
+    font-family: 'Lato', sans-serif;
+    font-size: 1em;
+    color: #444;
 }
 
 a {
     color: #369;
 }
 
+h1 {
+    margin-bottom: 10px;
+}
+
+p {
+    margin-top: 0;
+    font-size: 1.1em;
+}
+
+.textfield {
+    padding: 7px;
+    border-radius: 3px;
+    background: #dcfcfc;
+    border: 1px solid #034c49;
+}
+
+.textfield:focus {
+    background: #e8ffff;
+}
+
+.button {
+    display: inline-block;
+    padding: 7px;
+    background: #04756f;
+    cursor: pointer;
+    border-radius: 3px;
+    color: white;
+    border: 1px solid #034c49;
+}
+
+.button:hover {
+    background: #07ada2;
+}
+
+.hidden {
+    display: none;
+}
+
+.invisible {
+    visibility: hidden;
+}
+
 /* centering, see https://jsfiddle.net/v74fh3wy/ */
+
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
 .container {
     height: 100%;
     overflow: auto;
@@ -36,11 +86,26 @@ a {
     text-align: center;
 }
 
-/* password area */
+/* login area */
 
-#password-area p {
+#login-area p {
 
 }
+
+/* drag & drop area, see https://jsfiddle.net/oL2akhtz/ */
+
+#drop-area-new {
+    background: #04756f;
+    color: white;
+    font-size: 2em;
+    z-index: 999;
+    opacity: 0.6;
+}
+
+#drop-area.highlight {
+    border-color: purple;
+}
+
 
 /* main area */
 
@@ -48,7 +113,6 @@ a {
     max-width: 800px;
     margin: 50px auto;
     font-size: 1.1em;
-    color: #333;
     text-align: center;
 }
 
@@ -76,44 +140,8 @@ a {
     float: left;
 }
 
-#drop-area.highlight {
-    border-color: purple;
-}
-
-p {
-    margin-top: 0;
-}
-
 .my-form {
     margin-bottom: 10px;
-}
-
-#gallery {
-    margin-top: 10px;
-}
-
-#gallery img {
-    width: 150px;
-    margin-bottom: 10px;
-    margin-right: 10px;
-    vertical-align: middle;
-}
-
-.button {
-    display: inline-block;
-    padding: 10px;
-    background: #ccc;
-    cursor: pointer;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-}
-
-.button:hover {
-    background: #ddd;
-}
-
-.hidden {
-    display: none;
 }
 
 #fileElem {

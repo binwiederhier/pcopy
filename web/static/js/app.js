@@ -5,7 +5,8 @@ let dropArea = document.getElementById("drop-area")
 let idField = document.getElementById("id")
 let progressBar = document.getElementById('progress-bar')
 
-let passwordArea = document.getElementById("password-area")
+let loginArea = document.getElementById("login-area")
+let loginForm = document.getElementById("login-form")
 let passwordField = document.getElementById("password")
 let passwordInvalid = document.getElementById("password-status")
 let loginButton = document.getElementById("login")
@@ -13,6 +14,7 @@ let loginButton = document.getElementById("login")
 let key = false;
 
 loginButton.addEventListener('click', login)
+loginForm.addEventListener('submit', login)
 
 ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropArea.addEventListener(eventName, preventDefaults, false)
@@ -28,9 +30,10 @@ loginButton.addEventListener('click', login)
 })
 
 if (config.salt) {
-    passwordArea.classList.remove('hidden');
+    loginArea.classList.remove('hidden')
+    passwordField.focus()
 } else {
-    mainArea.classList.remove('hidden');
+    mainArea.classList.remove('hidden')
 }
 
 // Handle dropped files
@@ -99,7 +102,9 @@ function generateAuthHmacForNow(key, method, path) {
     return generateAuthHmac(key, method, path, Math.floor(new Date().getTime()/1000), 0)
 }
 
-function login() {
+function login(e) {
+    e.preventDefault()
+
     let password = passwordField.value
     let salt = CryptoJS.enc.Base64.parse(config.salt)
 
@@ -120,7 +125,7 @@ function login() {
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            passwordArea.classList.add('hidden')
+            loginArea.classList.add('hidden')
             mainArea.classList.remove('hidden')
         } else if (xhr.readyState === 4 && xhr.status === 401) {
             passwordInvalid.classList.remove('hidden')
@@ -128,4 +133,5 @@ function login() {
     })
 
     xhr.send()
+    return false
 }
