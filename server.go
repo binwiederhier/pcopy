@@ -33,7 +33,7 @@ var (
 	hmacAuthFormat        = "HMAC %d %d %s" // timestamp ttl b64-hmac
 	hmacAuthRegex         = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	hmacAuthOverrideParam = "a"
-	clipboardRegex        = regexp.MustCompile(`^/c(?:/([-_a-zA-Z0-9]*))$`)
+	clipboardRegex        = regexp.MustCompile(`^/c(?:/([-_a-zA-Z0-9]+))$`)
 	clipboardPathFormat   = "/c/%s"
 	clipboardDefaultPath  = "/c"
 )
@@ -346,7 +346,7 @@ func (s *server) authorize(r *http.Request) error {
 }
 
 func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
-	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+	log.Printf("%s - %s %s - %#v", r.RemoteAddr, r.Method, r.RequestURI, err)
 	w.WriteHeader(code)
 	w.Write([]byte(fmt.Sprintf("%d", code)))
 }

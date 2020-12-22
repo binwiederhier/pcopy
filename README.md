@@ -81,3 +81,6 @@ Made with ❤️ by [Philipp C. Heckel](https://heckel.io), distributed under th
 Third party libraries:
 * [GoReleaser](https://goreleaser.com/) (MIT) is used to create releases 
 * [CryptoJS](https://github.com/brix/crypto-js) (MIT) is used in the Web UI
+
+Posts that helped:
+* [Drag & Drop](https://stackoverflow.com/a/33917000/1440785) (CC BY-SA 3.0)

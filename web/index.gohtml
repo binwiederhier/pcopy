@@ -9,38 +9,6 @@
 </head>
 <body>
 
-<div id="drop-area-new" class="container hidden">
-    <div class="section fit">
-        <div class="t">
-            <div class="tc">
-                Drop file anywhere to upload
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="main-area" class="hidden">
-    <img src="static/img/logo.png" width="150" />
-    <h1>pcopy</h1>
-    <p>pcopy is a shared clipboard that lets you share text snippets and files across computers.</p>
-    <p>
-        File ID:
-        <input type="text" id="id" placeholder="default"/>
-    </p>
-    <div id="text-area">
-        <textarea id="text"></textarea>
-        <label class="button" for="text">Upload</label>
-    </div>
-    <div id="drop-area">
-        <form class="my-form">
-            <input type="file" id="fileElem" onchange="handleFile(this.files)">
-            <label class="button" for="fileElem">Upload</label>
-        </form>
-        <progress id="progress-bar" max=100 value=0></progress>
-        <div id="gallery"></div>
-    </div>
-</div>
-
 <div id="login-area" class="container hidden">
     <div class="section fit">
         <div class="t">
@@ -61,13 +29,44 @@
     </div>
 </div>
 
+<div id="drop-area" class="container">
+    <div class="section fit">
+        <div class="t">
+            <div class="tc">
+                Drop file anywhere to upload
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="main-area" class="hidden">
+    <img src="static/img/logo.png" width="150" />
+    <h1>pcopy</h1>
+    <p>pcopy is a shared clipboard that lets you share text snippets and files across computers.</p>
+    <p>
+        File ID:
+        <input type="text" id="id" placeholder="default"/>
+    </p>
+
+    <form class="my-form">
+        <input type="file" id="fileElem" onchange="handleFile(this.files[0])">
+        <label class="button" for="fileElem">Upload File</label>
+        <progress id="progress-bar" max=100 value=0></progress>
+    </form>
+
+    <div id="text-area">
+        <textarea id="text"></textarea>
+        <label class="button" for="text">Upload</label>
+    </div>
+</div>
+
 <script>
     {{/*gotype: heckel.io/pcopy.webConfig*/}}
     let config = {
         salt: "{{.Salt}}",
         iterations: {{.PbkdfIter}},
         keySize: {{.KeyLen}}
-    };
+    }
 </script>
 <script src="static/vendor/cryptojs/crypto-js.min.js"></script>
 <script src="static/js/app.js"></script>

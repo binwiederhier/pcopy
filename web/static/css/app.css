@@ -86,26 +86,21 @@ html, body {
     text-align: center;
 }
 
-/* login area */
+/* drag & drop area, see https://stackoverflow.com/a/33917000/1440785 (CC BY-SA 3.0) */
 
-#login-area p {
-
-}
-
-/* drag & drop area, see https://jsfiddle.net/oL2akhtz/ */
-
-#drop-area-new {
+#drop-area {
     background: #04756f;
     color: white;
     font-size: 2em;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     z-index: 999;
     opacity: 0.6;
+    visibility: hidden;
 }
-
-#drop-area.highlight {
-    border-color: purple;
-}
-
 
 /* main area */
 
@@ -129,19 +124,6 @@ html, body {
 #text {
     width: 100%;
     height: fit-content;
-}
-
-#drop-area {
-    border: 2px dashed #ccc;
-    border-radius: 5px;
-    width: 280px;
-    margin: 50px 20px 10px 20px;
-    padding: 20px;
-    float: left;
-}
-
-.my-form {
-    margin-bottom: 10px;
 }
 
 #fileElem {
