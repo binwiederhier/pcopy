@@ -84,3 +84,4 @@ Third party libraries:
 
 Posts that helped:
 * [Drag & Drop](https://stackoverflow.com/a/33917000/1440785) (CC BY-SA 3.0)
+* [Full page centering](https://medium.com/creative-technology-concepts-code/full-page-site-with-vertical-centering-using-css-only-7858ed6764c4)

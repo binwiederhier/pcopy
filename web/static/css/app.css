@@ -52,7 +52,7 @@ p {
     visibility: hidden;
 }
 
-/* centering, see https://jsfiddle.net/v74fh3wy/ */
+/* centering, see https://bit.ly/2WBwODp, https://jsfiddle.net/kmturley/B3nxK/ & https://jsfiddle.net/v74fh3wy/ */
 
 html, body {
     margin: 0;
@@ -104,11 +104,28 @@ html, body {
 
 /* main area */
 
-#main-area {
-    max-width: 800px;
-    margin: 50px auto;
-    font-size: 1.1em;
-    text-align: center;
+#header-area {
+    background-color: #04756f;
+    height: 40px;
+}
+
+#header-area * {
+    color: white;
+    float: left;
+    /*border: 1px solid red;*/
+}
+
+#header-area img {
+    margin: 3px 5px;
+}
+
+#header-area h1 {
+    margin: 3px 2px;
+    font-size: 1.5em;
+}
+
+#header-area input {
+    margin: 3px 2px;
 }
 
 #text-area {
@@ -124,8 +141,4 @@ html, body {
 #text {
     width: 100%;
     height: fit-content;
-}
-
-#fileElem {
-    display: none;
 }

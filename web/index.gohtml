@@ -40,20 +40,14 @@
 </div>
 
 <div id="main-area" class="hidden">
-    <img src="static/img/logo.png" width="150" />
-    <h1>pcopy</h1>
-    <p>pcopy is a shared clipboard that lets you share text snippets and files across computers.</p>
-    <p>
-        File ID:
-        <input type="text" id="id" placeholder="default"/>
-    </p>
-
-    <form class="my-form">
-        <input type="file" id="fileElem" onchange="handleFile(this.files[0])">
-        <label class="button" for="fileElem">Upload File</label>
+    <div id="header-area">
+        <img src="static/img/logo.png" width="40" />
+        <h1>pcopy</h1>
+        <input type="text" id="id" placeholder="File name (optional)"/>
+        <label class="button" for="file-upload">Upload File</label>
         <progress id="progress-bar" max=100 value=0></progress>
-    </form>
-
+        <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
+    </div>
     <div id="text-area">
         <textarea id="text"></textarea>
         <label class="button" for="text">Upload</label>
