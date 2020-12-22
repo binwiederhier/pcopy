@@ -48,12 +48,12 @@ func execList(args []string)  {
 }
 
 func showListUsage() {
-	fmt.Println("Usage: pcopy list")
-	fmt.Println()
-	fmt.Println("Description:")
-	fmt.Println("  Lists all of the clipboards that have been joined.")
-	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  pcopy list")
+	eprintln("Usage: pcopy list")
+	eprintln()
+	eprintln("Description:")
+	eprintln("  Lists all of the clipboards that have been joined.")
+	eprintln()
+	eprintln("Examples:")
+	eprintln("  pcopy list")
 	syscall.Exit(1)
 }

@@ -15,7 +15,7 @@ func execKeygen(args []string) {
 		fail(err)
 	}
 
-	fmt.Print("Enter Password: ")
+	eprint("Enter Password: ")
 	password, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		fail(err)
@@ -30,15 +30,15 @@ func execKeygen(args []string) {
 }
 
 func showKeygenUsage() {
-	fmt.Println("Usage: pcopy keygen")
-	fmt.Println()
-	fmt.Println("Description:")
-	fmt.Println("  Generate key for the server config. This command is interactive and will ask for a password.")
-	fmt.Println()
-	fmt.Println("  The output of the command can be pasted into the 'server.conf' file to secure a server, or")
-	fmt.Println("  passed via the PCOPY_KEY environment variables to commands that support it.")
-	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  pcopy keygen    # Asks for password and generates key")
+	eprintln("Usage: pcopy keygen")
+	eprintln()
+	eprintln("Description:")
+	eprintln("  Generate key for the server config. This command is interactive and will ask for a password.")
+	eprintln()
+	eprintln("  The output of the command can be pasted into the 'server.conf' file to secure a server, or")
+	eprintln("  passed via the PCOPY_KEY environment variables to commands that support it.")
+	eprintln()
+	eprintln("Examples:")
+	eprintln("  pcopy keygen    # Asks for password and generates key")
 	syscall.Exit(1)
 }
