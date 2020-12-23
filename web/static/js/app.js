@@ -1,9 +1,4 @@
 let mainArea = document.getElementById("main-area")
-let textArea = document.getElementById("text-area")
-
-let idField = document.getElementById("id")
-let progressBar = document.getElementById('progress-bar')
-
 let key = false;
 
 /* Login */
@@ -83,16 +78,42 @@ function installDropListeners() {
     dropArea.addEventListener('drop', handleDrop);
 }
 
+/* Text field */
+
+let text = document.getElementById("text")
+text.addEventListener('keydown', keyHandler,false)
+
+function keyHandler(e) {
+    if (e.keyCode === 9) { // <tab>
+        var start = text.selectionStart;
+        var end = text.selectionEnd;
+
+        text.value = text.value.substring(0, start) + "\t" + text.value.substring(end)
+        text.selectionStart = text.selectionEnd = start + 1;
+
+        e.preventDefault()
+    }
+}
+
 /* Uploading */
 
+let fileId = document.getElementById("file-id")
+let status = document.getElementById('status')
+let saveButton = document.getElementById("save-button")
+let uploadButton = document.getElementById("upload-button")
+let fileUpload = document.getElementById("file-upload")
+
+saveButton.addEventListener('click', save)
+uploadButton.addEventListener('click', function() { fileUpload.click() })
+
 function handleFile(file) {
-    progressBar.value = 0
+    status.innerHTML = '0%'
     uploadFile(file)
 }
 
 function uploadFile(file) {
     let method = 'PUT'
-    let path = '/c/' + (idField.value || 'default')
+    let path = '/c/' + (fileId.value || 'default')
     let url = 'https://' + location.host + path
 
     let xhr = new XMLHttpRequest()
@@ -105,18 +126,48 @@ function uploadFile(file) {
 
     xhr.overrideMimeType(file.type);
     xhr.upload.addEventListener("progress", function (e) {
-        progressBar.value = (e.loaded * 100.0 / e.total) || 100
+        status.innerHTML = ((e.loaded * 100.0 / e.total) || 100) + '%'
     })
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState == 4 && xhr.status == 200) {
-            progressBar.value = 100
+            status.innerHTML = 'Uploaded'
         } else if (xhr.readyState == 4 && xhr.status != 200) {
-            // Error. Inform the user
+            status.innerHTML = 'Uploaded'
         }
     })
 
     xhr.send(file)
+}
+
+/* Save text area content */
+
+function save() {
+    let method = 'PUT'
+    let path = '/c/' + (fileId.value || 'default')
+    let url = 'https://' + location.host + path
+
+    let xhr = new XMLHttpRequest()
+    xhr.open(method, url)
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
+
+    if (key) {
+        xhr.setRequestHeader('Authorization', generateAuthHmacForNow(key, method, path))
+    }
+
+    xhr.upload.addEventListener("progress", function (e) {
+        status.innerHTML = ((e.loaded * 100.0 / e.total) || 100) + '%'
+    })
+
+    xhr.addEventListener('readystatechange', function (e) {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            status.innerHTML = 'Uploaded'
+        } else if (xhr.readyState == 4 && xhr.status != 200) {
+            status.innerHTML = 'Uploaded'
+        }
+    })
+
+    xhr.send(text.value)
 }
 
 /* Show/hide password area */

@@ -24,6 +24,7 @@ p {
     border-radius: 3px;
     background: #dcfcfc;
     border: 1px solid #034c49;
+    color: #034c49;
 }
 
 .textfield:focus {
@@ -32,7 +33,7 @@ p {
 
 .button {
     display: inline-block;
-    padding: 7px;
+    padding: 5px 7px;
     background: #04756f;
     cursor: pointer;
     border-radius: 3px;
@@ -56,7 +57,7 @@ p {
 
 html, body {
     margin: 0;
-    height: 100%;
+    /*height: 100%;*/
     overflow: hidden;
 }
 
@@ -110,35 +111,52 @@ html, body {
 }
 
 #header-area * {
-    color: white;
     float: left;
-    /*border: 1px solid red;*/
+    margin: 0;
+}
+
+#header-area h1, #header-area img, #header-area label, #header-area button {
+    height: 32px;
+    line-height: 32px;
 }
 
 #header-area img {
-    margin: 3px 5px;
+    margin: 0 5px;
 }
 
 #header-area h1 {
-    margin: 3px 2px;
-    font-size: 1.5em;
+    margin: 2px 25px 0 0;
+    font-size: 1.3em;
+    color: white;
+}
+
+#header-area label {
+    color: white;
+    padding: 0 5px;
+    height: 40px;
+    line-height: 40px;
+}
+
+#header-area button {
+    padding: 0 10px;
+    margin: 4px 5px;
 }
 
 #header-area input {
-    margin: 3px 2px;
+    margin: 4px 0 4px 5px;
 }
 
 #text-area {
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    width: 280px;
-    height: 200px;
-    margin: 50px 20px 10px 20px;
-    padding: 20px;
-    float: left;
+    margin: 0;
+    padding: 0;
 }
 
 #text {
+    border: none;
+    margin: 0;
+    padding: 5px;
     width: 100%;
-    height: fit-content;
+    height: 100vh;
+    font-size: 1.3em;
+    overflow: scroll;
 }

@@ -39,18 +39,23 @@
     </div>
 </div>
 
-<div id="main-area" class="hidden">
-    <div id="header-area">
-        <img src="static/img/logo.png" width="40" />
+<div id="main-area" class="container hidden">
+    <div id="header-area" class="section">
+        <img src="static/img/logo.png" />
         <h1>pcopy</h1>
-        <input type="text" id="id" placeholder="File name (optional)"/>
-        <label class="button" for="file-upload">Upload File</label>
-        <progress id="progress-bar" max=100 value=0></progress>
+
+        <label for="file-id">File name:</label>
+        <input type="text" id="file-id" class="textfield" placeholder="default (optional)"/>
+        <button class="button" id="save-button">Save</button>
+        <button class="button" id="upload-button">Upload File</button>
+        <span id="status"></span>
+
         <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
     </div>
-    <div id="text-area">
-        <textarea id="text"></textarea>
-        <label class="button" for="text">Upload</label>
+    <div id="text-area" class="section fit">
+        <div class="t">
+            <div class="tc"><textarea id="text" spellcheck="false"></textarea></div>
+        </div>
     </div>
 </div>
 
