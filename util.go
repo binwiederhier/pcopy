@@ -128,7 +128,7 @@ func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration)
 }
 
 func GenerateKeyAndCert() (string, string, error) {
-	key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return "", "", err
 	}

@@ -63,6 +63,7 @@ func execSetup(args []string) {
 	if setup.serviceUser == defaultServiceUser {
 		setup.askService()
 	}
+	setup.askWebUI()
 	setup.askConfirm()
 
 	// Do stuff
@@ -191,6 +192,14 @@ func (s *wizard) readLine() string {
 		fail(err)
 	}
 	return strings.TrimSpace(line)
+}
+
+func (s *wizard) askWebUI() {
+	fmt.Println("The Web UI allows uploading files and text snippets.")
+	fmt.Print("Enable Web UI? [Y/n] ")
+	answer := strings.ToLower(s.readLine())
+	s.config.WebUI = answer == "y" || answer == ""
+	fmt.Println()
 }
 
 func (s *wizard) askService() {
@@ -342,16 +351,16 @@ func (s *wizard) printSuccess() {
 }
 
 func showSetupUsage() {
-	fmt.Println("Usage: pcopy setup")
-	fmt.Println()
-	fmt.Println("Description:")
-	fmt.Println("  Starts an interactive wizard to generate server config, private key and certificate.")
-	fmt.Println("  This command must be run as root, since it (potentially) creates users and installs a")
-	fmt.Println("  systemd service.")
-	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  sudo pcopy setup   # Install pcopy server to /etc/pcopy with 'pcopy' user")
-	fmt.Println("  pcopy setup        # Install pcopy server to ~/.config/pcopy for current user")
+	eprintln("Usage: pcopy setup")
+	eprintln()
+	eprintln("Description:")
+	eprintln("  Starts an interactive wizard to generate server config, private key and certificate.")
+	eprintln("  This command must be run as root, since it (potentially) creates users and installs a")
+	eprintln("  systemd service.")
+	eprintln()
+	eprintln("Examples:")
+	eprintln("  sudo pcopy setup   # Install pcopy server to /etc/pcopy with 'pcopy' user")
+	eprintln("  pcopy setup        # Install pcopy server to ~/.config/pcopy for current user")
 	syscall.Exit(1)
 }
 

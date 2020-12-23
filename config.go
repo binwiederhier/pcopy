@@ -35,7 +35,7 @@ type Config struct {
 	ClipboardDir string
 	ExpireAfter  time.Duration
 	ProgressFunc ProgressFunc
-	EnableWeb    bool
+	WebUI        bool
 }
 
 type Key struct {
@@ -54,7 +54,7 @@ func newConfig() *Config {
 		Key:          nil,
 		ClipboardDir: DefaultClipboardDir,
 		ExpireAfter:  DefaultExpireAfter,
-		EnableWeb:    false,
+		WebUI:        false,
 	}
 }
 
@@ -261,11 +261,11 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		}
 	}
 
-	enableWeb, ok := raw["EnableWeb"]
+	webUI, ok := raw["WebUI"]
 	if ok {
-		config.EnableWeb, err = strconv.ParseBool(enableWeb)
+		config.WebUI, err = strconv.ParseBool(webUI)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'EnableWeb': %w", err)
+			return "", nil, fmt.Errorf("invalid config value for 'WebUI': %w", err)
 		}
 	}
 
@@ -384,6 +384,6 @@ var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse
 # Format:  Boolean (true/false)
 # Default: false
 #
-{{if .EnableWeb}}EnableWeb true{{else}}# EnableWeb false{{end}}
+{{if .WebUI}}WebUI true{{else}}# WebUI false{{end}}
 
 `))

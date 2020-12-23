@@ -13,17 +13,16 @@
     <div class="section fit">
         <div class="t">
             <div class="tc">
-                <img src="static/img/logo.png" width="150" />
                 <h1>pcopy</h1>
                 <p>
-                    pcopy is a shared clipboard that lets you share text snippets and files across computers.<br/>
+                    <a href="https://heckel.io/pcopy">pcopy</a> is a shared clipboard that lets you share text snippets and files across computers.<br/>
                     <em>This clipboard is password-protected. Please log-in to upload files.</em>
                 </p>
                 <form id="login-form">
                     <input type="password" id="password" class="textfield"/>
                     <input type="submit" id="login" value="Login" class="button">
                 </form>
-                <p><br/>&nbsp;<span id="password-status" class="hidden">Incorrect password</span></p>
+                <p><br/><span id="password-status" class="invisible">Incorrect password. Please try again.</span></p>
             </div>
         </div>
     </div>
@@ -41,20 +40,22 @@
 
 <div id="main-area" class="container hidden">
     <div id="header-area" class="section">
-        <img src="static/img/logo.png" />
-        <h1>pcopy</h1>
+        <a href="https://heckel.io/pcopy"><h1>pcopy</h1></a>
 
         <label for="file-id">File name:</label>
         <input type="text" id="file-id" class="textfield" placeholder="default (optional)"/>
-        <button class="button" id="save-button">Save</button>
-        <button class="button" id="upload-button">Upload File</button>
-        <span id="status"></span>
+        <button id="save-button" class="button">Save</button>
+        <span id="save-status"></span>
+
+        <button id="logout-button" class="button hidden">Logout</button>
+        <button id="upload-button" class="button">Upload File</button>
+        <span id="upload-status"></span>
 
         <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
     </div>
     <div id="text-area" class="section fit">
         <div class="t">
-            <div class="tc"><textarea id="text" spellcheck="false"></textarea></div>
+            <div class="tc"><textarea id="text" placeholder="Paste your content here or drag & drop a file" spellcheck="false"></textarea></div>
         </div>
     </div>
 </div>

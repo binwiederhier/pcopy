@@ -78,7 +78,7 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/c/", s.handleClipboard)
 	http.HandleFunc("/c", s.handleClipboard)
 
-	if s.config.EnableWeb {
+	if s.config.WebUI {
 		http.HandleFunc("/", s.handleWebRoot)
 	}
 
