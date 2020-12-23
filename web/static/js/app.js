@@ -135,7 +135,7 @@ function save() {
     }
 
     xhr.upload.addEventListener("progress", function (e) {
-        saveStatus.innerHTML = ((e.loaded * 100.0 / e.total) || 100) + '%'
+        saveStatus.innerHTML = 'Saving'
     })
 
     xhr.addEventListener('readystatechange', function (e) {
@@ -180,7 +180,7 @@ function uploadFile(file) {
 
     xhr.overrideMimeType(file.type);
     xhr.upload.addEventListener("progress", function (e) {
-        uploadStatus.innerHTML = ((e.loaded * 100.0 / e.total) || 100) + '%'
+        uploadStatus.innerHTML = Math.round((e.loaded * 100.0 / e.total) || 100) + '%'
     })
 
     xhr.addEventListener('readystatechange', function (e) {
