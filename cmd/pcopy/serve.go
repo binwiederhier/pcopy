@@ -2,10 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
-	"os"
 	"heckel.io/pcopy"
+	"os"
 	"syscall"
 )
 
@@ -63,9 +61,9 @@ func execServe(args []string) {
 
 	// Start server
 	if config.Key == nil {
-		log.Printf("Listening on %s (INSECURE MODE)\n", config.ListenAddr)
+		eprintf("Listening on %s (UNPROTECTED CLIPBOARD)\n", config.ListenAddr)
 	} else {
-		log.Printf("Listening on %s\n", config.ListenAddr)
+		eprintf("Listening on %s\n", config.ListenAddr)
 	}
 
 	if err := pcopy.Serve(config); err != nil {
@@ -74,24 +72,24 @@ func execServe(args []string) {
 }
 
 func showServeUsage(flags *flag.FlagSet) {
-	fmt.Println("Usage: pcopy serve [OPTIONS..]")
-	fmt.Println()
-	fmt.Println("Description:")
-	fmt.Println("  Start pcopy server and listen for incoming requests.")
-	fmt.Println()
-	fmt.Println("  The command will load a the clipboard config from ~/.config/pcopy/server.conf or")
-	fmt.Println("  /etc/pcopy/server.conf. Config options can be overridden using the command line options.")
-	fmt.Println()
-	fmt.Println("  To generate a new config file, you may want to use the 'pcopy setup-server' command.")
-	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  pcopy serve                 # Starts server in the foreground")
-	fmt.Println("  pcopy serve -listen :9999   # Starts server with alternate port")
-	fmt.Println("  PCOPY_KEY=.. pcopy serve    # Starts server with alternate key (see 'pcopy keygen')")
-	fmt.Println()
-	fmt.Println("Options:")
+	eprintln("Usage: pcopy serve [OPTIONS..]")
+	eprintln()
+	eprintln("Description:")
+	eprintln("  Start pcopy server and listen for incoming requests.")
+	eprintln()
+	eprintln("  The command will load a the clipboard config from ~/.config/pcopy/server.conf or")
+	eprintln("  /etc/pcopy/server.conf. Config options can be overridden using the command line options.")
+	eprintln()
+	eprintln("  To generate a new config file, you may want to use the 'pcopy setup-server' command.")
+	eprintln()
+	eprintln("Examples:")
+	eprintln("  pcopy serve                 # Starts server in the foreground")
+	eprintln("  pcopy serve -listen :9999   # Starts server with alternate port")
+	eprintln("  PCOPY_KEY=.. pcopy serve    # Starts server with alternate key (see 'pcopy keygen')")
+	eprintln()
+	eprintln("Options:")
 	flags.PrintDefaults()
-	fmt.Println()
-	fmt.Println("To override or specify the remote server key, you may pass the PCOPY_KEY variable.")
+	eprintln()
+	eprintln("To override or specify the remote server key, you may pass the PCOPY_KEY variable.")
 	syscall.Exit(1)
 }
