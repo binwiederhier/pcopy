@@ -36,7 +36,20 @@ var (
 	clipboardRegex        = regexp.MustCompile(`^/c(?:/([-_a-zA-Z0-9]+))$`)
 	clipboardPathFormat   = "/c/%s"
 	clipboardDefaultPath  = "/c"
+
+	//go:embed "web/index.gohtml"
+	webTemplateSource string
+	webTemplate       = template.Must(template.New("index").Parse(webTemplateSource))
+
+	//go:embed web/static
+	webStaticFs embed.FS
 )
+
+type webTemplateConfig struct {
+	Salt string
+	PbkdfIter int
+	KeyLen int
+}
 
 type server struct {
 	config *Config
@@ -136,17 +149,17 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		var config *webConfig
+		var config *webTemplateConfig
 		if s.config.Key != nil {
-			config = &webConfig{
+			config = &webTemplateConfig{
 				Salt: base64.StdEncoding.EncodeToString(s.config.Key.Salt),
 				PbkdfIter: pbkdfIter,
 				KeyLen: keyLen,
 			}
 		} else {
-			config = &webConfig{}
+			config = &webTemplateConfig{}
 		}
-		if err := webIndexTemplate.Execute(w, config); err != nil {
+		if err := webTemplate.Execute(w, config); err != nil {
 			s.fail(w, r, http.StatusInternalServerError, err)
 		}
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
@@ -418,16 +431,3 @@ const joinInstructionsCommands = `echo "To join this clipboard, run 'pcopy join 
 `
 const joinCommands = `PCOPY_KEY=${key} /usr/bin/pcopy join -auto ${serverAddr}
 `
-
-type webConfig struct {
-	Salt string
-	PbkdfIter int
-	KeyLen int
-}
-
-//go:embed "web/index.gohtml"
-var webIndexTemplateSource string
-var webIndexTemplate = template.Must(template.New("index").Parse(webIndexTemplateSource))
-
-//go:embed web/static
-var webStaticFs embed.FS
