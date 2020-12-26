@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-const updateInterval = 150 * time.Millisecond
+const (
+	updateDelay = time.Second
+	updateInterval = 150 * time.Millisecond
+)
 
 // progressReadCloser counts the bytes read through it.
 // Originally from https://github.com/machinebox/progress (Apache License 2.0)
@@ -43,16 +46,17 @@ func (r *progressReadCloser) Close() (err error) {
 	r.Lock()
 	err = r.reader.Close()
 	r.ticker.Stop()
-	r.fn(-1, -1)
+	r.fn(r.processed, r.total, true)
 	r.Unlock()
 	return
 }
 
 func (r *progressReadCloser) tick() {
+	time.Sleep(updateDelay)
 	for range r.ticker.C {
 		r.RLock()
 		n := r.processed
 		r.RUnlock()
-		r.fn(n, r.total)
+		r.fn(n, r.total, false)
 	}
 }

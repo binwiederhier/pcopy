@@ -157,9 +157,16 @@ func parseClipboardAndId(clipboardAndId string, configFileOverride string) (stri
 }
 
 var previousProgressLen int
-func progressOutput(processed int64, total int64) {
-	if processed == -1 {
-		eprintf("\r%s\r", strings.Repeat(" ", previousProgressLen))
+func progressOutput(processed int64, total int64, done bool) {
+	if done {
+		if previousProgressLen > 0 {
+			progress := fmt.Sprintf("%s (100%%)", pcopy.BytesToHuman(processed))
+			progressWithSpaces := progress
+			if len(progress) < previousProgressLen {
+				progressWithSpaces += strings.Repeat(" ", previousProgressLen - len(progress))
+			}
+			eprintf("\r%s\r\n", progressWithSpaces)
+		}
 	} else {
 		var progress string
 		if total > 0 {
@@ -168,10 +175,11 @@ func progressOutput(processed int64, total int64) {
 		} else {
 			progress = pcopy.BytesToHuman(processed)
 		}
-		eprintf("\r%s", progress)
+		progressWithSpaces := progress
 		if len(progress) < previousProgressLen {
-			eprint(strings.Repeat(" ", previousProgressLen - len(progress)))
+			progressWithSpaces += strings.Repeat(" ", previousProgressLen - len(progress))
 		}
+		eprintf("\r%s", progressWithSpaces)
 		previousProgressLen = len(progress)
 	}
 }

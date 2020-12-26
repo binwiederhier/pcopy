@@ -43,7 +43,7 @@ type Key struct {
 	Salt  []byte
 }
 
-type ProgressFunc func(processed int64, total int64)
+type ProgressFunc func(processed int64, total int64, done bool)
 
 func newConfig() *Config {
 	return &Config{
