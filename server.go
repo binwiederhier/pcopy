@@ -232,8 +232,9 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request, file
 	}
 }
 
+
 func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file string) {
-	f, err := os.Create(file)
+	f, err := os.OpenFile(file, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0600)
 	if err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -241,8 +242,12 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 	defer f.Close()
 
 	if r.Body != nil {
-		if _, err = io.Copy(f, r.Body); err != nil {
-			s.fail(w, r, http.StatusInternalServerError, err)
+		if _, err = io.Copy(newLimitWriter(f, s.config.MaxFileSize), r.Body); err != nil {
+			if err == limitError {
+				s.fail(w, r, http.StatusBadRequest, err)
+			} else {
+				s.fail(w, r, http.StatusInternalServerError, err)
+			}
 			return
 		}
 		if r.Body.Close() != nil {

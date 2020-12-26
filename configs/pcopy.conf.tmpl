@@ -73,6 +73,15 @@
 #
 {{if .ExpireAfter}}ExpireAfter {{.ExpireAfter}}{{else}}# ExpireAfter 7d{{end}}
 
+# Maximum size per uploaded clipboard file. Zero disables a max file size.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  <number>(GMKB)
+# Default: 0 (disabled)
+#
+{{if .MaxFileSize}}MaxFileSize {{.MaxFileSize}}{{else}}# MaxFileSize 0{{end}}
+
 # If set to true, a simple web UI is served that allows uploading files and text snippets.
 #
 # This is a server-only option (pcopy serve). It has no effect for client commands.

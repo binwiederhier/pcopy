@@ -22,6 +22,7 @@ const (
 	DefaultClipboard        = "default"
 	DefaultId               = "default"
 	DefaultExpireAfter      = time.Hour * 24 * 7
+	DefaultMaxFileSize      = 0
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
@@ -35,6 +36,7 @@ type Config struct {
 	Key          *Key
 	ClipboardDir string
 	ExpireAfter  time.Duration
+	MaxFileSize  int64
 	ProgressFunc ProgressFunc
 	WebUI        bool
 }
@@ -50,6 +52,8 @@ type ProgressFunc func(processed int64, total int64, done bool)
 var configTemplateSource string
 var configTemplate = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
 
+var sizeStrRegex = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
+
 func newConfig() *Config {
 	return &Config{
 		ListenAddr:   fmt.Sprintf(":%d", DefaultPort),
@@ -59,6 +63,8 @@ func newConfig() *Config {
 		Key:          nil,
 		ClipboardDir: DefaultClipboardDir,
 		ExpireAfter:  DefaultExpireAfter,
+		MaxFileSize:  DefaultMaxFileSize,
+		ProgressFunc: nil,
 		WebUI:        false,
 	}
 }
@@ -266,6 +272,14 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		}
 	}
 
+	maxFileSize, ok := raw["MaxFileSize"]
+	if ok {
+		config.MaxFileSize, err = parseSize(maxFileSize)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid config value for 'MaxFileSize': %w", err)
+		}
+	}
+
 	webUI, ok := raw["WebUI"]
 	if ok {
 		config.WebUI, err = strconv.ParseBool(webUI)
@@ -275,6 +289,23 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	}
 
 	return filename, config, nil
+}
+
+func parseSize(s string) (int64, error) {
+	matches := sizeStrRegex.FindStringSubmatch(s)
+	if matches == nil {
+		return -1, fmt.Errorf("invalid size %s", s)
+	}
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return -1, fmt.Errorf("cannot convert number %s", value)
+	}
+	switch strings.ToUpper(matches[2]) {
+	case "G": return int64(value) * 1024 * 1024 * 1024, nil
+	case "M": return int64(value) * 1024 * 1024, nil
+	case "K": return int64(value) * 1024, nil
+	default: return int64(value), nil
+	}
 }
 
 func loadRawConfig(filename string) (map[string]string, error) {
