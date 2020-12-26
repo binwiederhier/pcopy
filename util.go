@@ -20,6 +20,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -31,6 +32,11 @@ const (
 	certNotBeforeAge = -time.Hour * 24 * 7 // ~ 1 week
 	certNotAfterAge  = time.Hour * 24 * 365 * 3 // ~ 3 years
 )
+
+var templateFnMap = template.FuncMap{
+	"encodeKey": EncodeKey,
+	"expandServerAddr": ExpandServerAddr,
+}
 
 func DeriveKey(password []byte, salt []byte) *Key {
 	return &Key{

@@ -1,5 +1,6 @@
+{{- /*gotype: heckel.io/pcopy.webConfig*/ -}}
 <!DOCTYPE html>
-<html id="root" lang="en">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>pcopy</title>
@@ -61,7 +62,6 @@
 </div>
 
 <script>
-    {{/*gotype: heckel.io/pcopy.webConfig*/}}
     let config = {
         salt: "{{.Salt}}",
         iterations: {{.PbkdfIter}},

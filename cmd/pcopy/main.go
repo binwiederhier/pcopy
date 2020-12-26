@@ -7,10 +7,14 @@ import (
 	"runtime"
 )
 
-// TODO go1.16 with embed stuff
 // TODO Let's Encrypt certs
 // TODO max file size for total cache
 // TODO max file size per file
+// TODO UI embed fonts
+// TODO UI modal after upload/save
+// TODO UI mobile + scroll
+// TODO UI favicon
+// TODO "pcopy invite" and "pcopy paste abc:" does not check if clipboard exists
 
 var (
 	version = "dev"

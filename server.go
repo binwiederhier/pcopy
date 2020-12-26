@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	purgerTicketInterval = time.Second * 10
+	purgerTickerInterval = time.Second * 10
 	defaultMaxAuthAge    = time.Minute
 	noAuthRequestAge     = 0
+	certCommonName       = "pcopy"
 )
 
 var (
@@ -43,7 +44,21 @@ var (
 
 	//go:embed web/static
 	webStaticFs embed.FS
+
+	//go:embed "scripts/join.sh.tmpl"
+	joinTemplateSource string
+	joinTemplate       = template.Must(template.New("join").Funcs(templateFnMap).Parse(joinTemplateSource))
+
+	//go:embed "scripts/install.sh.tmpl"
+	installTemplateSource string
+	installTemplate       = template.Must(template.New("install").Funcs(templateFnMap).Parse(installTemplateSource))
 )
+
+// infoResponse is the response returned by the / endpoint
+type infoResponse struct {
+	ServerAddr string `json:"serverAddr"`
+	Salt       string `json:"salt"`
+}
 
 type webTemplateConfig struct {
 	Salt string
@@ -99,7 +114,7 @@ func (s *server) listenAndServeTLS() error {
 }
 
 func (s *server) clipboardPurger() {
-	ticker := time.NewTicker(purgerTicketInterval)
+	ticker := time.NewTicker(purgerTickerInterval)
 	for {
 		<-ticker.C
 		files, err := ioutil.ReadDir(s.config.ClipboardDir)
@@ -254,14 +269,7 @@ func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
-	var script string
-	if s.config.ServerAddr != "" {
-		script = s.installScript()
-	} else {
-		script = s.notConfiguredScript()
-	}
-
-	if _, err := w.Write([]byte(script)); err != nil {
+	if err := installTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -275,14 +283,7 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
-	var script string
-	if s.config.ServerAddr != "" {
-		script = s.joinScript()
-	} else {
-		script = s.notConfiguredScript()
-	}
-
-	if _, err := w.Write([]byte(script)); err != nil {
+	if err := joinTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -364,26 +365,6 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err erro
 	w.Write([]byte(fmt.Sprintf("%d", code)))
 }
 
-func(s *server) notConfiguredScript() string {
-	return strings.Join([]string{scriptHeader, notConfiguredCommands}, "\n")
-}
-
-func (s *server) installScript() string {
-	template := strings.Join([]string{scriptHeader, installCommands, joinInstructionsCommands}, "\n")
-	return s.replaceScriptVars(template)
-}
-
-func (s *server) joinScript() string {
-	template := strings.Join([]string{scriptHeader, joinCommands}, "\n")
-	return s.replaceScriptVars(template)
-}
-
-func (s *server) replaceScriptVars(template string) string {
-	template = strings.ReplaceAll(template, "${serverAddr}", ExpandServerAddr(s.config.ServerAddr))
-	template = strings.ReplaceAll(template, "${key}", EncodeKey(s.config.Key))
-	return template
-}
-
 func getExecutable() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -398,36 +379,8 @@ func getExecutable() (string, error) {
 	return realpath, nil
 }
 
-// infoResponse is the response returned by the / endpoint
-type infoResponse struct {
-	ServerAddr string `json:"serverAddr"`
-	Salt       string `json:"salt"`
-}
-
-const certCommonName = "pcopy"
-
 var listenAddrMissingError = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
 var keyFileMissingError = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
 var certFileMissingError = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
 var clipboardDirNotWritableError = errors.New("clipboard dir not writable by user")
 var invalidAuthError = errors.New("invalid auth")
-
-const scriptHeader = `#!/bin/sh
-set -eu
-`
-const notConfiguredCommands = `echo 'Server not configured to allow simple install.'
-echo 'If you are the administrator, set ServerAddr in config.'
-`
-const installCommands = `if [ ! -f /usr/bin/pcopy ]; then
-  [ $(id -u) -eq 0 ] || { echo 'Must be root to install'; exit 1; }
-  curl -sk https://${serverAddr}/download > /usr/bin/pcopy
-  chmod +x /usr/bin/pcopy
-  [ -f /usr/bin/pcp ] || ln -s /usr/bin/pcopy /usr/bin/pcp
-  [ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste
-  echo "Successfully installed /usr/bin/pcopy."
-fi
-`
-const joinInstructionsCommands = `echo "To join this clipboard, run 'pcopy join ${serverAddr}', or type 'pcopy -help' for more help'."
-`
-const joinCommands = `PCOPY_KEY=${key} /usr/bin/pcopy join -auto ${serverAddr}
-`

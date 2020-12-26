@@ -48,8 +48,7 @@ type ProgressFunc func(processed int64, total int64, done bool)
 
 //go:embed "configs/pcopy.conf.tmpl"
 var configTemplateSource string
-var configTemplateFuncs = template.FuncMap{"encodeKey": EncodeKey}
-var configTemplate = template.Must(template.New("config").Funcs(configTemplateFuncs).Parse(configTemplateSource))
+var configTemplate = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
 
 func newConfig() *Config {
 	return &Config{

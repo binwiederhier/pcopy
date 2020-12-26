@@ -1,0 +1,9 @@
+{{- /*gotype: heckel.io/pcopy.Config*/ -}}
+#!/bin/sh
+set -eu
+{{if .ServerAddr}}
+PCOPY_KEY={{.Key | encodeKey}} /usr/bin/pcopy join -auto {{.ServerAddr | expandServerAddr}}
+{{else}}
+echo "Server not configured to allow simple install."
+echo "If you are the administrator, set ServerAddr in config."
+{{end}}

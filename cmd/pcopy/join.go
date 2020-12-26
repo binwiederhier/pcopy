@@ -67,7 +67,7 @@ func execJoin(args []string) {
 	var key *pcopy.Key
 
 	if info.Salt != nil {
-		envKey := os.Getenv("PCOPY_KEY") // TODO document this
+		envKey := os.Getenv("PCOPY_KEY")
 		if envKey != "" {
 			key, err = pcopy.DecodeKey(envKey)
 			if err != nil {
