@@ -7,8 +7,6 @@ import (
 	"runtime"
 )
 
-// TODO HIGH lines without newline at the end are not copied
-// TODO print all error messages to STDERR
 // TODO go1.16 with embed stuff
 // TODO Let's Encrypt certs
 // TODO max file size for total cache
