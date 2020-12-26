@@ -2,6 +2,7 @@ package pcopy
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -44,6 +45,11 @@ type Key struct {
 }
 
 type ProgressFunc func(processed int64, total int64, done bool)
+
+//go:embed "configs/pcopy.conf.tmpl"
+var configTemplateSource string
+var configTemplateFuncs = template.FuncMap{"encodeKey": EncodeKey}
+var configTemplate = template.Must(template.New("config").Funcs(configTemplateFuncs).Parse(configTemplateSource))
 
 func newConfig() *Config {
 	return &Config{
@@ -299,91 +305,3 @@ func loadRawConfig(filename string) (map[string]string, error) {
 
 	return rawconfig, nil
 }
-
-var templateFuncMap = template.FuncMap{"encodeKey": EncodeKey}
-var configTemplate = template.Must(template.New("").Funcs(templateFuncMap).Parse(
-	`# pcopy config file
-
-# Hostname and port of the pcopy server
-#
-# For servers: This address is advertised to clients. It is not strictly necessary for normal copy/paste operations, 
-# but required for the easy-install process via 'pcopy invite'. If PORT is not defined, the default port 1986 is used. 
-# 
-# Format:    HOST[:PORT]
-# Default:   None
-#
-{{if .ServerAddr}}ServerAddr {{.ServerAddr}}{{else}}# ServerAddr{{end}}
-
-# Address and port to use to bind the server. To bind to all addresses, you may omit the address,
-# e.g. :2586.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  [ADDR]:PORT
-# Default: :1986
-#
-{{if .ListenAddr}}ListenAddr {{.ListenAddr}}{{else}}# ListenAddr :1986{{end}}
-
-# If a key is defined, clients need to auth whenever they want copy/paste values
-# to the clipboard. A key is derived from a password and can be generated using
-# the 'pcopy keygen' command.
-# 
-# Format:  SALT:KEY (both base64 encoded)
-# Default: None
-#
-{{if .Key}}Key {{encodeKey .Key}}{{else}}# Key{{end}}
-
-# Path to the TLS certificate used for the HTTPS traffic. If not set, the config file path (with 
-# a .crt extension) is assumed to be the path to the certificate, e.g. server.crt (if the config
-# file is server.conf). 
-#
-# For servers: This certificate is served to clients.
-# For clients: If a certificate is present, it is used as the only allowed certificate to communicate
-#              with a server (cert pinning). 
-#
-# Format:  /some/path/to/server.crt (PEM formatted)
-# Default: Config path, but with .crt extension
-#
-{{if .CertFile}}CertFile {{.CertFile}}{{else}}# CertFile{{end}}
-
-# Path to the private key for the matching certificate. If not set, the config file path (with 
-# a .key extension) is assumed to be the path to the private key, e.g. server.key (if the config
-# file is server.conf).
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  /some/path/to/server.key (PEM formatted)
-# Default: Config path, but with .key extension
-#
-{{if .KeyFile}}KeyFile {{.KeyFile}}{{else}}# KeyFile{{end}}
-
-# Path to the directory in which the clipboard resides. If not set, this defaults to 
-# the path /var/cache/pcopy.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  /some/folder
-# Default: /var/cache/pcopy
-#
-{{if .ClipboardDir}}ClipboardDir {{.ClipboardDir}}{{else}}# ClipboardDir /var/cache/pcopy{{end}}
-
-# Duration after which clipboard contents will be deleted unless they are updated before. 
-# To disable, set to 0.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  <number>(hms)
-# Default: 7d  
-#
-{{if .ExpireAfter}}ExpireAfter {{.ExpireAfter}}{{else}}# ExpireAfter 7d{{end}}
-
-# If set to true, a simple web UI is served that allows uploading files and text snippets.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  Boolean (true/false)
-# Default: false
-#
-{{if .WebUI}}WebUI true{{else}}# WebUI false{{end}}
-
-`))
