@@ -206,40 +206,48 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, id)
 
 	if r.Method == http.MethodGet {
-		stat, err := os.Stat(file)
-		if err != nil {
-			s.fail(w, r, http.StatusNotFound, err)
-			return
-		}
-		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
-		f, err := os.Open(file)
-		if err != nil {
-			s.fail(w, r, http.StatusNotFound, err)
-			return
-		}
-		defer f.Close()
-
-		if _, err = io.Copy(w, f); err != nil {
-			s.fail(w, r, http.StatusInternalServerError, err)
-			return
-		}
+		s.handleClipboardGet(w, r, file)
 	} else if r.Method == http.MethodPut {
-		f, err := os.Create(file)
-		if err != nil {
+		s.handleClipboardPut(w, r, file)
+	}
+}
+
+func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request, file string) {
+	stat, err := os.Stat(file)
+	if err != nil {
+		s.fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
+	f, err := os.Open(file)
+	if err != nil {
+		s.fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	defer f.Close()
+
+	if _, err = io.Copy(w, f); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file string) {
+	f, err := os.Create(file)
+	if err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	defer f.Close()
+
+	if r.Body != nil {
+		if _, err = io.Copy(f, r.Body); err != nil {
 			s.fail(w, r, http.StatusInternalServerError, err)
 			return
 		}
-		defer f.Close()
-
-		if r.Body != nil {
-			if _, err = io.Copy(f, r.Body); err != nil {
-				s.fail(w, r, http.StatusInternalServerError, err)
-				return
-			}
-			if r.Body.Close() != nil {
-				s.fail(w, r, http.StatusInternalServerError, err)
-				return
-			}
+		if r.Body.Close() != nil {
+			s.fail(w, r, http.StatusInternalServerError, err)
+			return
 		}
 	}
 }

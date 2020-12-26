@@ -8,8 +8,9 @@ import (
 )
 
 // TODO Let's Encrypt certs
-// TODO max file size for total cache
-// TODO max file size per file
+// TODO max file size for total cache (for demo)
+// TODO max file size per file (for demo)
+// TODO max number of files (for demo)
 // TODO UI embed fonts
 // TODO UI modal after upload/save
 // TODO UI mobile + scroll
