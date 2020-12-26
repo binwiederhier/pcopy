@@ -1,5 +1,5 @@
 # pcopy
-pcopy is across-the-network clipboard that allows copying (`pcp < file.txt`) and pasting (`ppaste > file.txt`)
+pcopy is an across-the-network clipboard that allows copying (`pcp < file.txt`) and pasting (`ppaste > file.txt`)
 across different computers. Other users can be invited to join (`pcopy invite`), or simply join by specifying 
 the hostname (`pcopy join`). 
 
