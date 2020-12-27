@@ -6,13 +6,6 @@ import (
 	"sync"
 )
 
-type limitWriter struct {
-	writer io.Writer
-	written int64
-	limiters []*limiter
-	sync.RWMutex
-}
-
 type limiter struct {
 	value int64
 	limit int64
@@ -56,6 +49,13 @@ func (l *limiter) Value() int64 {
 
 func (l *limiter) Limit() int64 {
 	return l.limit
+}
+
+type limitWriter struct {
+	writer io.Writer
+	written int64
+	limiters []*limiter
+	sync.RWMutex
 }
 
 func newLimitWriter(w io.Writer, limiters... *limiter) io.Writer {
