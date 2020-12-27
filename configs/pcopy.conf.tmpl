@@ -64,16 +64,6 @@
 #
 {{if .ClipboardDir}}ClipboardDir {{.ClipboardDir}}{{else}}# ClipboardDir /var/cache/pcopy{{end}}
 
-# Duration after which clipboard contents will be deleted unless they are updated before.
-# To disable, set to 0.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  <number>(hms)
-# Default: 7d
-#
-{{if .ExpireAfter}}ExpireAfter {{.ExpireAfter}}{{else}}# ExpireAfter 7d{{end}}
-
 # Maximum total size of the entire clipboard (sum of all files). Zero disables this setting.
 #
 # This is a server-only option (pcopy serve). It has no effect for client commands.
@@ -81,7 +71,7 @@
 # Format:  <number>(GMKB)
 # Default: 0 (disabled)
 #
-{{if .MaxTotalSize}}MaxTotalSize {{.MaxTotalSize}}{{else}}# MaxTotalSize 0{{end}}
+{{if .ClipboardSizeLimit}}ClipboardSizeLimit {{.ClipboardSizeLimit}}{{else}}# ClipboardSizeLimit 0{{end}}
 
 # Maximum size per uploaded clipboard file. Zero disables a max file size.
 #
@@ -90,7 +80,7 @@
 # Format:  <number>(GMKB)
 # Default: 0 (disabled)
 #
-{{if .MaxFileSize}}MaxFileSize {{.MaxFileSize}}{{else}}# MaxFileSize 0{{end}}
+{{if .FileSizeLimit}}FileSizeLimit {{.FileSizeLimit}}{{else}}# FileSizeLimit 0{{end}}
 
 # Maximum number of clipboard files. Zero disables this setting.
 #
@@ -99,13 +89,23 @@
 # Format:  <number>
 # Default: 0 (disabled)
 #
-{{if .MaxNumFiles}}MaxNumFiles {{.MaxNumFiles}}{{else}}# MaxNumFiles 0{{end}}
+{{if .FileCountLimit}}FileCountLimit {{.FileCountLimit}}{{else}}# FileCountLimit 0{{end}}
+
+# Duration after which clipboard contents will be deleted unless they are updated before.
+# To disable, set to 0.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  <number>(dhms)
+# Default: 7d
+#
+{{if .FileExpireAfter}}FileExpireAfter {{.FileExpireAfter}}{{else}}# FileExpireAfter 7d{{end}}
 
 # If set to true, a simple web UI is served that allows uploading files and text snippets.
 #
 # This is a server-only option (pcopy serve). It has no effect for client commands.
 #
 # Format:  Boolean (true/false)
-# Default: false
+# Default: true
 #
-{{if .WebUI}}WebUI true{{else}}# WebUI false{{end}}
+{{if .WebUI}}# WebUI true{{else}}WebUI false{{end}}

@@ -68,10 +68,10 @@ type webTemplateConfig struct {
 }
 
 type server struct {
-	config    *Config
-	fileCount *limiter
-	totalSize *limiter
-	update    chan bool
+	config       *Config
+	countLimiter *limiter
+	sizeLimiter  *limiter
+	update       chan bool
 	sync.Mutex
 }
 
@@ -80,10 +80,10 @@ func Serve(config *Config) error {
 		return err
 	}
 	server := &server{
-		config:    config,
-		totalSize: newLimiter(config.MaxTotalSize),
-		fileCount: newLimiter(int64(config.MaxNumFiles)),
-		update: make(chan bool),
+		config:       config,
+		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
+		countLimiter: newLimiter(int64(config.FileCountLimit)),
+		update:       make(chan bool),
 	}
 	go server.clipboardManager()
 	return server.listenAndServeTLS()
@@ -224,7 +224,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 	// Check total file count limit (only if file didn't exist already)
 	stat, _ := os.Stat(file)
 	if stat == nil {
-		if err := s.fileCount.Add(1); err != nil {
+		if err := s.countLimiter.Add(1); err != nil {
 			s.fail(w, r, http.StatusBadRequest, err)
 			return
 		}
@@ -233,7 +233,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 	// Create new file or truncate existing
 	f, err := os.OpenFile(file, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0600)
 	if err != nil {
-		s.fileCount.Sub(1)
+		s.countLimiter.Sub(1)
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -246,8 +246,8 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 	}
 
 	// Copy file contents (with file limit & total limit)
-	fileSizeLimiter := newLimiter(s.config.MaxFileSize)
-	limitWriter := newLimitWriter(f, fileSizeLimiter, s.totalSize)
+	fileSizeLimiter := newLimiter(s.config.FileSizeLimit)
+	limitWriter := newLimitWriter(f, fileSizeLimiter, s.sizeLimiter)
 
 	if _, err := io.Copy(limitWriter, r.Body); err != nil {
 		if err == limitReachedError {
@@ -406,32 +406,32 @@ func (s *server) updateStatsAndExpire() {
 		numFiles++
 		totalSize += f.Size()
 	}
-	s.fileCount.Set(numFiles)
-	s.totalSize.Set(totalSize)
+	s.countLimiter.Set(numFiles)
+	s.sizeLimiter.Set(totalSize)
 	s.printStats()
 }
 
 func (s *server) printStats() {
 	var countLimit, sizeLimit string
-	if s.fileCount.Limit() == 0 {
+	if s.countLimiter.Limit() == 0 {
 		countLimit = "no limit"
 	} else {
-		countLimit = fmt.Sprintf("max %d", s.fileCount.Limit())
+		countLimit = fmt.Sprintf("max %d", s.countLimiter.Limit())
 	}
-	if s.totalSize.Limit() == 0 {
+	if s.sizeLimiter.Limit() == 0 {
 		sizeLimit = "no limit"
 	} else {
-		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.totalSize.Limit()))
+		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.sizeLimiter.Limit()))
 	}
-	log.Printf("files: %d (%s), size %s (%s)", s.fileCount.Value(), countLimit,
-		BytesToHuman(s.totalSize.Value()), sizeLimit)
+	log.Printf("files: %d (%s), size %s (%s)", s.countLimiter.Value(), countLimit,
+		BytesToHuman(s.sizeLimiter.Value()), sizeLimit)
 }
 
 func (s *server) maybeExpire(file os.FileInfo) {
-	if s.config.ExpireAfter == 0 {
+	if s.config.FileExpireAfter == 0 {
 		return
 	}
-	if time.Now().Sub(file.ModTime()) > s.config.ExpireAfter {
+	if time.Now().Sub(file.ModTime()) > s.config.FileExpireAfter {
 		if err := os.Remove(filepath.Join(s.config.ClipboardDir, file.Name())); err != nil {
 			log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
 		}

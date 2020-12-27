@@ -16,33 +16,33 @@ import (
 )
 
 const (
-	DefaultPort             = 1986
-	DefaultServerConfigFile = "/etc/pcopy/server.conf"
-	DefaultClipboardDir     = "/var/cache/pcopy"
-	DefaultClipboard        = "default"
-	DefaultId               = "default"
-	DefaultExpireAfter      = time.Hour * 24 * 7
-	DefaultMaxTotalSize     = 0
-	DefaultMaxFileSize      = 0
-	DefaultMaxNumFiles      = 0
+	DefaultPort               = 1986
+	DefaultServerConfigFile   = "/etc/pcopy/server.conf"
+	DefaultClipboardDir       = "/var/cache/pcopy"
+	DefaultClipboard          = "default"
+	DefaultId                 = "default"
+	DefaultFileExpireAfter    = time.Hour * 24 * 7
+	DefaultClipboardSizeLimit = 0
+	DefaultFileSizeLimit      = 0
+	DefaultFileCountLimit     = 0
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
 )
 
 type Config struct {
-	ListenAddr   string
-	ServerAddr   string
-	KeyFile      string
-	CertFile     string
-	Key          *Key
-	ClipboardDir string
-	ExpireAfter  time.Duration
-	MaxTotalSize int64
-	MaxFileSize  int64
-	MaxNumFiles  int
-	ProgressFunc ProgressFunc
-	WebUI        bool
+	ListenAddr         string
+	ServerAddr         string
+	Key                *Key
+	KeyFile            string
+	CertFile           string
+	ClipboardDir       string
+	ClipboardSizeLimit int64
+	FileSizeLimit      int64
+	FileCountLimit     int
+	FileExpireAfter    time.Duration
+	ProgressFunc       ProgressFunc
+	WebUI              bool
 }
 
 type Key struct {
@@ -60,18 +60,18 @@ var sizeStrRegex = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
 
 func newConfig() *Config {
 	return &Config{
-		ListenAddr:   fmt.Sprintf(":%d", DefaultPort),
-		ServerAddr:   "",
-		KeyFile:      "",
-		CertFile:     "",
-		Key:          nil,
-		ClipboardDir: DefaultClipboardDir,
-		ExpireAfter:  DefaultExpireAfter,
-		MaxTotalSize: DefaultMaxTotalSize,
-		MaxFileSize:  DefaultMaxFileSize,
-		MaxNumFiles:  DefaultMaxNumFiles,
-		ProgressFunc: nil,
-		WebUI:        false,
+		ListenAddr:         fmt.Sprintf(":%d", DefaultPort),
+		ServerAddr:         "",
+		Key:                nil,
+		KeyFile:            "",
+		CertFile:           "",
+		ClipboardDir:       DefaultClipboardDir,
+		ClipboardSizeLimit: DefaultClipboardSizeLimit,
+		FileSizeLimit:      DefaultFileSizeLimit,
+		FileCountLimit:     DefaultFileCountLimit,
+		FileExpireAfter:    DefaultFileExpireAfter,
+		ProgressFunc:       nil,
+		WebUI:              false,
 	}
 }
 
@@ -235,6 +235,19 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		config.ListenAddr = listenAddr
 	}
 
+	serverAddr, ok := raw["ServerAddr"]
+	if ok {
+		config.ServerAddr = serverAddr
+	}
+
+	key, ok := raw["Key"]
+	if ok {
+		config.Key, err = DecodeKey(key)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	keyFile, ok := raw["KeyFile"]
 	if ok {
 		if _, err := os.Stat(keyFile); err != nil {
@@ -257,48 +270,35 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		config.ClipboardDir = ExpandHome(clipboardDir)
 	}
 
-	serverAddr, ok := raw["ServerAddr"]
+	clipboardSizeLimit, ok := raw["ClipboardSizeLimit"]
 	if ok {
-		config.ServerAddr = serverAddr
-	}
-
-	key, ok := raw["Key"]
-	if ok {
-		config.Key, err = DecodeKey(key)
+		config.ClipboardSizeLimit, err = parseSize(clipboardSizeLimit)
 		if err != nil {
-			return "", nil, err
+			return "", nil, fmt.Errorf("invalid config value for 'ClipboardSizeLimit': %w", err)
 		}
 	}
 
-	expireAfter, ok := raw["ExpireAfter"]
+	fileSizeLimit, ok := raw["FileSizeLimit"]
 	if ok {
-		config.ExpireAfter, err = time.ParseDuration(expireAfter)
+		config.FileSizeLimit, err = parseSize(fileSizeLimit)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'ExpireAfter': %w", err)
+			return "", nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
 		}
 	}
 
-	maxTotalSize, ok := raw["MaxTotalSize"]
+	fileCountLimit, ok := raw["FileCountLimit"]
 	if ok {
-		config.MaxTotalSize, err = parseSize(maxTotalSize)
+		config.FileCountLimit, err = strconv.Atoi(fileCountLimit)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'MaxTotalSize': %w", err)
+			return "", nil, fmt.Errorf("invalid config value for 'FileCountLimit': %w", err)
 		}
 	}
 
-	maxFileSize, ok := raw["MaxFileSize"]
+	fileExpireAfter, ok := raw["FileExpireAfter"]
 	if ok {
-		config.MaxFileSize, err = parseSize(maxFileSize)
+		config.FileExpireAfter, err = time.ParseDuration(fileExpireAfter)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'MaxFileSize': %w", err)
-		}
-	}
-
-	maxNumFiles, ok := raw["MaxNumFiles"]
-	if ok {
-		config.MaxNumFiles, err = strconv.Atoi(maxNumFiles)
-		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'MaxNumFiles': %w", err)
+			return "", nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 		}
 	}
 

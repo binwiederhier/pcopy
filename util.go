@@ -215,7 +215,7 @@ func GenerateClipUrl(config *Config, id string, ttl time.Duration) (string, erro
 
 // https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 func BytesToHuman(b int64) string {
-	const unit = 1000
+	const unit = 1024
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
 	}
