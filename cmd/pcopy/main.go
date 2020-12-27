@@ -8,7 +8,6 @@ import (
 )
 
 // TODO Let's Encrypt certs
-// TODO get rid of /c prefix entirely
 // TODO make sure things are easy with `curl`, maybe support basic auth too
 // TODO allow piping (mkfifo or io.Pipe)
 // TODO UI embed fonts

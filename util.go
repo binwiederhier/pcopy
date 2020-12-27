@@ -204,12 +204,7 @@ func GenerateUrl(config *Config, path string, ttl time.Duration) (string, error)
 }
 
 func GenerateClipUrl(config *Config, id string, ttl time.Duration) (string, error) {
-	var path string
-	if id == DefaultId {
-		path = clipboardDefaultPath
-	} else {
-		path = fmt.Sprintf(clipboardPathFormat, id)
-	}
+	path := fmt.Sprintf(clipboardPathFormat, id)
 	return GenerateUrl(config, path, ttl)
 }
 

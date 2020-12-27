@@ -122,7 +122,7 @@ function keyHandler(e) {
 
 function save() {
     let method = 'PUT'
-    let path = '/c/' + (fileId.value || 'default')
+    let path = '/' + (fileId.value || 'default')
     let url = 'https://' + location.host + path
     let key = loadKey()
 
@@ -166,7 +166,7 @@ function handleFile(file) {
 
 function uploadFile(file) {
     let method = 'PUT'
-    let path = '/c/' + (fileId.value || 'default')
+    let path = '/' + (fileId.value || 'default')
     let url = 'https://' + location.host + path
     let key = loadKey()
 

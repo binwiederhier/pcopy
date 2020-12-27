@@ -31,13 +31,23 @@ const (
 	certCommonName        = "pcopy"
 )
 
+const (
+	pathRoot = "/"
+	pathInfo = "/info"
+	pathVerify = "/verify"
+	pathInstall = "/install"
+	pathDownload = "/download"
+	pathJoin = "/join"
+	pathStatic = "/static"
+)
+
 var (
 	hmacAuthFormat        = "HMAC %d %d %s" // timestamp ttl b64-hmac
 	hmacAuthRegex         = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	hmacAuthOverrideParam = "a"
-	clipboardRegex        = regexp.MustCompile(`^/c(?:/([-_a-zA-Z0-9]{1,100}))$`)
-	clipboardPathFormat   = "/c/%s"
-	clipboardDefaultPath  = "/c"
+	clipboardRegex        = regexp.MustCompile(`^/([-_a-zA-Z0-9]{1,100})$`)
+	clipboardPathFormat   = "/%s"
+	reservedPaths         = []string{pathRoot, pathInfo, pathVerify, pathInstall, pathDownload, pathJoin, pathStatic}
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
@@ -103,18 +113,18 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc("/install", s.handleInstall)
 	http.HandleFunc("/join", s.handleJoin)
 	http.HandleFunc("/download", s.handleDownload)
-	http.HandleFunc("/c/", s.handleClipboard)
-	http.HandleFunc("/c", s.handleClipboard)
-
-	if s.config.WebUI {
-		http.HandleFunc("/", s.handleWebRoot)
-	}
+	http.HandleFunc("/", s.handleDefault)
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
 
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+
+	if r.Method != http.MethodGet {
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+		return
+	}
 
 	salt := ""
 	if s.config.Key != nil {
@@ -139,18 +149,42 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method != http.MethodGet {
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+		return
+	}
+
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 }
 
-func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" {
-		if err := webTemplate.Execute(w, s.config); err != nil {
-			s.fail(w, r, http.StatusInternalServerError, err)
-		}
-	} else if strings.HasPrefix(r.URL.Path, "/static") {
-		r.URL.Path = "/web" + r.URL.Path // This is a hack to get the embedded path
-		http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
+func (s *server) handleDefault(w http.ResponseWriter, r *http.Request) {
+	if s.config.WebUI && r.Method == http.MethodGet && r.URL.Path == pathRoot {
+		s.handleWebRoot(w, r)
+	} else if s.config.WebUI && r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, pathStatic) {
+		s.handleWebStatic(w, r)
+	} else {
+		s.handleClipboard(w, r)
 	}
+}
+func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+		return
+	}
+
+	if err := webTemplate.Execute(w, s.config); err != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+	}
+}
+
+func (s *server) handleWebStatic(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+		return
+	}
+
+	r.URL.Path = "/web" + r.URL.Path // This is a hack to get the embedded path
+	http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
 }
 
 func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
@@ -159,25 +193,28 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+	if err := s.checkReserved(r); err != nil {
+		s.fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
+	if matches == nil {
+		s.fail(w, r, http.StatusBadRequest, errFileIdTooLong)
+		return
+	}
+	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, matches[1])
 
 	if err := os.MkdirAll(s.config.ClipboardDir, 0700); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	var id string
-	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
-	if matches == nil {
-		id = DefaultId
-	} else {
-		id = matches[1]
-	}
-	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, id)
+	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	if r.Method == http.MethodGet {
 		s.handleClipboardGet(w, r, file)
-	} else if r.Method == http.MethodPut {
+	} else if r.Method == http.MethodPut || r.Method == http.MethodPost {
 		s.handleClipboardPut(w, r, file)
 	}
 }
@@ -250,6 +287,11 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
+	if r.Method != http.MethodGet {
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+		return
+	}
+
 	executable, err := getExecutable()
 	if err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
@@ -272,6 +314,11 @@ func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
+	if r.Method != http.MethodGet {
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+		return
+	}
+
 	if err := installTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -284,12 +331,26 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method != http.MethodGet {
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+		return
+	}
+
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	if err := joinTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+}
+
+func (s *server) checkReserved(r *http.Request) error {
+	for _, path := range reservedPaths {
+		if r.URL.Path == path {
+			return errReservedPath
+		}
+	}
+	return nil
 }
 
 func (s *server) authorize(r *http.Request) error {
@@ -444,3 +505,6 @@ var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to c
 var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidAuth = errors.New("invalid auth")
+var errReservedPath = errors.New("reserved path")
+var errInvalidMethod = errors.New("invalid method")
+var errFileIdTooLong = errors.New("file id too long")
