@@ -41,7 +41,7 @@ var (
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
-	webTemplate       = template.Must(template.New("index").Parse(webTemplateSource))
+	webTemplate       = template.Must(template.New("index").Funcs(templateFnMap).Parse(webTemplateSource))
 
 	//go:embed web/static
 	webStaticFs embed.FS
@@ -59,12 +59,6 @@ var (
 type infoResponse struct {
 	ServerAddr string `json:"serverAddr"`
 	Salt       string `json:"salt"`
-}
-
-type webTemplateConfig struct {
-	Salt string
-	PbkdfIter int
-	KeyLen int
 }
 
 type server struct {
@@ -150,17 +144,7 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		var config *webTemplateConfig
-		if s.config.Key != nil {
-			config = &webTemplateConfig{
-				Salt: base64.StdEncoding.EncodeToString(s.config.Key.Salt),
-				PbkdfIter: pbkdfIter,
-				KeyLen: keyLen,
-			}
-		} else {
-			config = &webTemplateConfig{}
-		}
-		if err := webTemplate.Execute(w, config); err != nil {
+		if err := webTemplate.Execute(w, s.config); err != nil {
 			s.fail(w, r, http.StatusInternalServerError, err)
 		}
 	} else if strings.HasPrefix(r.URL.Path, "/static") {

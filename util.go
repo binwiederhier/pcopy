@@ -25,10 +25,9 @@ import (
 )
 
 const (
-	keyLen = 32
-	saltLen = 10
-	pbkdfIter = 10000
-
+	keyLenBytes     = 32
+	keyDerivIter    = 10000
+	keySaltLenBytes = 10
 	certNotBeforeAge = -time.Hour * 24 * 7 // ~ 1 week
 	certNotAfterAge  = time.Hour * 24 * 365 * 3 // ~ 3 years
 )
@@ -36,11 +35,12 @@ const (
 var templateFnMap = template.FuncMap{
 	"encodeKey": EncodeKey,
 	"expandServerAddr": ExpandServerAddr,
+	"encodeBase64": base64.StdEncoding.EncodeToString,
 }
 
 func DeriveKey(password []byte, salt []byte) *Key {
 	return &Key{
-		Bytes: pbkdf2.Key(password, salt, pbkdfIter, keyLen, sha256.New),
+		Bytes: pbkdf2.Key(password, salt, keyDerivIter, keyLenBytes, sha256.New),
 		Salt: salt,
 	}
 }
@@ -75,7 +75,7 @@ func DecodeKey(keyEncoded string) (*Key, error) {
 }
 
 func GenerateKey(password []byte) (*Key, error) {
-	salt := make([]byte, saltLen)
+	salt := make([]byte, keySaltLenBytes)
 	_, err := rand.Read(salt)
 	if err != nil {
 		return nil, err

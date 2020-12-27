@@ -1,4 +1,4 @@
-{{- /*gotype: heckel.io/pcopy.webConfig*/ -}}
+{{- /*gotype: heckel.io/pcopy.Config*/ -}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,11 +62,15 @@
 </div>
 
 <script>
+    {{if .Key}}
     let config = {
-        salt: "{{.Salt}}",
-        iterations: {{.PbkdfIter}},
-        keySize: {{.KeyLen}}
+        salt: "{{.Key.Salt | encodeBase64}}",
+        iterations: {{.KeyDerivIter}},
+        keySize: {{.KeyLenBytes}}
     }
+    {{else}}
+    let config = {}
+    {{end}}
 </script>
 <script src="static/vendor/cryptojs/crypto-js.min.js"></script>
 <script src="static/js/app.js"></script>
