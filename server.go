@@ -25,18 +25,17 @@ import (
 )
 
 const (
-	purgerTickerInterval = 10 * time.Second
-	statUpdaterInterval  = 5 * time.Second
-	defaultMaxAuthAge    = time.Minute
-	noAuthRequestAge     = 0
-	certCommonName       = "pcopy"
+	managerTickerInterval = 30 * time.Second
+	defaultMaxAuthAge     = time.Minute
+	noAuthRequestAge      = 0
+	certCommonName        = "pcopy"
 )
 
 var (
 	hmacAuthFormat        = "HMAC %d %d %s" // timestamp ttl b64-hmac
 	hmacAuthRegex         = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	hmacAuthOverrideParam = "a"
-	clipboardRegex        = regexp.MustCompile(`^/c(?:/([-_a-zA-Z0-9]+))$`)
+	clipboardRegex        = regexp.MustCompile(`^/c(?:/([-_a-zA-Z0-9]{1,100}))$`)
 	clipboardPathFormat   = "/c/%s"
 	clipboardDefaultPath  = "/c"
 
@@ -72,70 +71,37 @@ type server struct {
 	config    *Config
 	fileCount *limiter
 	totalSize *limiter
+	update    chan bool
 	sync.Mutex
 }
 
-
 func Serve(config *Config) error {
+	if err := checkConfig(config); err != nil {
+		return err
+	}
 	server := &server{
 		config:    config,
 		totalSize: newLimiter(config.MaxTotalSize),
 		fileCount: newLimiter(int64(config.MaxNumFiles)),
+		update: make(chan bool),
 	}
-	if err := server.checkConfig(); err != nil {
-		return err
-	}
-	if err := server.updateStats(); err != nil {
-		return err
-	}
-	go server.statUpdater()
-	go server.clipboardPurger()
+	go server.clipboardManager()
 	return server.listenAndServeTLS()
 }
 
-func (s *server) checkConfig() error {
-	if s.config.ListenAddr == "" {
+func checkConfig(config *Config) error {
+	if config.ListenAddr == "" {
 		return listenAddrMissingError
 	}
-	if s.config.KeyFile == "" {
+	if config.KeyFile == "" {
 		return keyFileMissingError
 	}
-	if s.config.CertFile == "" {
+	if config.CertFile == "" {
 		return certFileMissingError
 	}
-	if unix.Access(s.config.ClipboardDir, unix.W_OK) != nil {
+	if unix.Access(config.ClipboardDir, unix.W_OK) != nil {
 		return clipboardDirNotWritableError
 	}
-	return nil
-}
-
-func (s *server) statUpdater() {
-	ticker := time.NewTicker(statUpdaterInterval)
-	for range ticker.C {
-		if err := s.updateStats(); err != nil {
-			log.Printf("error updating stats: %s", err.Error())
-			continue
-		}
-		log.Printf("files: %d (limit %d), size %s (limit %s)", s.fileCount.Value(), s.fileCount.Limit(),
-			BytesToHuman(s.totalSize.Value()), BytesToHuman(s.totalSize.Limit()))
-	}
-}
-
-func (s *server) updateStats() error {
-	s.Lock()
-	defer s.Unlock()
-	numFiles := int64(0)
-	totalSize := int64(0)
-	files, err := ioutil.ReadDir(s.config.ClipboardDir)
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		numFiles++
-		totalSize += f.Size()
-	}
-	s.fileCount.Set(numFiles)
-	s.totalSize.Set(totalSize)
 	return nil
 }
 
@@ -153,34 +119,6 @@ func (s *server) listenAndServeTLS() error {
 	}
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
-}
-
-func (s *server) clipboardPurger() {
-	if s.config.ExpireAfter == 0 {
-		return
-	}
-
-	ticker := time.NewTicker(purgerTickerInterval)
-	for range ticker.C {
-		files, err := ioutil.ReadDir(s.config.ClipboardDir)
-		if err != nil {
-			log.Printf("failed to read clipboard dir: %s", err.Error())
-			continue
-		}
-		updateStats := false
-		for _, f := range files {
-			if time.Now().Sub(f.ModTime()) > s.config.ExpireAfter {
-				updateStats = true
-				if err := os.Remove(filepath.Join(s.config.ClipboardDir, f.Name())); err != nil {
-					log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
-				}
-				log.Printf("removed expired entry %s (%s)", f.Name(), BytesToHuman(f.Size()))
-			}
-		}
-		if updateStats {
-			s.updateStats()
-		}
-	}
 }
 
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
@@ -300,7 +238,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 		return
 	}
 	defer f.Close()
-	defer s.updateStats()
+	defer s.updateStatsAndExpire()
 
 	// Handle empty body
 	if r.Body == nil {
@@ -440,6 +378,65 @@ func (s *server) authorize(r *http.Request) error {
 	}
 
 	return nil
+}
+
+func (s *server) clipboardManager() {
+	ticker := time.NewTicker(managerTickerInterval)
+	for {
+		s.updateStatsAndExpire()
+		select {
+		case <- ticker.C:
+		case <- s.update:
+		}
+	}
+}
+
+func (s *server) updateStatsAndExpire() {
+	s.Lock()
+	defer s.Unlock()
+	files, err := ioutil.ReadDir(s.config.ClipboardDir)
+	if err != nil {
+		log.Printf("error reading clipboard: %s", err.Error())
+		return
+	}
+	numFiles := int64(0)
+	totalSize := int64(0)
+	for _, f := range files {
+		s.maybeExpire(f)
+		numFiles++
+		totalSize += f.Size()
+	}
+	s.fileCount.Set(numFiles)
+	s.totalSize.Set(totalSize)
+	s.printStats()
+}
+
+func (s *server) printStats() {
+	var countLimit, sizeLimit string
+	if s.fileCount.Limit() == 0 {
+		countLimit = "no limit"
+	} else {
+		countLimit = fmt.Sprintf("max %d", s.fileCount.Limit())
+	}
+	if s.totalSize.Limit() == 0 {
+		sizeLimit = "no limit"
+	} else {
+		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.totalSize.Limit()))
+	}
+	log.Printf("files: %d (%s), size %s (%s)", s.fileCount.Value(), countLimit,
+		BytesToHuman(s.totalSize.Value()), sizeLimit)
+}
+
+func (s *server) maybeExpire(file os.FileInfo) {
+	if s.config.ExpireAfter == 0 {
+		return
+	}
+	if time.Now().Sub(file.ModTime()) > s.config.ExpireAfter {
+		if err := os.Remove(filepath.Join(s.config.ClipboardDir, file.Name())); err != nil {
+			log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
+		}
+		log.Printf("removed expired entry %s (%s)", file.Name(), BytesToHuman(file.Size()))
+	}
 }
 
 func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
