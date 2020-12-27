@@ -42,12 +42,14 @@ const (
 )
 
 var (
-	hmacAuthFormat        = "HMAC %d %d %s" // timestamp ttl b64-hmac
-	hmacAuthRegex         = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
-	hmacAuthOverrideParam = "a"
-	clipboardRegex        = regexp.MustCompile(`^/([-_a-zA-Z0-9]{1,100})$`)
-	clipboardPathFormat   = "/%s"
-	reservedPaths         = []string{pathRoot, pathInfo, pathVerify, pathInstall, pathDownload, pathJoin, pathStatic}
+	authOverrideParam   = "a"
+	authHmacFormat      = "HMAC %d %d %s" // timestamp ttl b64-hmac
+	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
+	authBasicFormat     = "Basic %s"
+	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
+	clipboardRegex      = regexp.MustCompile(`^/([-_a-zA-Z0-9]{1,100})$`)
+	clipboardPathFormat = "/%s"
+	reservedPaths       = []string{pathRoot, pathInfo, pathVerify, pathInstall, pathDownload, pathJoin, pathStatic}
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
@@ -149,7 +151,7 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodPut {
 		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
 		return
 	}
@@ -359,7 +361,7 @@ func (s *server) authorize(r *http.Request) error {
 	}
 
 	auth := r.Header.Get("Authorization")
-	if encodedQueryAuth, ok := r.URL.Query()[hmacAuthOverrideParam]; ok && len(encodedQueryAuth) > 0 {
+	if encodedQueryAuth, ok := r.URL.Query()[authOverrideParam]; ok && len(encodedQueryAuth) > 0 {
 		queryAuth, err := base64.StdEncoding.DecodeString(encodedQueryAuth[0])
 		if err != nil {
 			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
@@ -368,12 +370,17 @@ func (s *server) authorize(r *http.Request) error {
 		auth = string(queryAuth)
 	}
 
-	matches := hmacAuthRegex.FindStringSubmatch(auth)
-	if matches == nil {
+	if m := authHmacRegex.FindStringSubmatch(auth); m != nil {
+		return s.authorizeHmac(r, m)
+	} else if m := authBasicRegex.FindStringSubmatch(auth); m != nil {
+		return s.authorizeBasic(r, m)
+	} else {
 		log.Printf("%s - %s %s - auth header missing", r.RemoteAddr, r.Method, r.RequestURI)
 		return errInvalidAuth
 	}
+}
 
+func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac timestamp conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
@@ -418,6 +425,30 @@ func (s *server) authorize(r *http.Request) error {
 			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
 			return errInvalidAuth
 		}
+	}
+
+	return nil
+}
+
+func (s *server) authorizeBasic(r *http.Request, matches []string) error {
+	userPassBytes, err := base64.StdEncoding.DecodeString(matches[1])
+	if err != nil {
+		log.Printf("%s - %s %s - basic base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		return errInvalidAuth
+	}
+
+	userPassParts := strings.Split(string(userPassBytes), ":")
+	if len(userPassParts) != 2 {
+		log.Printf("%s - %s %s - basic invalid user/pass format", r.RemoteAddr, r.Method, r.RequestURI)
+		return errInvalidAuth
+	}
+	passwordBytes := []byte(userPassParts[1])
+
+	// Compare HMAC in constant time (to prevent timing attacks)
+	key := DeriveKey(passwordBytes, s.config.Key.Salt)
+	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
+		log.Printf("%s - %s %s - basic invalid", r.RemoteAddr, r.Method, r.RequestURI)
+		return errInvalidAuth
 	}
 
 	return nil

@@ -130,7 +130,7 @@ func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration)
 	}
 
 	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	return fmt.Sprintf(hmacAuthFormat, timestamp, ttlSecs, hashBase64), nil
+	return fmt.Sprintf(authHmacFormat, timestamp, ttlSecs, hashBase64), nil
 }
 
 func GenerateKeyAndCert() (string, string, error) {
@@ -198,7 +198,7 @@ func GenerateUrl(config *Config, path string, ttl time.Duration) (string, error)
 		if err != nil {
 			return "", err
 		}
-		url = fmt.Sprintf("%s?%s=%s", url, hmacAuthOverrideParam, base64.StdEncoding.EncodeToString([]byte(auth)))
+		url = fmt.Sprintf("%s?%s=%s", url, authOverrideParam, base64.StdEncoding.EncodeToString([]byte(auth)))
 	}
 	return url, nil
 }

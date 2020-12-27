@@ -7,8 +7,10 @@ import (
 	"runtime"
 )
 
+// TODO rate limit (see blog post)
+// TODO add documentation for basic auth + curl, add docs page
+// TODO add tests!
 // TODO Let's Encrypt certs
-// TODO make sure things are easy with `curl`, maybe support basic auth too
 // TODO allow piping (mkfifo or io.Pipe)
 // TODO UI embed fonts
 // TODO UI modal after upload/save
