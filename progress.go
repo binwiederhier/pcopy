@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	updateDelay = time.Second
-	updateInterval = 150 * time.Millisecond
+	defaultProgressDelay    = time.Second
+	defaultProgressInterval = 150 * time.Millisecond
 )
 
 // progressReadCloser counts the bytes read through it.
@@ -18,19 +18,26 @@ type progressReadCloser struct {
 	processed int64
 	total     int64
 	fn        ProgressFunc
+	delay     time.Duration
 	ticker    *time.Ticker
 	sync.RWMutex
 }
 
+type ProgressFunc func(processed int64, total int64, done bool)
+
 func newProgressReader(r io.ReadCloser, total int64, fn ProgressFunc) *progressReadCloser {
+	return newProgressReaderWithDelay(r, total, fn, defaultProgressDelay, defaultProgressInterval)
+}
+
+func newProgressReaderWithDelay(r io.ReadCloser, total int64, fn ProgressFunc, delay time.Duration, interval time.Duration) *progressReadCloser {
 	reader := &progressReadCloser{
-		reader: r,
+		reader:    r,
 		processed: 0,
-		total: total,
-		ticker: time.NewTicker(updateInterval),
-		fn:     fn,
+		total:     total,
+		ticker:    time.NewTicker(interval),
+		fn:        fn,
 	}
-	go reader.tick()
+	time.AfterFunc(delay, reader.tick)
 	return reader
 }
 
@@ -52,7 +59,6 @@ func (r *progressReadCloser) Close() (err error) {
 }
 
 func (r *progressReadCloser) tick() {
-	time.Sleep(updateDelay)
 	for range r.ticker.C {
 		r.RLock()
 		n := r.processed

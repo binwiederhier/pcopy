@@ -14,7 +14,7 @@ func TestLimiter_Add(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := l.Add(5); err != limitReachedError {
-		t.Errorf("expected limitReachedError, got %#v", err)
+		t.Fatalf("expected limitReachedError, got %#v", err)
 	}
 }
 
@@ -22,11 +22,11 @@ func TestLimiter_AddSet(t *testing.T) {
 	l := newLimiter(10)
 	l.Add(5)
 	if l.Value() != 5 {
-		t.Errorf("expected value to be %d, got %d", 5, l.Value())
+		t.Fatalf("expected value to be %d, got %d", 5, l.Value())
 	}
 	l.Set(7)
 	if l.Value() != 7 {
-		t.Errorf("expected value to be %d, got %d", 7, l.Value())
+		t.Fatalf("expected value to be %d, got %d", 7, l.Value())
 	}
 }
 
@@ -40,7 +40,7 @@ func TestLimitWriter_WriteNoLimiter(t *testing.T) {
 		t.Fatal(err)
 	}
 	if buf.Len() != 11 {
-		t.Errorf("expected buffer length to be %d, got %d", 11, buf.Len())
+		t.Fatalf("expected buffer length to be %d, got %d", 11, buf.Len())
 	}
 }
 
@@ -52,13 +52,13 @@ func TestLimitWriter_WriteOneLimiter(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := lw.Write(make([]byte, 1)); err != limitReachedError {
-		t.Errorf("expected limitReachedError, got %#v", err)
+		t.Fatalf("expected limitReachedError, got %#v", err)
 	}
 	if buf.Len() != 10 {
-		t.Errorf("expected buffer length to be %d, got %d", 10, buf.Len())
+		t.Fatalf("expected buffer length to be %d, got %d", 10, buf.Len())
 	}
 	if l.Value() != 10 {
-		t.Errorf("expected limiter value to be %d, got %d", 10, l.Value())
+		t.Fatalf("expected limiter value to be %d, got %d", 10, l.Value())
 	}
 }
 
@@ -71,15 +71,15 @@ func TestLimitWriter_WriteTwoLimiters(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := lw.Write(make([]byte, 2)); err != limitReachedError {
-		t.Errorf("expected limitReachedError, got %#v", err)
+		t.Fatalf("expected limitReachedError, got %#v", err)
 	}
 	if buf.Len() != 8 {
-		t.Errorf("expected buffer length to be %d, got %d", 8, buf.Len())
+		t.Fatalf("expected buffer length to be %d, got %d", 8, buf.Len())
 	}
 	if l1.Value() != 8 {
-		t.Errorf("expected limiter 1 value to be %d, got %d", 8, l1.Value())
+		t.Fatalf("expected limiter 1 value to be %d, got %d", 8, l1.Value())
 	}
 	if l2.Value() != 8 {
-		t.Errorf("expected limiter 2 value to be %d, got %d", 8, l2.Value())
+		t.Fatalf("expected limiter 2 value to be %d, got %d", 8, l2.Value())
 	}
 }
