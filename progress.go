@@ -34,10 +34,10 @@ func newProgressReaderWithDelay(r io.ReadCloser, total int64, fn ProgressFunc, d
 		reader:    r,
 		processed: 0,
 		total:     total,
-		ticker:    time.NewTicker(interval),
+		ticker:    nil,
 		fn:        fn,
 	}
-	time.AfterFunc(delay, reader.tick)
+	time.AfterFunc(delay, func() { reader.tick(interval) })
 	return reader
 }
 
@@ -52,13 +52,18 @@ func (r *progressReadCloser) Read(p []byte) (n int, err error) {
 func (r *progressReadCloser) Close() (err error) {
 	r.Lock()
 	err = r.reader.Close()
-	r.ticker.Stop()
+	if r.ticker != nil {
+		r.ticker.Stop()
+	}
 	r.fn(r.processed, r.total, true)
 	r.Unlock()
 	return
 }
 
-func (r *progressReadCloser) tick() {
+func (r *progressReadCloser) tick(interval time.Duration) {
+	r.Lock()
+	r.ticker = time.NewTicker(interval)
+	r.Unlock()
 	for range r.ticker.C {
 		r.RLock()
 		n := r.processed

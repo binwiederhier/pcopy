@@ -63,4 +63,51 @@ func TestProgressReadCloser_NoDelay(t *testing.T) {
 	}
 }
 
-// TODO TestProgressReadCloser_WithDelay
+func TestProgressReadCloser_WithDelayFastMessage(t *testing.T) {
+	ticks := int32(0)
+	fn := func(p int64, t int64, d bool) {
+		atomic.AddInt32(&ticks, 1)
+	}
+	r := ioutil.NopCloser(strings.NewReader("this is a 34 byte long test string"))
+	p := newProgressReaderWithDelay(r, 34, fn, 50, 50 * time.Millisecond)
+
+	// Read all before first tick
+	if _, err := p.Read(make([]byte, 999)); err != nil {
+		t.Fatal(err)
+	}
+	if atomic.LoadInt32(&ticks) != 0 {
+		t.Fatalf("expected 0 ticks, got %d", atomic.LoadInt32(&ticks))
+	}
+}
+
+func TestProgressReadCloser_WithDelaySlowMessage(t *testing.T) {
+	ticks := int32(0)
+	fn := func(p int64, t int64, d bool) {
+		atomic.AddInt32(&ticks, 1)
+	}
+	r := ioutil.NopCloser(strings.NewReader("this is a 34 byte long test string"))
+	p := newProgressReaderWithDelay(r, 34, fn, 50, 100 * time.Millisecond)
+
+	// Read some before first tick
+	if _, err := p.Read(make([]byte, 10)); err != nil {
+		t.Fatal(err)
+	}
+	if atomic.LoadInt32(&ticks) != 0 {
+		t.Fatalf("expected 0 ticks, got %d", atomic.LoadInt32(&ticks))
+	}
+	time.Sleep(55 * time.Millisecond)
+
+	// Read some more
+	if _, err := p.Read(make([]byte, 20)); err != nil {
+		t.Fatal(err)
+	}
+	if atomic.LoadInt32(&ticks) != 0 {
+		t.Fatalf("expected 0 ticks, got %d", atomic.LoadInt32(&ticks))
+	}
+	time.Sleep(55 * time.Millisecond)
+
+	// One tick after 50ms delay and 50ms ticker wait
+	if atomic.LoadInt32(&ticks) != 1 {
+		t.Fatalf("expected 1 ticks, got %d", atomic.LoadInt32(&ticks))
+	}
+}
