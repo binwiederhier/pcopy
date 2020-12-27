@@ -45,7 +45,6 @@ var (
 	authOverrideParam   = "a"
 	authHmacFormat      = "HMAC %d %d %s" // timestamp ttl b64-hmac
 	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
-	authBasicFormat     = "Basic %s"
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardRegex      = regexp.MustCompile(`^/([-_a-zA-Z0-9]{1,100})$`)
 	clipboardPathFormat = "/%s"
