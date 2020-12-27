@@ -30,6 +30,14 @@ const (
 	userConfigDir   = "~/.config/pcopy"
 )
 
+var (
+	sizeStrRegex = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
+
+	//go:embed "configs/pcopy.conf.tmpl"
+	configTemplateSource string
+	configTemplate = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
+)
+
 type Config struct {
 	ListenAddr         string
 	ServerAddr         string
@@ -52,12 +60,6 @@ type Key struct {
 
 type ProgressFunc func(processed int64, total int64, done bool)
 
-//go:embed "configs/pcopy.conf.tmpl"
-var configTemplateSource string
-var configTemplate = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
-
-var sizeStrRegex = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
-
 func newConfig() *Config {
 	return &Config{
 		ListenAddr:         fmt.Sprintf(":%d", DefaultPort),
@@ -71,7 +73,7 @@ func newConfig() *Config {
 		FileCountLimit:     DefaultFileCountLimit,
 		FileExpireAfter:    DefaultFileExpireAfter,
 		ProgressFunc:       nil,
-		WebUI:              false,
+		WebUI:              true,
 	}
 }
 
@@ -320,7 +322,7 @@ func parseSize(s string) (int64, error) {
 	}
 	value, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return -1, fmt.Errorf("cannot convert number %s", value)
+		return -1, fmt.Errorf("cannot convert number %s", matches[1])
 	}
 	switch strings.ToUpper(matches[2]) {
 	case "G": return int64(value) * 1024 * 1024 * 1024, nil

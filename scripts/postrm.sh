@@ -6,4 +6,3 @@ if [ "$1" = "purge" ]; then
   rm -rf /var/cache/pcopy
   rm -rf /etc/pcopy
 fi
-

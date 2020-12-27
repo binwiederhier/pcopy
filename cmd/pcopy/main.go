@@ -8,8 +8,9 @@ import (
 )
 
 // TODO Let's Encrypt certs
-// TODO max file size for total cache (for demo)
-// TODO max number of files (for demo)
+// TODO get rid of /c prefix entirely
+// TODO make sure things are easy with `curl`, maybe support basic auth too
+// TODO allow piping (mkfifo or io.Pipe)
 // TODO UI embed fonts
 // TODO UI modal after upload/save
 // TODO UI mobile + scroll

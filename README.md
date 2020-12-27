@@ -97,10 +97,11 @@ Made with ❤️ by [Philipp C. Heckel](https://heckel.io), distributed under th
 
 Third party libraries:
 * [GoReleaser](https://goreleaser.com/) (MIT) is used to create releases 
-* [CryptoJS](https://github.com/brix/crypto-js) (MIT) is used in the Web UI
+* [CryptoJS](https://github.com/brix/crypto-js) (MIT) is used for key derivation and such in the Web UI
+* [Lato Font](https://www.latofonts.com/) (OFL) is used as a font in the Web UI
 
-Posts that helped:
+Code and posts that helped:
 * [Drag & Drop](https://stackoverflow.com/a/33917000/1440785) (CC BY-SA 3.0)
+* [Progress indicator](https://github.com/machinebox/progress) (Apache 2.0)
 * [Full page centering](https://medium.com/creative-technology-concepts-code/full-page-site-with-vertical-centering-using-css-only-7858ed6764c4)
 * [Human readable file sizes](https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/)
-* [Progress indicator](https://github.com/machinebox/progress)

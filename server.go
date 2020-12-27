@@ -71,7 +71,6 @@ type server struct {
 	config       *Config
 	countLimiter *limiter
 	sizeLimiter  *limiter
-	update       chan bool
 	sync.Mutex
 }
 
@@ -83,7 +82,6 @@ func Serve(config *Config) error {
 		config:       config,
 		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
 		countLimiter: newLimiter(int64(config.FileCountLimit)),
-		update:       make(chan bool),
 	}
 	go server.clipboardManager()
 	return server.listenAndServeTLS()
@@ -91,16 +89,16 @@ func Serve(config *Config) error {
 
 func checkConfig(config *Config) error {
 	if config.ListenAddr == "" {
-		return listenAddrMissingError
+		return errListenAddrMissing
 	}
 	if config.KeyFile == "" {
-		return keyFileMissingError
+		return errKeyFileMissing
 	}
 	if config.CertFile == "" {
-		return certFileMissingError
+		return errCertFileMissing
 	}
 	if unix.Access(config.ClipboardDir, unix.W_OK) != nil {
-		return clipboardDirNotWritableError
+		return errClipboardDirNotWritable
 	}
 	return nil
 }
@@ -320,7 +318,7 @@ func (s *server) authorize(r *http.Request) error {
 		queryAuth, err := base64.StdEncoding.DecodeString(encodedQueryAuth[0])
 		if err != nil {
 			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
-			return invalidAuthError
+			return errInvalidAuth
 		}
 		auth = string(queryAuth)
 	}
@@ -328,25 +326,25 @@ func (s *server) authorize(r *http.Request) error {
 	matches := hmacAuthRegex.FindStringSubmatch(auth)
 	if matches == nil {
 		log.Printf("%s - %s %s - auth header missing", r.RemoteAddr, r.Method, r.RequestURI)
-		return invalidAuthError
+		return errInvalidAuth
 	}
 
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
-		log.Printf("%s - %s %s - hmac timestamp conversion: %w", r.RemoteAddr, r.Method, r.RequestURI, err)
-		return invalidAuthError
+		log.Printf("%s - %s %s - hmac timestamp conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		return errInvalidAuth
 	}
 
 	ttlSecs, err := strconv.Atoi(matches[2])
 	if err != nil {
-		log.Printf("%s - %s %s - hmac ttl conversion: %w", r.RemoteAddr, r.Method, r.RequestURI, err)
-		return invalidAuthError
+		log.Printf("%s - %s %s - hmac ttl conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		return errInvalidAuth
 	}
 
 	hash, err := base64.StdEncoding.DecodeString(matches[3])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return invalidAuthError
+		return errInvalidAuth
 	}
 
 	// Recalculate HMAC
@@ -354,14 +352,14 @@ func (s *server) authorize(r *http.Request) error {
 	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
 		log.Printf("%s - %s %s - hmac calculation: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return invalidAuthError
+		return errInvalidAuth
 	}
 	rehash := hm.Sum(nil)
 
 	// Compare HMAC in constant time (to prevent timing attacks)
 	if subtle.ConstantTimeCompare(hash, rehash) != 1 {
 		log.Printf("%s - %s %s - hmac invalid", r.RemoteAddr, r.Method, r.RequestURI)
-		return invalidAuthError
+		return errInvalidAuth
 	}
 
 	// Compare timestamp (to prevent replay attacks)
@@ -373,7 +371,7 @@ func (s *server) authorize(r *http.Request) error {
 		age := time.Now().Sub(time.Unix(int64(timestamp), 0))
 		if age > maxAge {
 			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
-			return invalidAuthError
+			return errInvalidAuth
 		}
 	}
 
@@ -384,10 +382,7 @@ func (s *server) clipboardManager() {
 	ticker := time.NewTicker(managerTickerInterval)
 	for {
 		s.updateStatsAndExpire()
-		select {
-		case <- ticker.C:
-		case <- s.update:
-		}
+		<- ticker.C
 	}
 }
 
@@ -402,9 +397,10 @@ func (s *server) updateStatsAndExpire() {
 	numFiles := int64(0)
 	totalSize := int64(0)
 	for _, f := range files {
-		s.maybeExpire(f)
-		numFiles++
-		totalSize += f.Size()
+		if !s.maybeExpire(f) {
+			numFiles++
+			totalSize += f.Size()
+		}
 	}
 	s.countLimiter.Set(numFiles)
 	s.sizeLimiter.Set(totalSize)
@@ -427,20 +423,20 @@ func (s *server) printStats() {
 		BytesToHuman(s.sizeLimiter.Value()), sizeLimit)
 }
 
-func (s *server) maybeExpire(file os.FileInfo) {
-	if s.config.FileExpireAfter == 0 {
-		return
+// maybeExpire deletes a file if it has expired and returns true if it did
+func (s *server) maybeExpire(file os.FileInfo) bool {
+	if s.config.FileExpireAfter == 0 || time.Now().Sub(file.ModTime()) <= s.config.FileExpireAfter {
+		return false
 	}
-	if time.Now().Sub(file.ModTime()) > s.config.FileExpireAfter {
-		if err := os.Remove(filepath.Join(s.config.ClipboardDir, file.Name())); err != nil {
-			log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
-		}
-		log.Printf("removed expired entry %s (%s)", file.Name(), BytesToHuman(file.Size()))
+	if err := os.Remove(filepath.Join(s.config.ClipboardDir, file.Name())); err != nil {
+		log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
 	}
+	log.Printf("removed expired entry %s (%s)", file.Name(), BytesToHuman(file.Size()))
+	return true
 }
 
 func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
-	log.Printf("%s - %s %s - %#v", r.RemoteAddr, r.Method, r.RequestURI, err)
+	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
 	w.Write([]byte(fmt.Sprintf("%d", code)))
 }
@@ -459,8 +455,8 @@ func getExecutable() (string, error) {
 	return realpath, nil
 }
 
-var listenAddrMissingError = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
-var keyFileMissingError = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
-var certFileMissingError = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
-var clipboardDirNotWritableError = errors.New("clipboard dir not writable by user")
-var invalidAuthError = errors.New("invalid auth")
+var errListenAddrMissing = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
+var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
+var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
+var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
+var errInvalidAuth = errors.New("invalid auth")
