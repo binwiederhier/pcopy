@@ -1,3 +1,4 @@
+{{- /*gotype: heckel.io/pcopy.Config*/ -}}
 # pcopy config file
 
 # Hostname and port of the pcopy server
@@ -73,6 +74,15 @@
 #
 {{if .ExpireAfter}}ExpireAfter {{.ExpireAfter}}{{else}}# ExpireAfter 7d{{end}}
 
+# Maximum total size of the entire clipboard (sum of all files). Zero disables this setting.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  <number>(GMKB)
+# Default: 0 (disabled)
+#
+{{if .MaxTotalSize}}MaxTotalSize {{.MaxTotalSize}}{{else}}# MaxTotalSize 0{{end}}
+
 # Maximum size per uploaded clipboard file. Zero disables a max file size.
 #
 # This is a server-only option (pcopy serve). It has no effect for client commands.
@@ -81,6 +91,15 @@
 # Default: 0 (disabled)
 #
 {{if .MaxFileSize}}MaxFileSize {{.MaxFileSize}}{{else}}# MaxFileSize 0{{end}}
+
+# Maximum number of clipboard files. Zero disables this setting.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  <number>
+# Default: 0 (disabled)
+#
+{{if .MaxNumFiles}}MaxNumFiles {{.MaxNumFiles}}{{else}}# MaxNumFiles 0{{end}}
 
 # If set to true, a simple web UI is served that allows uploading files and text snippets.
 #

@@ -19,12 +19,14 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 )
 
 const (
-	purgerTickerInterval = time.Second * 10
+	purgerTickerInterval = 10 * time.Second
+	statUpdaterInterval  = 5 * time.Second
 	defaultMaxAuthAge    = time.Minute
 	noAuthRequestAge     = 0
 	certCommonName       = "pcopy"
@@ -67,17 +69,27 @@ type webTemplateConfig struct {
 }
 
 type server struct {
-	config *Config
+	config    *Config
+	fileCount *limiter
+	totalSize *limiter
+	sync.Mutex
 }
 
+
 func Serve(config *Config) error {
-	server := &server{config: config}
+	server := &server{
+		config:    config,
+		totalSize: newLimiter(config.MaxTotalSize),
+		fileCount: newLimiter(int64(config.MaxNumFiles)),
+	}
 	if err := server.checkConfig(); err != nil {
 		return err
 	}
-	if config.ExpireAfter > 0 {
-		go server.clipboardPurger()
+	if err := server.updateStats(); err != nil {
+		return err
 	}
+	go server.statUpdater()
+	go server.clipboardPurger()
 	return server.listenAndServeTLS()
 }
 
@@ -94,6 +106,36 @@ func (s *server) checkConfig() error {
 	if unix.Access(s.config.ClipboardDir, unix.W_OK) != nil {
 		return clipboardDirNotWritableError
 	}
+	return nil
+}
+
+func (s *server) statUpdater() {
+	ticker := time.NewTicker(statUpdaterInterval)
+	for range ticker.C {
+		if err := s.updateStats(); err != nil {
+			log.Printf("error updating stats: %s", err.Error())
+			continue
+		}
+		log.Printf("files: %d (limit %d), size %s (limit %s)", s.fileCount.Value(), s.fileCount.Limit(),
+			BytesToHuman(s.totalSize.Value()), BytesToHuman(s.totalSize.Limit()))
+	}
+}
+
+func (s *server) updateStats() error {
+	s.Lock()
+	defer s.Unlock()
+	numFiles := int64(0)
+	totalSize := int64(0)
+	files, err := ioutil.ReadDir(s.config.ClipboardDir)
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		numFiles++
+		totalSize += f.Size()
+	}
+	s.fileCount.Set(numFiles)
+	s.totalSize.Set(totalSize)
 	return nil
 }
 
@@ -114,21 +156,29 @@ func (s *server) listenAndServeTLS() error {
 }
 
 func (s *server) clipboardPurger() {
+	if s.config.ExpireAfter == 0 {
+		return
+	}
+
 	ticker := time.NewTicker(purgerTickerInterval)
-	for {
-		<-ticker.C
+	for range ticker.C {
 		files, err := ioutil.ReadDir(s.config.ClipboardDir)
 		if err != nil {
 			log.Printf("failed to read clipboard dir: %s", err.Error())
 			continue
 		}
+		updateStats := false
 		for _, f := range files {
 			if time.Now().Sub(f.ModTime()) > s.config.ExpireAfter {
+				updateStats = true
 				if err := os.Remove(filepath.Join(s.config.ClipboardDir, f.Name())); err != nil {
 					log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
 				}
-				log.Printf("removed expired entry %s", f.Name())
+				log.Printf("removed expired entry %s (%s)", f.Name(), BytesToHuman(f.Size()))
 			}
+		}
+		if updateStats {
+			s.updateStats()
 		}
 	}
 }
@@ -232,28 +282,48 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request, file
 	}
 }
 
-
 func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file string) {
+	// Check total file count limit (only if file didn't exist already)
+	stat, _ := os.Stat(file)
+	if stat == nil {
+		if err := s.fileCount.Add(1); err != nil {
+			s.fail(w, r, http.StatusBadRequest, err)
+			return
+		}
+	}
+
+	// Create new file or truncate existing
 	f, err := os.OpenFile(file, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0600)
 	if err != nil {
+		s.fileCount.Sub(1)
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	defer f.Close()
+	defer s.updateStats()
 
-	if r.Body != nil {
-		if _, err = io.Copy(newLimitWriter(f, s.config.MaxFileSize), r.Body); err != nil {
-			if err == limitError {
-				s.fail(w, r, http.StatusBadRequest, err)
-			} else {
-				s.fail(w, r, http.StatusInternalServerError, err)
-			}
-			return
-		}
-		if r.Body.Close() != nil {
+	// Handle empty body
+	if r.Body == nil {
+		return
+	}
+
+	// Copy file contents (with file limit & total limit)
+	fileSizeLimiter := newLimiter(s.config.MaxFileSize)
+	limitWriter := newLimitWriter(f, fileSizeLimiter, s.totalSize)
+
+	if _, err := io.Copy(limitWriter, r.Body); err != nil {
+		if err == limitReachedError {
+			s.fail(w, r, http.StatusBadRequest, err)
+		} else {
 			s.fail(w, r, http.StatusInternalServerError, err)
-			return
 		}
+		os.Remove(file)
+		return
+	}
+	if r.Body.Close() != nil {
+		s.fail(w, r, http.StatusInternalServerError, err)
+		os.Remove(file)
+		return
 	}
 }
 

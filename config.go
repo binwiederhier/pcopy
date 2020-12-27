@@ -22,7 +22,9 @@ const (
 	DefaultClipboard        = "default"
 	DefaultId               = "default"
 	DefaultExpireAfter      = time.Hour * 24 * 7
+	DefaultMaxTotalSize     = 0
 	DefaultMaxFileSize      = 0
+	DefaultMaxNumFiles      = 0
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
@@ -36,7 +38,9 @@ type Config struct {
 	Key          *Key
 	ClipboardDir string
 	ExpireAfter  time.Duration
+	MaxTotalSize int64
 	MaxFileSize  int64
+	MaxNumFiles  int
 	ProgressFunc ProgressFunc
 	WebUI        bool
 }
@@ -63,7 +67,9 @@ func newConfig() *Config {
 		Key:          nil,
 		ClipboardDir: DefaultClipboardDir,
 		ExpireAfter:  DefaultExpireAfter,
+		MaxTotalSize: DefaultMaxTotalSize,
 		MaxFileSize:  DefaultMaxFileSize,
+		MaxNumFiles:  DefaultMaxNumFiles,
 		ProgressFunc: nil,
 		WebUI:        false,
 	}
@@ -272,11 +278,27 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		}
 	}
 
+	maxTotalSize, ok := raw["MaxTotalSize"]
+	if ok {
+		config.MaxTotalSize, err = parseSize(maxTotalSize)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid config value for 'MaxTotalSize': %w", err)
+		}
+	}
+
 	maxFileSize, ok := raw["MaxFileSize"]
 	if ok {
 		config.MaxFileSize, err = parseSize(maxFileSize)
 		if err != nil {
 			return "", nil, fmt.Errorf("invalid config value for 'MaxFileSize': %w", err)
+		}
+	}
+
+	maxNumFiles, ok := raw["MaxNumFiles"]
+	if ok {
+		config.MaxNumFiles, err = strconv.Atoi(maxNumFiles)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid config value for 'MaxNumFiles': %w", err)
 		}
 	}
 
