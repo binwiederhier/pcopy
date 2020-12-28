@@ -134,7 +134,7 @@ I have a **demo clipboard** (password: *demo*) running that you can play with:
 
 - To join via the command line: `pcopy join heckel.io` (see [join instructions](#join-an-existing-clipboard))
 - Or use the [web UI](https://heckel.io:2586) (this is *work in progress*, I'm not a web designer, please help!)
-- Or simply use `curl` (see [curl usage](#curl-compatible-usage-no-installation-needed)) 
+- Or simply use `curl` (see [curl usage](#curl-compatible-usage)) 
 
 *(The demo clipboard is limited to 10 MB total, 10k per file, 100 files max. Clipboard contents time out after 3 minutes.)*
 
@@ -145,23 +145,23 @@ I also made a couple [more videos](#videos) to show what else pcopy can do.
 <table>
   <tr>
     <td><img src="assets/demo-simple.gif" width="300"></td>
-    <td><img src="assets/demo-webui.gif" width="300"></td>
+    <td><img src="assets/demo-setup.gif" width="300"></td>
     <td><img src="assets/demo-zip.gif" width="300"></td>
   </tr>
   <tr>
     <td>Simple copy & paste</td>
-    <td>Pasting text and uploading files through the web UI</td>
+    <td>Setting up a new server</td>
     <td>Copying entire folders</td>
   </tr>
-</table>
-<table>
   <tr>
-    <td><img src="assets/demo-link.gif" width="300"></td>
-    <td><img src="assets/demo-setup.gif" width="300"></td>
+    <td><img src="assets/demo-link.gif" width="300"></td>    
+    <td><img src="assets/demo-webui.gif" width="300"></td>
+    <td></td>
   </tr>
   <tr>
-    <td>Creating a link to a password-protected clipboard</td>
-    <td>Setting up a new server</td>
+    <td>Creating a link to a password-protected clipboard</td>        
+    <td>Copying/uploading through the Web UI</td>
+    <td></td>
   </tr>
 </table>
 
