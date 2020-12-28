@@ -21,7 +21,7 @@ when you just want to copy a file or folder across to another computer.
 Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). Alternatively, for a 
 quick install, run:
 ```bash
-curl -sSL https://heckel.io:1986/install | sudo sh
+curl -sSL https://heckel.io:2586/install | sudo sh
 ```
 
 ## Usage

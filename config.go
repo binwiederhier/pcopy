@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultPort                = 1986
+	DefaultPort                = 2586
 	DefaultServerConfigFile    = "/etc/pcopy/server.conf"
 	DefaultClipboardDir        = "/var/cache/pcopy"
 	DefaultClipboard           = "default"

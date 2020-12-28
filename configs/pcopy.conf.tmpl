@@ -4,7 +4,7 @@
 # Hostname and port of the pcopy server
 #
 # For servers: This address is advertised to clients. It is not strictly necessary for normal copy/paste operations, 
-# but required for the easy-install process via 'pcopy invite'. If PORT is not defined, the default port 1986 is used. 
+# but required for the easy-install process via 'pcopy invite'. If PORT is not defined, the default port 2586 is used.
 # 
 # Format:    HOST[:PORT]
 # Default:   None
@@ -17,9 +17,9 @@
 # This is a server-only option (pcopy serve). It has no effect for client commands.
 #
 # Format:  [ADDR]:PORT
-# Default: :1986
+# Default: :2586
 #
-{{if .ListenAddr}}ListenAddr {{.ListenAddr}}{{else}}# ListenAddr :1986{{end}}
+{{if .ListenAddr}}ListenAddr {{.ListenAddr}}{{else}}# ListenAddr :2586{{end}}
 
 # If a key is defined, clients need to auth whenever they want copy/paste values
 # to the clipboard. A key is derived from a password and can be generated using
