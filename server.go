@@ -80,32 +80,32 @@ type server struct {
 }
 
 func Serve(config *Config) error {
-	if err := checkConfig(config); err != nil {
+	server, err := newServer(config)
+	if err != nil {
 		return err
-	}
-	server := &server{
-		config:       config,
-		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
-		countLimiter: newLimiter(int64(config.FileCountLimit)),
 	}
 	go server.clipboardManager()
 	return server.listenAndServeTLS()
 }
 
-func checkConfig(config *Config) error {
+func newServer(config *Config) (*server, error) {
 	if config.ListenAddr == "" {
-		return errListenAddrMissing
+		return nil, errListenAddrMissing
 	}
 	if config.KeyFile == "" {
-		return errKeyFileMissing
+		return nil, errKeyFileMissing
 	}
 	if config.CertFile == "" {
-		return errCertFileMissing
+		return nil, errCertFileMissing
 	}
 	if unix.Access(config.ClipboardDir, unix.W_OK) != nil {
-		return errClipboardDirNotWritable
+		return nil, errClipboardDirNotWritable
 	}
-	return nil
+	return &server{
+		config:       config,
+		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
+		countLimiter: newLimiter(int64(config.FileCountLimit)),
+	}, nil
 }
 
 func (s *server) listenAndServeTLS() error {
