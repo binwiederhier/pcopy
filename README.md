@@ -83,8 +83,12 @@ generated when you join a clipboard via `pcopy join`.
 The config file is well-documented. A skeleton config can be found in [configs/pcopy.conf](configs/pcopy.conf).
 
 ## Demo
-I made a couple **[more videos](VIDEOS.md)** to show what else pcopy can do. I plan to have an live demo up and
-running soon, so you can try it out without setting up your own server.  
+I have a **demo clipboard** running that you can play with:
+
+- To join via the command line: `pcopy join heckel.io` (password: *demo*)
+- Or use the [web UI](https://heckel.io:2586) (password: *demo*; note that this is work in progress)
+
+I also made a couple **[more videos](VIDEOS.md)** to show what else pcopy can do.
 
 ![pcopy web UI demo](assets/demo-webui.gif)
 
