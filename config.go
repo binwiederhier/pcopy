@@ -31,7 +31,8 @@ const (
 )
 
 var (
-	sizeStrRegex = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
+	sizeStrRegex             = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
+	durationStrDaysOnlyRegex = regexp.MustCompile(`(?i)^(\d+)d$`)
 
 	//go:embed "configs/pcopy.conf.tmpl"
 	configTemplateSource string
@@ -300,7 +301,7 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 
 	fileExpireAfter, ok := raw["FileExpireAfter"]
 	if ok {
-		config.FileExpireAfter, err = time.ParseDuration(fileExpireAfter)
+		config.FileExpireAfter, err = parseDuration(fileExpireAfter)
 		if err != nil {
 			return "", nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 		}
@@ -315,6 +316,18 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	}
 
 	return filename, config, nil
+}
+
+func parseDuration(s string) (time.Duration, error) {
+	matches := durationStrDaysOnlyRegex.FindStringSubmatch(s)
+	if matches == nil {
+		return time.ParseDuration(s)
+	}
+	days, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return -1, fmt.Errorf("cannot convert number %s", matches[1])
+	}
+	return time.Duration(days) * time.Hour * 24, nil
 }
 
 func parseSize(s string) (int64, error) {
