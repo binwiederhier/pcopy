@@ -22,7 +22,7 @@ function login(e) {
         hasher: CryptoJS.algo.SHA256
     });
 
-    let method = 'PUT'
+    let method = 'GET'
     let path = '/verify'
     let url = 'https://' + location.host + path
 

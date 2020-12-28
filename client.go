@@ -214,7 +214,7 @@ func (c *Client) Verify(certs []*x509.Certificate, key *Key) error {
 	}
 
 	url := fmt.Sprintf("https://%s/verify", c.config.ServerAddr)
-	req, err := http.NewRequest(http.MethodPut, url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}

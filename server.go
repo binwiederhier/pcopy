@@ -98,23 +98,26 @@ func newServer(config *Config) (*server, error) {
 	if config.CertFile == "" {
 		return nil, errCertFileMissing
 	}
+	if err := os.MkdirAll(config.ClipboardDir, 0700); err != nil {
+		return nil, errClipboardDirNotWritable
+	}
 	if unix.Access(config.ClipboardDir, unix.W_OK) != nil {
 		return nil, errClipboardDirNotWritable
 	}
 	return &server{
 		config:       config,
 		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
-		countLimiter: newLimiter(int64(config.FileCountLimit)),
+		countLimiter: newLimiter(int64(config.ClipboardCountLimit)),
 	}, nil
 }
 
 func (s *server) listenAndServeTLS() error {
-	http.HandleFunc("/info", s.handleInfo)
-	http.HandleFunc("/verify", s.handleVerify)
-	http.HandleFunc("/install", s.handleInstall)
-	http.HandleFunc("/join", s.handleJoin)
-	http.HandleFunc("/download", s.handleDownload)
-	http.HandleFunc("/", s.handleDefault)
+	http.HandleFunc(pathInfo, s.handleInfo)
+	http.HandleFunc(pathVerify, s.handleVerify)
+	http.HandleFunc(pathInstall, s.handleInstall)
+	http.HandleFunc(pathJoin, s.handleJoin)
+	http.HandleFunc(pathDownload, s.handleDownload)
+	http.HandleFunc(pathRoot, s.handleDefault)
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -150,7 +153,7 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodPut {
+	if r.Method != http.MethodGet {
 		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
 		return
 	}
@@ -194,25 +197,13 @@ func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.checkReserved(r); err != nil {
+	file, err := s.getClipboardFile(r)
+	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
-	if matches == nil {
-		s.fail(w, r, http.StatusBadRequest, errFileIdTooLong)
-		return
-	}
-	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, matches[1])
-
-	if err := os.MkdirAll(s.config.ClipboardDir, 0700); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-
 	if r.Method == http.MethodGet {
 		s.handleClipboardGet(w, r, file)
 	} else if r.Method == http.MethodPut || r.Method == http.MethodPost {
@@ -345,13 +336,17 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) checkReserved(r *http.Request) error {
+func (s *server) getClipboardFile(r *http.Request) (string, error) {
 	for _, path := range reservedPaths {
 		if r.URL.Path == path {
-			return errReservedPath
+			return "", errInvalidFileId
 		}
 	}
-	return nil
+	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
+	if matches == nil {
+		return "", errInvalidFileId
+	}
+	return fmt.Sprintf("%s/%s", s.config.ClipboardDir, matches[1]), nil
 }
 
 func (s *server) authorize(r *http.Request) error {
@@ -535,6 +530,5 @@ var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to c
 var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidAuth = errors.New("invalid auth")
-var errReservedPath = errors.New("reserved path")
 var errInvalidMethod = errors.New("invalid method")
-var errFileIdTooLong = errors.New("file id too long")
+var errInvalidFileId = errors.New("invalid file id")

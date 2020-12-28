@@ -73,6 +73,15 @@
 #
 {{if .ClipboardSizeLimit}}ClipboardSizeLimit {{.ClipboardSizeLimit}}{{else}}# ClipboardSizeLimit 0{{end}}
 
+# Maximum number of clipboard files. Zero disables this setting.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  <number>
+# Default: 0 (disabled)
+#
+{{if .ClipboardCountLimit}}ClipboardCountLimit {{.ClipboardCountLimit}}{{else}}# ClipboardCountLimit 0{{end}}
+
 # Maximum size per uploaded clipboard file. Zero disables a max file size.
 #
 # This is a server-only option (pcopy serve). It has no effect for client commands.
@@ -81,15 +90,6 @@
 # Default: 0 (disabled)
 #
 {{if .FileSizeLimit}}FileSizeLimit {{.FileSizeLimit}}{{else}}# FileSizeLimit 0{{end}}
-
-# Maximum number of clipboard files. Zero disables this setting.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  <number>
-# Default: 0 (disabled)
-#
-{{if .FileCountLimit}}FileCountLimit {{.FileCountLimit}}{{else}}# FileCountLimit 0{{end}}
 
 # Duration after which clipboard contents will be deleted unless they are updated before.
 # To disable, set to 0.

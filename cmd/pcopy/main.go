@@ -9,7 +9,8 @@ import (
 
 // TODO rate limit (see blog post)
 // TODO add documentation for basic auth + curl, add docs page
-// TODO add tests!
+// TODO add more tests
+// TODO setup github actions/CI
 // TODO Let's Encrypt certs
 // TODO allow piping (mkfifo or io.Pipe)
 // TODO UI embed fonts

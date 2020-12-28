@@ -16,15 +16,15 @@ import (
 )
 
 const (
-	DefaultPort               = 1986
-	DefaultServerConfigFile   = "/etc/pcopy/server.conf"
-	DefaultClipboardDir       = "/var/cache/pcopy"
-	DefaultClipboard          = "default"
-	DefaultId                 = "default"
-	DefaultFileExpireAfter    = time.Hour * 24 * 7
-	DefaultClipboardSizeLimit = 0
-	DefaultFileSizeLimit      = 0
-	DefaultFileCountLimit     = 0
+	DefaultPort                = 1986
+	DefaultServerConfigFile    = "/etc/pcopy/server.conf"
+	DefaultClipboardDir        = "/var/cache/pcopy"
+	DefaultClipboard           = "default"
+	DefaultId                  = "default"
+	DefaultFileExpireAfter     = time.Hour * 24 * 7
+	DefaultClipboardSizeLimit  = 0
+	DefaultFileSizeLimit       = 0
+	DefaultClipboardCountLimit = 0
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
@@ -39,20 +39,20 @@ var (
 )
 
 type Config struct {
-	ListenAddr         string
-	ServerAddr         string
-	Key                *Key
-	KeyDerivIter       int
-	KeyLenBytes        int
-	KeyFile            string
-	CertFile           string
-	ClipboardDir       string
-	ClipboardSizeLimit int64
-	FileSizeLimit      int64
-	FileCountLimit     int
-	FileExpireAfter    time.Duration
-	ProgressFunc       ProgressFunc
-	WebUI              bool
+	ListenAddr          string
+	ServerAddr          string
+	Key                 *Key
+	KeyDerivIter        int
+	KeyLenBytes         int
+	KeyFile             string
+	CertFile            string
+	ClipboardDir        string
+	ClipboardSizeLimit  int64
+	ClipboardCountLimit int
+	FileSizeLimit       int64
+	FileExpireAfter     time.Duration
+	ProgressFunc        ProgressFunc
+	WebUI               bool
 }
 
 type Key struct {
@@ -62,20 +62,20 @@ type Key struct {
 
 func newConfig() *Config {
 	return &Config{
-		ListenAddr:         fmt.Sprintf(":%d", DefaultPort),
-		ServerAddr:         "",
-		Key:                nil,
-		KeyDerivIter:       keyDerivIter,
-		KeyLenBytes:        keyLenBytes,
-		KeyFile:            "",
-		CertFile:           "",
-		ClipboardDir:       DefaultClipboardDir,
-		ClipboardSizeLimit: DefaultClipboardSizeLimit,
-		FileSizeLimit:      DefaultFileSizeLimit,
-		FileCountLimit:     DefaultFileCountLimit,
-		FileExpireAfter:    DefaultFileExpireAfter,
-		ProgressFunc:       nil,
-		WebUI:              true,
+		ListenAddr:          fmt.Sprintf(":%d", DefaultPort),
+		ServerAddr:          "",
+		Key:                 nil,
+		KeyDerivIter:        keyDerivIter,
+		KeyLenBytes:         keyLenBytes,
+		KeyFile:             "",
+		CertFile:            "",
+		ClipboardDir:        DefaultClipboardDir,
+		ClipboardSizeLimit:  DefaultClipboardSizeLimit,
+		ClipboardCountLimit: DefaultClipboardCountLimit,
+		FileSizeLimit:       DefaultFileSizeLimit,
+		FileExpireAfter:     DefaultFileExpireAfter,
+		ProgressFunc:        nil,
+		WebUI:               true,
 	}
 }
 
@@ -282,19 +282,19 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 		}
 	}
 
+	clipboardCountLimit, ok := raw["ClipboardCountLimit"]
+	if ok {
+		config.ClipboardCountLimit, err = strconv.Atoi(clipboardCountLimit)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid config value for 'ClipboardCountLimit': %w", err)
+		}
+	}
+
 	fileSizeLimit, ok := raw["FileSizeLimit"]
 	if ok {
 		config.FileSizeLimit, err = parseSize(fileSizeLimit)
 		if err != nil {
 			return "", nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
-		}
-	}
-
-	fileCountLimit, ok := raw["FileCountLimit"]
-	if ok {
-		config.FileCountLimit, err = strconv.Atoi(fileCountLimit)
-		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'FileCountLimit': %w", err)
 		}
 	}
 
