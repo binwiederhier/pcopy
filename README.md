@@ -3,11 +3,9 @@ pcopy is an across-the-network clipboard that allows copying (`pcp < file.txt`) 
 across different computers. Other users can be invited to join (`pcopy invite`), or simply join by specifying 
 the hostname (`pcopy join`). 
 
-Clipboards can have passwords, or they can be open for everyone. Also, there is a small web UI.
+Clipboards can have passwords, or they can be open for everyone. Also, there is a small web UI. To see what else pcopy can do, check out the **[live demo](#demo)** or the [other videos](VIDEOS.md) I made.
 
 ![pcopy demo](assets/demo-simple.gif)
-
-To see what else pcopy can do, check out the **[live demo](#demo)** or the [other videos](VIDEOS.md) I made.
 
 ## Isn't this like ...?
 It's similar to [pbcopy/pbpaste](https://osxdaily.com/2007/03/05/manipulating-the-clipboard-from-the-command-line/), yes, 
