@@ -60,12 +60,6 @@ func execServe(args []string) {
 	}
 
 	// Start server
-	if config.Key == nil {
-		eprintf("Listening on %s (UNPROTECTED CLIPBOARD)\n", config.ListenAddr)
-	} else {
-		eprintf("Listening on %s\n", config.ListenAddr)
-	}
-
 	if err := pcopy.Serve(config); err != nil {
 		fail(err)
 	}

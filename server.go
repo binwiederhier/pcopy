@@ -112,6 +112,12 @@ func newServer(config *Config) (*server, error) {
 }
 
 func (s *server) listenAndServeTLS() error {
+	if s.config.Key == nil {
+		log.Printf("Listening on %s (UNPROTECTED CLIPBOARD)\n", s.config.ListenAddr)
+	} else {
+		log.Printf("Listening on %s\n", s.config.ListenAddr)
+	}
+
 	http.HandleFunc(pathInfo, s.handleInfo)
 	http.HandleFunc(pathVerify, s.handleVerify)
 	http.HandleFunc(pathInstall, s.handleInstall)
