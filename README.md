@@ -80,10 +80,12 @@ generated when you join a clipboard via `pcopy join`.
 The config file is well-documented. A skeleton config can be found in [configs/pcopy.conf](configs/pcopy.conf).
 
 ## Demo
-I have a **demo clipboard** running that you can play with:
+I have a **demo clipboard** (password: *demo*) running that you can play with:
 
-- To join via the command line: `pcopy join heckel.io` (password: *demo*)
-- Or use the [web UI](https://heckel.io:2586) (password: *demo*; note that this is work in progress)
+- To join via the command line: `pcopy join heckel.io`
+- Or use the [web UI](https://heckel.io:2586) (this is *work in progress*, I'm not a web designer)
+
+*(The demo clipboard is limited to 10 MB total, 10k per file, 100 files max. Clipboard contents time out after 3 minutes.)*
 
 I also made a couple **[more videos](VIDEOS.md)** to show what else pcopy can do.
 
