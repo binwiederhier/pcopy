@@ -7,8 +7,7 @@ Clipboards can have passwords, or they can be open for everyone. Also, there is 
 
 ![pcopy demo](assets/demo-simple.gif)
 
-I made a couple [more videos](VIDEOS.md) to show what else pcopy can do. Don't miss out on that. It's the easiest
-way to see what pcopy is about.
+To see what else pcopy can do, check out the **[live demo](#demo)** or the [other videos](VIDEOS.md) I made.
 
 ## Isn't this like ...?
 It's similar to [pbcopy/pbpaste](https://osxdaily.com/2007/03/05/manipulating-the-clipboard-from-the-command-line/), yes, 
