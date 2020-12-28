@@ -3,16 +3,18 @@ pcopy is an across-the-network clipboard that allows copying (`pcp < file.txt`) 
 across different computers. Other users can be invited to join (`pcopy invite`), or simply join by specifying 
 the hostname (`pcopy join`). 
 
-Clipboards can have passwords, or they can be open for everyone. Also, there is a small web UI. To see what else pcopy can do, check out the **[live demo](#demo)** or the [other videos](VIDEOS.md) I made.
+**Features:**
+* 📋 Copy/paste across computers (via STDIN/STDOUT)
+* 🔒 HTTPS-only secure server (via cert-pinning, Let's Encrypt support coming)
+* 🔑 Clipboards can be password-protected, or they can be open for everyone
+* 📚 Support for multiple clipboards (e.g. personal, work, ...)
+* 🌎 Simple Web UI for uploading text snippets or large files
+* 🔗 Direct temporary links to clipboard content (with TTL/expiration) 
+* 💻 No-install `curl`-compatible clipboard usage
+
+To see what else pcopy can do, check out the **[live demo](#demo)** or the [videos](#videos).
 
 ![pcopy demo](assets/demo-simple.gif)
-
-## Isn't this like ...?
-It's similar to [pbcopy/pbpaste](https://osxdaily.com/2007/03/05/manipulating-the-clipboard-from-the-command-line/), yes, 
-but across the network. You can copy on your laptop and paste on your servers.
-
-It may also replace [scp](https://linux.die.net/man/1/scp) or [rsync](https://linux.die.net/man/1/rsync) in simple cases,
-when you just want to copy a file or folder across to another computer. 
 
 ## Installation
 Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). Alternatively, for a 
@@ -22,34 +24,149 @@ curl -sSL https://heckel.io:2586/install | sudo sh
 ```
 
 ## Usage
-**To setup a new pcopy server**, run `sudo pcopy setup`. It'll walk you through a setup wizard. After that, you can run
-the server via `sudo systemctl start pcopy` (or manually via `sudo -u pcopy pcopy serve`).
 
-**To join an existing clipboard**, simple run `pcopy join <host>>`:
+### Set up a pcopy server
+To setup a new pcopy server, simply run `sudo pcopy setup` (see [server setup demo](#videos)): 
 ```bash
-$ pcopy join pcopy.example.com
-Successfully joined clipboard, config written to ~/.config/pcopy/default.conf
-
-You may now use 'pcp' and 'ppaste'. See 'pcopy -h' for usage details.
-To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.
+$ sudo pcopy setup
+$ sudo systemctl enable pcopy
+$ sudo systemctl start pcopy
 ```
+This will walk you through an interactive setup wizard and place a config file at `/etc/pcopy/server.conf` (see 
+[sample config](configs/pcopy.conf)). The wizard will set up a pcopy user and a systemd service. Once the service 
+is started, it listens on port 2586 by default.
 
-**Now you can start copying and pasting** by using `pcp` (`pcopy copy`) and `ppaste` (`pcopy paste`). Any connected
-client, regardless of what computer it's on, can copy/paste like this:
+If you've enabled the Web UI, you can browse to it an paste text snippets or upload files to it (see [live demo](#demo)).    
+
+### Join an existing clipboard
+To join an existing clipboard, you may use `pcopy join`:
+```bash
+$ pcopy join private.example.com
+$ pcopy join work.mycorp.com work
+$ pcopy list
+```
+You can join multiple clipboards and give each of them an optional alias (see `work` clipboard above). Each 
+clipboard has its own config file, either in `~/.config/pcopy` or in `/etc/pcopy` (for root). You can list connected
+clipboards with `pcopy list`.
+
+### Start copying & pasting
+Now you can start copying and pasting by using `pcp` (short for: `pcopy copy`) and `ppaste` (short for: `pcopy paste`). 
+Any connected client, regardless of what computer it's on, can copy/paste like this (see [copy/pasting videos](#videos)):
 
 ```bash
 $ pcp < foo.txt            # Copies foo.txt to the default clipboard
 $ pcp bar < bar.txt        # Copies bar.txt to the default clipboard as 'bar'
 $ echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
 $ echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
+$ pcp : img1/ img2/        # Creates ZIP from two folders, copies it to the clipboard
 
 $ ppaste                   # Reads from the default clipboard and prints its contents
 $ ppaste bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'
 $ ppaste work:             # Reads from the 'work' clipboard and prints its contents
 $ ppaste work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'
+$ ppaste : images/         # Extracts ZIP from default clipboard to folder images/
 ```
 
-More details can be found on the help page:
+## Advanced features
+The server can be configured via the well-documented config file `/etc/pcopy/server.conf` (see [sample config](configs/pcopy.conf)).
+Here are a few highlights:
+
+### Password-protected clipboard 
+When you set up a new clipboard via `pcopy setup`, you can enter a password. That derives a key, which is stored in the 
+config file (see [Key section](https://github.com/binwiederhier/pcopy/blob/4dfeb5b8647c04cc54aa1538b8fb3f5d384c3700/configs/pcopy.conf#L23-L30)).
+To add a password after initial setup, use the `pcopy keygen` command.
+
+When joining a clipboard with `pcopy join`, you'll be asked for a password. When using `curl`, you can provide the 
+password via `-u :<password>` (see [curl usage](#curl-compatible-usage)). 
+
+### Support for multiple clipboards
+You can provide an (optional) alias to a clipboard when you `pcopy join` it (see [join](#join-an-existing-clipboard)).
+You may then later reference that alias in `pcp <alias>:..` and `ppaste <alias>:..` (see [copy/paste](#start-copying--pasting)).
+
+To list all your connected clipboards, simple type:
+```bash
+$ pcopy list
+Clipboard Server address Config file
+--------- -------------- ---------------------------
+work      10.0.160.67    ~/.config/pcopy/work.conf
+default   heckel.io      ~/.config/pcopy/default.conf
+```
+### Web UI for uploading text snippets or large files
+pcopy comes with an optional Web UI. You can check out the [demo](#demo).   
+*(Note: The Web UI is very basic, not mobile friendly and a work in progress. Please help!)*
+
+![Web UI](assets/demo-webui.gif)
+
+### `curl`-compatible usage 
+If you don't want to install `pcopy` on a server, you can use simple HTTP GET/PUT/POSTs, e.g. via `curl`. Use `-u :<password>`
+to provide the clipboard password (if any). Here's an example for the [demo clipboard](#demo):
+```bash
+# Copy/upload to clipboard (POST/PUT both work)
+$ curl -u x:demo -d Howdy https://heckel.io:2586/hi-there
+
+# Paste/download from clipboard
+$ curl -u x:demo https://heckel.io:2586/hi-there
+```
+
+### Direct temporary links to clipboard content (with TTL/expiration)
+You can generate temporary links to clipboard entries with `pcopy link`. You can send this link to someone and they
+can download the clipboard content without downloading the client or using any command line tools:
+
+```bash
+$ pcopy link --ttl 1h hi-there
+# Temporary download link for file 'default' in clipboard 'default'
+https://heckel.io:2586/hi-there?a=SE1BQyAxNjA5MTg0MjY1IDM2MDA...
+```
+
+### Limiting clipboard usage
+You can limit the clipboard usage in various ways in the config file (see [config file](https://github.com/binwiederhier/pcopy/blob/4dfeb5b8647c04cc54aa1538b8fb3f5d384c3700/configs/pcopy.conf#L66-L101)), 
+to avoid abuse:
+
+* `ClipboardSizeLimit`: Limits the total size of the entire clipboard (size of all files)
+* `ClipboardCountLimit`: Limits the number of clipboard files
+* `FileSizeLimit`: Limits the per-file size
+* `FileExpireAfter`: Limits the age of a file (after which they will be deleted)
+
+The [demo clipboard](#demo) uses these settings very restrictively to avoid abuse.
+
+## Demo
+I have a **demo clipboard** (password: *demo*) running that you can play with:
+
+- To join via the command line: `pcopy join heckel.io` (see [join instructions](#join-an-existing-clipboard))
+- Or use the [web UI](https://heckel.io:2586) (this is *work in progress*, I'm not a web designer, please help!)
+- Or simply use `curl` (see [curl usage](#curl-compatible-usage-no-installation-needed)) 
+
+*(The demo clipboard is limited to 10 MB total, 10k per file, 100 files max. Clipboard contents time out after 3 minutes.)*
+
+I also made a couple [more videos](#videos) to show what else pcopy can do.
+
+## Videos
+
+<table>
+  <tr>
+    <td><img src="assets/demo-simple.gif" width="300"></td>
+    <td><img src="assets/demo-webui.gif" width="300"></td>
+    <td><img src="assets/demo-zip.gif" width="300"></td>
+  </tr>
+  <tr>
+    <td>Simple copy & paste</td>
+    <td>Pasting text and uploading files through the web UI</td>
+    <td>Copying entire folders</td>
+  </tr>
+</table>
+<table>
+  <tr>
+    <td><img src="assets/demo-link.gif" width="300"></td>
+    <td><img src="assets/demo-setup.gif" width="300"></td>
+  </tr>
+  <tr>
+    <td>Creating a link to a password-protected clipboard</td>
+    <td>Setting up a new server</td>
+  </tr>
+</table>
+
+## Command-line help
+Each command has a detailed help page. Simply type `pcopy -help`, `pcp -help`, etc. Here's the main help page:
 ```bash 
 $ pcopy -help
 Usage: pcopy COMMAND [OPTION..] [ARG..]
@@ -68,32 +185,20 @@ Server-side commands:
   keygen    Generate key for the server config
 
 Try 'pcopy COMMAND -help' for more information.
-```
-
-## Configuration
-The pcopy server is configured in a config file `/etc/pcopy/server.conf`. A new server config can be generated by 
-running `sudo pcopy setup`. Check out the [videos page](VIDEOS.md) to see what that looks like.
-
-Each client clipboard has its own config file, either in `~/.config/pcopy` or in `/etc/pcopy` (for root). It is also
-generated when you join a clipboard via `pcopy join`. 
-
-The config file is well-documented. A skeleton config can be found in [configs/pcopy.conf](configs/pcopy.conf).
-
-## Demo
-I have a **demo clipboard** (password: *demo*) running that you can play with:
-
-- To join via the command line: `pcopy join heckel.io`
-- Or use the [web UI](https://heckel.io:2586) (this is *work in progress*, I'm not a web designer)
-
-*(The demo clipboard is limited to 10 MB total, 10k per file, 100 files max. Clipboard contents time out after 3 minutes.)*
-
-I also made a couple **[more videos](VIDEOS.md)** to show what else pcopy can do.
-
-![pcopy web UI demo](assets/demo-webui.gif)
+``` 
 
 ## Inspired by
-Thanks [nakabonne](https://github.com/nakabonne) for making [pbgopy](https://github.com/nakabonne/pbgopy). It inspired 
-me to make pcopy. 
+Thanks [nakabonne](https://github.com/nakabonne) for making [pbgopy](https://github.com/nakabonne/pbgopy), and for 
+[posting it on Reddit](https://www.reddit.com/r/golang/comments/k2nzyn/pbgopy_copy_and_paste_between_devices/gdwpy8u/?context=3). 
+It inspired me to make pcopy. 
+
+The Web UI is inspired by [nopaste.ml](https://nopaste.ml/).
+
+As many may instantly notice, pcopy is similar to [pbcopy/pbpaste](https://osxdaily.com/2007/03/05/manipulating-the-clipboard-from-the-command-line/). 
+However, pcopy can copy/paste across the network. You can copy on your laptop and paste on your servers.
+
+pcopy may also replace [scp](https://linux.die.net/man/1/scp) or [rsync](https://linux.die.net/man/1/rsync) in simple cases,
+when you just want to copy a file or folder across to another computer. 
 
 ## License
 Made with ❤️ by [Philipp C. Heckel](https://heckel.io), distributed under the [Apache License 2.0](LICENSE).
@@ -108,3 +213,4 @@ Code and posts that helped:
 * [Progress indicator](https://github.com/machinebox/progress) (Apache 2.0)
 * [Full page centering](https://medium.com/creative-technology-concepts-code/full-page-site-with-vertical-centering-using-css-only-7858ed6764c4)
 * [Human readable file sizes](https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/)
+* [Unzipping files](https://golangcode.com/unzip-files-in-go/)
