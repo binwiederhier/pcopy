@@ -32,7 +32,7 @@ dpkg -i pcopy_0.4.1_amd64.deb
 
 **Fedora/RHEL/CentOS:**
 ```bash
-https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.rpm
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.rpm
 ```
 
 **Docker:**
