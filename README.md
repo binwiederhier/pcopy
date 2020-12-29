@@ -17,10 +17,27 @@ To see what else pcopy can do, check out the **[live demo](#demo)** or the [vide
 ![pcopy demo](assets/demo-simple.gif)
 
 ## Installation
-Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). Alternatively, for a 
-quick install, run:
+Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). 
+
+**Quick install** (*any x86_64-based Linux*)**:**
 ```bash
 curl -sSL https://heckel.io:2586/install | sudo sh
+```
+
+**Debian/Ubuntu:**
+```bash
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.deb
+dpkg -i pcopy_0.4.1_amd64.deb
+```
+
+**Fedora/RHEL/CentOS:**
+```bash
+https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.rpm
+```
+
+**Docker:**
+```bash
+docker run -it binwiederhier/pcopy
 ```
 
 ## Usage
