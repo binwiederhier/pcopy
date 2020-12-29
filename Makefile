@@ -1,4 +1,4 @@
-VERSION=0.1.0-alpha
+VERSION := $(shell git describe --tag)
 
 .PHONY:
 
@@ -28,7 +28,7 @@ build-simple: clean
 	go1.16beta1 build \
 		-o dist/pcopy_linux_amd64/pcopy \
 		-ldflags \
-		"-X main.version=${VERSION} -X main.commit=$(shell git rev-parse --short HEAD) -X main.date=$(shell date +%s)" \
+		"-s -w -X main.version=$(VERSION) -X main.commit=$(shell git rev-parse --short HEAD) -X main.date=$(shell date +%s)" \
 		cmd/pcopy/*.go
 
 release:
