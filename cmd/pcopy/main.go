@@ -8,7 +8,6 @@ import (
 )
 
 // TODO add more tests
-// TODO setup github actions/CI
 // TODO Let's Encrypt certs
 // TODO allow piping (mkfifo or io.Pipe)
 // TODO UI embed fonts

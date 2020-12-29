@@ -4,6 +4,7 @@ import (
 	"bufio"
 	_ "embed"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -28,6 +29,9 @@ const (
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
+	suffixConf      = ".conf"
+	suffixKey       = ".key"
+	suffixCert      = ".crt"
 )
 
 var (
@@ -99,9 +103,9 @@ func (c *Config) WriteFile(filename string) error {
 	return nil
 }
 
-func FindConfigFile(alias string) string {
-	userConfigFile := filepath.Join(ExpandHome(userConfigDir), alias + ".conf")
-	systemConfigFile := filepath.Join(systemConfigDir, alias + ".conf")
+func FindConfigFile(clipboard string) string {
+	userConfigFile := filepath.Join(ExpandHome(userConfigDir), clipboard + suffixConf)
+	systemConfigFile := filepath.Join(systemConfigDir, clipboard + suffixConf)
 
 	if _, err := os.Stat(userConfigFile); err == nil {
 		return userConfigFile
@@ -142,9 +146,9 @@ func FindNewConfigFile(clipboard string) (string, string) {
 func GetConfigFileForClipboard(clipboard string) string {
 	u, _ := user.Current()
 	if u.Uid == "0" {
-		return filepath.Join(systemConfigDir, clipboard+".conf")
+		return filepath.Join(systemConfigDir, clipboard+suffixConf)
 	} else {
-		return filepath.Join(ExpandHome(userConfigDir), clipboard+".conf")
+		return filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
 	}
 }
 
@@ -160,7 +164,7 @@ func ListConfigs() map[string]*Config {
 			continue
 		}
 		for _, f := range files {
-			if strings.HasSuffix(f.Name(), ".conf") {
+			if strings.HasSuffix(f.Name(), suffixConf) {
 				filename := filepath.Join(dir, f.Name())
 				_, config, err := loadConfigFromFile(filename)
 				if err == nil {
@@ -173,7 +177,7 @@ func ListConfigs() map[string]*Config {
 }
 
 func ExtractClipboard(filename string) string {
-	return strings.TrimSuffix(filepath.Base(filename), ".conf")
+	return strings.TrimSuffix(filepath.Base(filename), suffixConf)
 }
 
 func LoadConfig(file string, clipboard string) (string, *Config, error) {
@@ -196,15 +200,15 @@ func CollapseServerAddr(serverAddr string) string {
 }
 
 func DefaultCertFile(configFile string, mustExist bool) string {
-	return defaultFileWithNewExt(".crt", configFile, mustExist)
+	return defaultFileWithNewExt(suffixCert, configFile, mustExist)
 }
 
 func DefaultKeyFile(configFile string, mustExist bool) string {
-	return defaultFileWithNewExt(".key", configFile, mustExist)
+	return defaultFileWithNewExt(suffixKey, configFile, mustExist)
 }
 
 func defaultFileWithNewExt(newExtension string, configFile string, mustExist bool) string {
-	keyFile := strings.TrimSuffix(configFile, ".conf") + newExtension
+	keyFile := strings.TrimSuffix(configFile, suffixConf) + newExtension
 	if mustExist {
 		if _, err := os.Stat(keyFile); err != nil {
 			return ""
@@ -229,10 +233,23 @@ func loadConfigFromClipboardIfExists(alias string) (string, *Config, error) {
 }
 
 func loadConfigFromFile(filename string) (string, *Config, error) {
-	config := newConfig()
-	raw, err := loadRawConfig(filename)
+	file, err := os.Open(filename)
 	if err != nil {
 		return "", nil, err
+	}
+	defer file.Close()
+	config, err := loadConfig(file)
+	if err != nil {
+		return "", nil, err
+	}
+	return filename, config, nil
+}
+
+func loadConfig(reader io.Reader) (*Config, error) {
+	config := newConfig()
+	raw, err := loadRawConfig(reader)
+	if err != nil {
+		return nil, err
 	}
 
 	listenAddr, ok := raw["ListenAddr"]
@@ -249,14 +266,14 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	if ok {
 		config.Key, err = DecodeKey(key)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 	}
 
 	keyFile, ok := raw["KeyFile"]
 	if ok {
 		if _, err := os.Stat(keyFile); err != nil {
-			return "", nil, err
+			return nil, err
 		}
 		config.KeyFile = keyFile
 	}
@@ -264,7 +281,7 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	certFile, ok := raw["CertFile"]
 	if ok {
 		if _, err := os.Stat(certFile); err != nil {
-			return "", nil, err
+			return nil, err
 		}
 
 		config.CertFile = certFile
@@ -279,7 +296,7 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	if ok {
 		config.ClipboardSizeLimit, err = parseSize(clipboardSizeLimit)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'ClipboardSizeLimit': %w", err)
+			return nil, fmt.Errorf("invalid config value for 'ClipboardSizeLimit': %w", err)
 		}
 	}
 
@@ -287,7 +304,7 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	if ok {
 		config.ClipboardCountLimit, err = strconv.Atoi(clipboardCountLimit)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'ClipboardCountLimit': %w", err)
+			return nil, fmt.Errorf("invalid config value for 'ClipboardCountLimit': %w", err)
 		}
 	}
 
@@ -295,7 +312,7 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	if ok {
 		config.FileSizeLimit, err = parseSize(fileSizeLimit)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
+			return nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
 		}
 	}
 
@@ -303,7 +320,7 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	if ok {
 		config.FileExpireAfter, err = parseDuration(fileExpireAfter)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 		}
 	}
 
@@ -311,11 +328,11 @@ func loadConfigFromFile(filename string) (string, *Config, error) {
 	if ok {
 		config.WebUI, err = strconv.ParseBool(webUI)
 		if err != nil {
-			return "", nil, fmt.Errorf("invalid config value for 'WebUI': %w", err)
+			return nil, fmt.Errorf("invalid config value for 'WebUI': %w", err)
 		}
 	}
 
-	return filename, config, nil
+	return config, nil
 }
 
 func parseDuration(s string) (time.Duration, error) {
@@ -347,18 +364,21 @@ func parseSize(s string) (int64, error) {
 	}
 }
 
-func loadRawConfig(filename string) (map[string]string, error) {
+func loadRawConfigFromFile(filename string) (map[string]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
+	return loadRawConfig(file)
+}
 
-	rawconfig := make(map[string]string)
-	scanner := bufio.NewScanner(file)
+func loadRawConfig(reader io.Reader) (map[string]string, error) {
+	config := make(map[string]string)
+	scanner := bufio.NewScanner(reader)
 
 	comment := regexp.MustCompile(`^\s*#`)
-	value := regexp.MustCompile(`^\s*(\S+)\s+(.*)$`)
+	value := regexp.MustCompile(`^\s*(\S+)(?:\s+(.*)|\s*)$`)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -367,10 +387,12 @@ func loadRawConfig(filename string) (map[string]string, error) {
 			parts := value.FindStringSubmatch(line)
 
 			if len(parts) == 3 {
-				rawconfig[parts[1]] = strings.TrimSpace(parts[2])
+				config[parts[1]] = strings.TrimSpace(parts[2])
+			} else if len(parts) == 2 {
+				config[parts[1]] = ""
 			}
 		}
 	}
 
-	return rawconfig, nil
+	return config, nil
 }
