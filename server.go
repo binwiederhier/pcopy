@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,10 +27,13 @@ import (
 )
 
 const (
-	managerTickerInterval = 30 * time.Second
-	defaultMaxAuthAge     = time.Minute
-	noAuthRequestAge      = 0
-	certCommonName        = "pcopy"
+	managerTickerInterval        = 30 * time.Second
+	defaultMaxAuthAge            = time.Minute
+	noAuthRequestAge             = 0
+	rateLimitRequestsPerSecond   = 2
+	rateLimitBurstPerSecond      = 5
+	rateLimitExpungeAfter        = 3 * time.Minute
+	certCommonName               = "pcopy"
 )
 
 const (
@@ -76,7 +81,13 @@ type server struct {
 	config       *Config
 	countLimiter *limiter
 	sizeLimiter  *limiter
+	rateLimiter  map[string]*visitor
 	sync.Mutex
+}
+
+type visitor struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
 }
 
 func Serve(config *Config) error {
@@ -84,7 +95,7 @@ func Serve(config *Config) error {
 	if err != nil {
 		return err
 	}
-	go server.clipboardManager()
+	go server.serverManager()
 	return server.listenAndServeTLS()
 }
 
@@ -108,6 +119,7 @@ func newServer(config *Config) (*server, error) {
 		config:       config,
 		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
 		countLimiter: newLimiter(int64(config.ClipboardCountLimit)),
+		rateLimiter:  make(map[string]*visitor),
 	}, nil
 }
 
@@ -118,12 +130,12 @@ func (s *server) listenAndServeTLS() error {
 		log.Printf("Listening on %s\n", s.config.ListenAddr)
 	}
 
-	http.HandleFunc(pathInfo, s.handleInfo)
-	http.HandleFunc(pathVerify, s.handleVerify)
-	http.HandleFunc(pathInstall, s.handleInstall)
-	http.HandleFunc(pathJoin, s.handleJoin)
-	http.HandleFunc(pathDownload, s.handleDownload)
-	http.HandleFunc(pathRoot, s.handleDefault)
+	http.HandleFunc(pathInfo, s.limit(s.handleInfo))
+	http.HandleFunc(pathVerify, s.limit(s.handleVerify))
+	http.HandleFunc(pathInstall, s.limit(s.handleInstall))
+	http.HandleFunc(pathJoin, s.limit(s.handleJoin))
+	http.HandleFunc(pathDownload, s.limit(s.handleDownload))
+	http.HandleFunc(pathRoot, s.limit(s.handleDefault))
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -454,7 +466,7 @@ func (s *server) authorizeBasic(r *http.Request, matches []string) error {
 	return nil
 }
 
-func (s *server) clipboardManager() {
+func (s *server) serverManager() {
 	ticker := time.NewTicker(managerTickerInterval)
 	for {
 		s.updateStatsAndExpire()
@@ -465,6 +477,15 @@ func (s *server) clipboardManager() {
 func (s *server) updateStatsAndExpire() {
 	s.Lock()
 	defer s.Unlock()
+
+	// Expire visitors from rate limiter map
+	for ip, v := range s.rateLimiter {
+		if time.Since(v.lastSeen) > rateLimitExpungeAfter {
+			delete(s.rateLimiter, ip)
+		}
+	}
+
+	// Walk clipboard to update size/count limiters, and expire/delete files
 	files, err := ioutil.ReadDir(s.config.ClipboardDir)
 	if err != nil {
 		log.Printf("error reading clipboard: %s", err.Error())
@@ -495,8 +516,8 @@ func (s *server) printStats() {
 	} else {
 		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.sizeLimiter.Limit()))
 	}
-	log.Printf("files: %d (%s), size %s (%s)", s.countLimiter.Value(), countLimit,
-		BytesToHuman(s.sizeLimiter.Value()), sizeLimit)
+	log.Printf("files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
+		s.countLimiter.Value(), countLimit, BytesToHuman(s.sizeLimiter.Value()), sizeLimit, len(s.rateLimiter))
 }
 
 // maybeExpire deletes a file if it has expired and returns true if it did
@@ -507,14 +528,51 @@ func (s *server) maybeExpire(file os.FileInfo) bool {
 	if err := os.Remove(filepath.Join(s.config.ClipboardDir, file.Name())); err != nil {
 		log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
 	}
-	log.Printf("removed expired entry %s (%s)", file.Name(), BytesToHuman(file.Size()))
+	log.Printf("removed expired entry: %s (%s)", file.Name(), BytesToHuman(file.Size()))
 	return true
+}
+
+// limit wraps all HTTP endpoints and limits API use to a certain number of requests per second.
+// This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
+func (s *server) limit(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			s.fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		limiter := s.getVisitorLimiter(ip)
+		if !limiter.Allow() {
+			s.fail(w, r, http.StatusTooManyRequests, errRateLimitReached)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+}
+
+// getVisitorLimiter creates or retrieves a rate.Limiter for the given visitor.
+// This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
+func (s *server) getVisitorLimiter(ip string) *rate.Limiter {
+	s.Lock()
+	defer s.Unlock()
+
+	v, exists := s.rateLimiter[ip]
+	if !exists {
+		limiter := rate.NewLimiter(rateLimitRequestsPerSecond, rateLimitBurstPerSecond)
+		s.rateLimiter[ip] = &visitor{limiter, time.Now()}
+		return limiter
+	}
+
+	v.lastSeen = time.Now()
+	return v.limiter
 }
 
 func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
 	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
-	w.Write([]byte(fmt.Sprintf("%d", code)))
+	w.Write([]byte(http.StatusText(code)))
 }
 
 func getExecutable() (string, error) {
@@ -538,3 +596,4 @@ var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user"
 var errInvalidAuth = errors.New("invalid auth")
 var errInvalidMethod = errors.New("invalid method")
 var errInvalidFileId = errors.New("invalid file id")
+var errRateLimitReached = errors.New("rate limit reached")

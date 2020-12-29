@@ -212,6 +212,7 @@ Third party libraries:
 Code and posts that helped:
 * [Drag & Drop](https://stackoverflow.com/a/33917000/1440785) (CC BY-SA 3.0)
 * [Progress indicator](https://github.com/machinebox/progress) (Apache 2.0)
+* [Rate limiting](https://www.alexedwards.net/blog/how-to-rate-limit-http-requests) (MIT)
 * [Full page centering](https://medium.com/creative-technology-concepts-code/full-page-site-with-vertical-centering-using-css-only-7858ed6764c4)
 * [Human readable file sizes](https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/)
 * [Unzipping files](https://golangcode.com/unzip-files-in-go/)
