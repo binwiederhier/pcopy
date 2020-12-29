@@ -1,30 +1,16 @@
 name: test
-on:
-  push:
-    branches:
-      - master
-    paths:
-      - '**.go'
-  pull_request:
-    branches:
-      - master
-    paths:
-      - '**.go'
+on: [push, pull_request]
 jobs:
   test:
-    strategy:
-      matrix:
-        go-version: [1.16.x]
-        platform: ubuntu-latest
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
     steps:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: '1.15.x'
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Build
-        run: go build
+      - name: Install go1.16 beta
+        run: go get golang.org/dl/go1.16beta1 && go1.16beta1 download
       - name: Test
         run: make test
