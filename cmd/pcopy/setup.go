@@ -208,7 +208,7 @@ func (s *wizard) askService() {
 		fmt.Print("Install systemd service? [Y/n] ")
 		answer := strings.ToLower(s.readLine())
 		s.installService = answer == "y" || answer == ""
-		s.hasService = true
+		s.hasService = s.installService
 		fmt.Println()
 	} else {
 		s.installService = false
@@ -233,7 +233,7 @@ func (s *wizard) askConfirm() {
 	fmt.Printf("- Private key file:  %s\n", pcopy.CollapseHome(pcopy.DefaultKeyFile(s.configFile, false)))
 	fmt.Printf("- Certificate file:  %s\n", pcopy.CollapseHome(pcopy.DefaultCertFile(s.configFile, false)))
 	if s.installService {
-		fmt.Printf("- Systemd unit file: %s\n", pcopy.DefaultCertFile(s.configFile, false))
+		fmt.Printf("- Systemd unit file: %s\n", serviceFile)
 	}
 	fmt.Println()
 
@@ -299,7 +299,7 @@ func (s *wizard) writeKeyAndCert() {
 
 func (s *wizard) writeSystemdUnit() {
 	fmt.Printf("Writing systemd unit file %s ... ", serviceFile)
-	if err := ioutil.WriteFile(serviceFile, []byte(systemdUnit), 0644); err != nil {
+	if err := ioutil.WriteFile(serviceFile, []byte(pcopy.SystemdUnit), 0644); err != nil {
 		fail(err)
 	}
 	fmt.Println("ok")
@@ -308,19 +308,21 @@ func (s *wizard) writeSystemdUnit() {
 func (s *wizard) createUserAndGroup() {
 	fmt.Printf("Creating user %s ... ", s.serviceUser)
 	u, err := user.Lookup(s.serviceUser)
-	if _, ok := err.(*user.UnknownUserError); ok {
-		cmd := exec.Command("useradd", s.serviceUser)
-		err := cmd.Run()
-		if err != nil {
+	if err != nil {
+		if _, ok := err.(user.UnknownUserError); ok {
+			cmd := exec.Command("useradd", s.serviceUser)
+			err := cmd.Run()
+			if err != nil {
+				fail(err)
+			}
+			u, err = user.Lookup(s.serviceUser)
+			if err != nil {
+				fail(err)
+			}
+			fmt.Println("ok")
+		} else {
 			fail(err)
 		}
-		u, err = user.Lookup(s.serviceUser)
-		if err != nil {
-			fail(err)
-		}
-		fmt.Println("ok")
-	} else if err != nil {
-		fail(err)
 	} else {
 		fmt.Println("exists")
 	}
@@ -363,17 +365,3 @@ func showSetupUsage() {
 	eprintln("  pcopy setup        # Install pcopy server to ~/.config/pcopy for current user")
 	syscall.Exit(1)
 }
-
-const systemdUnit = `[Unit]
-Description=pcopy server
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/pcopy serve
-Restart=on-failure
-User=pcopy
-Group=pcopy
-
-[Install]
-WantedBy=multi-user.target
-`

@@ -35,12 +35,15 @@ const (
 )
 
 var (
-	sizeStrRegex             = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
-	durationStrDaysOnlyRegex = regexp.MustCompile(`(?i)^(\d+)d$`)
+	//go:embed "init/pcopy.service"
+	SystemdUnit string
 
 	//go:embed "configs/pcopy.conf.tmpl"
 	configTemplateSource string
 	configTemplate = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
+
+	sizeStrRegex             = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
+	durationStrDaysOnlyRegex = regexp.MustCompile(`(?i)^(\d+)d$`)
 )
 
 type Config struct {

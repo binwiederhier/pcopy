@@ -48,3 +48,11 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+dockers:
+  - dockerfile: Dockerfile
+    binaries:
+      - pcopy
+    image_templates:
+      - "binwiederhier/pcopy:latest"
+      - "binwiederhier/pcopy:{{ .Tag }}"
+      - "binwiederhier/pcopy:v{{ .Major }}.{{ .Minor }}"

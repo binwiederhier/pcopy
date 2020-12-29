@@ -300,15 +300,23 @@ func (c *Client) newHttpClient(certs []*x509.Certificate) (*http.Client, error) 
 
 func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Client, error) {
 	rootCAs := x509.NewCertPool()
+	serverName := certCommonName
 	for _, cert := range certs {
 		rootCAs.AddCert(cert)
+		if !cert.IsCA {
+			if len(cert.DNSNames) > 0 {
+				serverName = cert.DNSNames[0]
+			} else {
+				serverName = cert.Subject.CommonName
+			}
+		}
 	}
 
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: rootCAs,
-				ServerName: certCommonName, // Note: This is checked despite the insecure config
+				ServerName: serverName, // Note: This is checked despite the insecure config
 			},
 		},
 	}, nil

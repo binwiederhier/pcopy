@@ -10,7 +10,7 @@ if [ ! -f /usr/bin/pcopy ]; then
     [ -f /usr/bin/ppaste ] || ln -s /usr/bin/pcopy /usr/bin/ppaste
     echo "Successfully installed /usr/bin/pcopy."
 fi
-echo "To join this clipboard, run 'pcopy join {{.ServerAddr}}', or type 'pcopy -help' for more help'.
+echo "To join this clipboard, run 'pcopy join {{.ServerAddr}}', or type 'pcopy -help' for more help'."
 {{else}}
 echo "Server not configured to allow simple install."
 echo "If you are the administrator, set ServerAddr in config."
