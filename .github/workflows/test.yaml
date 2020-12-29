@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - github-actions
     paths:
       - '**.go'
   pull_request:
