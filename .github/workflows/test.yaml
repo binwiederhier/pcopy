@@ -1,16 +1,5 @@
 name: test
-on:
-  push:
-    branches:
-      - master
-      - github-actions
-    paths:
-      - '**.go'
-  pull_request:
-    branches:
-      - master
-    paths:
-      - '**.go'
+on: push
 jobs:
   test:
     strategy:
