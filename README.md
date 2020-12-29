@@ -102,10 +102,11 @@ If you don't want to install `pcopy` on a server, you can use simple HTTP GET/PU
 to provide the clipboard password (if any). Here's an example for the [demo clipboard](#demo):
 ```bash
 # Copy/upload to clipboard (POST/PUT both work)
-$ curl -u x:demo -d Howdy https://heckel.io:2586/hi-there
+$ curl -u:demo -d Howdy https://heckel.io:2586/hi-there
+$ curl -u:demo -T germany.jpg https://heckel.io:2586/germany
 
 # Paste/download from clipboard
-$ curl -u x:demo https://heckel.io:2586/hi-there
+$ curl -u:demo https://heckel.io:2586/hi-there
 ```
 
 ### Direct temporary links to clipboard content (with TTL/expiration)
