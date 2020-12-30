@@ -35,9 +35,9 @@ dpkg -i pcopy_0.4.1_amd64.deb
 rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.rpm
 ```
 
-**Docker:**
+**Docker** (*see [detailed instructions](#docker-usage)*)**:**
 ```bash
-docker run -it binwiederhier/pcopy
+docker run --rm -it binwiederhier/pcopy
 ```
 
 ## Usage
@@ -146,6 +146,30 @@ to avoid abuse:
 * `FileExpireAfter`: Limits the age of a file (after which they will be deleted)
 
 The [demo clipboard](#demo) uses these settings very restrictively to avoid abuse.
+
+### Docker usage
+To use the [pcopy image](https://hub.docker.com/r/binwiederhier/pcopy), simply pull it and set up a few 
+shell aliases to simplify local usage: 
+
+```bash
+docker pull binwiederhier/pcopy
+alias pcopy="docker run --rm -v ~/.cache/pcopy:/var/cache/pcopy -v ~/.config/pcopy:/etc/pcopy -p 2586:2586/tcp -it binwiederhier/pcopy"
+alias pcp="pcopy copy"
+alias ppaste="pcopy paste"
+```
+
+This maps the following folders and ports (you may choose different host folders):
+* Config folder: `/etc/pcopy` (image) to `~/.config/pcopy` (host)
+* Clipboard folder (only for server usage): `/var/cache/pcopy` (image) to `~/.cache/pcopy` (host)
+* Service port (only for server usage): 2586 (both image and host) 
+
+You can then use pcopy just like it was installed on your host system. To use it as a client, run 
+`pcopy join` (see [join instructions](#join-an-existing-clipboard)). To set up a server, run
+
+```bash
+pcopy setup
+pcopy serve
+```
 
 ## Demo
 I have a **demo clipboard** (password: *demo*) running that you can play with:
