@@ -24,8 +24,7 @@ Binaries can be found on the [releases page](https://github.com/binwiederhier/pc
 curl -sSL https://heckel.io:2586/install | sudo sh
 ```
 
-**Debian/Ubuntu:**
-From a repository:
+**Debian/Ubuntu** (*from a repository*)**:**   
 ```bash
 curl -sSL http://archive.heckel.io/apt/pubkey | sudo apt-key add 
 sudo add-apt-repository "deb [arch=amd64] https://archive.heckel.io/apt debian main"
@@ -33,7 +32,7 @@ sudo apt update
 sudo apt install pcopy
 ```
 
-Manually download:
+**Debian/Ubuntu** (*manual install*)**:**
 ```bash
 wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.2/pcopy_0.4.2_amd64.deb
 dpkg -i pcopy_0.4.2_amd64.deb
