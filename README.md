@@ -26,13 +26,13 @@ curl -sSL https://heckel.io:2586/install | sudo sh
 
 **Debian/Ubuntu:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.deb
-dpkg -i pcopy_0.4.1_amd64.deb
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.2/pcopy_0.4.2_amd64.deb
+dpkg -i pcopy_0.4.2_amd64.deb
 ```
 
 **Fedora/RHEL/CentOS:**
 ```bash
-rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.rpm
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.2/pcopy_0.4.2_amd64.rpm
 ```
 
 **Docker** (*see [detailed instructions](#docker-usage)*)**:**
