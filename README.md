@@ -25,6 +25,15 @@ curl -sSL https://heckel.io:2586/install | sudo sh
 ```
 
 **Debian/Ubuntu:**
+From a repository:
+```bash
+curl -sSL http://archive.heckel.io/apt/pubkey | sudo apt-key add 
+sudo add-apt-repository "deb [arch=amd64] https://archive.heckel.io/apt debian main"
+sudo apt update
+sudo apt install pcopy
+```
+
+Manually download:
 ```bash
 wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.2/pcopy_0.4.2_amd64.deb
 dpkg -i pcopy_0.4.2_amd64.deb
