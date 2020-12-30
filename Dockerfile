@@ -12,4 +12,5 @@ RUN \
 	&& ln -s /usr/bin/pcopy /usr/bin/pcp \
 	&& ln -s /usr/bin/pcopy /usr/bin/ppaste
 
+EXPOSE 2586/tcp
 ENTRYPOINT ["pcopy"]
