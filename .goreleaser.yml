@@ -26,11 +26,15 @@ nfpms:
     empty_folders:
       - /etc/pcopy
       - /var/cache/pcopy
-    files:
-      "init/pcopy.service": "/lib/systemd/system/pcopy.service"
-    symlinks:
-      /usr/bin/pcp: /usr/bin/pcopy
-      /usr/bin/ppaste: /usr/bin/pcopy
+    contents:
+      - src: init/pcopy.service
+        dst: /lib/systemd/system/pcopy.service
+      - src: /usr/bin/pcopy
+        dst: /usr/bin/pcp
+        type: symlink
+      - src: /usr/bin/pcopy
+        dst: /usr/bin/ppaste
+        type: symlink
     scripts:
       postinstall: "scripts/postinst.sh"
       postremove: "scripts/postrm.sh"

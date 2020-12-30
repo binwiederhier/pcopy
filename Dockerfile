@@ -12,8 +12,4 @@ RUN \
 	&& ln -s /usr/bin/pcopy /usr/bin/pcp \
 	&& ln -s /usr/bin/pcopy /usr/bin/ppaste
 
-USER pcopy
-ENV HOME /home/pcopy
-WORKDIR /home/pcopy
-
-ENTRYPOINT /bin/bash
+ENTRYPOINT ["pcopy"]
