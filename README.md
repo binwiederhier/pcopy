@@ -17,10 +17,27 @@ To see what else pcopy can do, check out the **[live demo](#demo)** or the [vide
 ![pcopy demo](assets/demo-simple.gif)
 
 ## Installation
-Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). Alternatively, for a 
-quick install, run:
+Binaries can be found on the [releases page](https://github.com/binwiederhier/pcopy/releases). 
+
+**Quick install** (*any x86_64-based Linux*)**:**
 ```bash
 curl -sSL https://heckel.io:2586/install | sudo sh
+```
+
+**Debian/Ubuntu:**
+```bash
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.deb
+dpkg -i pcopy_0.4.1_amd64.deb
+```
+
+**Fedora/RHEL/CentOS:**
+```bash
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.1/pcopy_0.4.1_amd64.rpm
+```
+
+**Docker:**
+```bash
+docker run -it binwiederhier/pcopy
 ```
 
 ## Usage
@@ -28,9 +45,9 @@ curl -sSL https://heckel.io:2586/install | sudo sh
 ### Set up a pcopy server
 To setup a new pcopy server, simply run `sudo pcopy setup` (see [server setup demo](#videos)): 
 ```bash
-$ sudo pcopy setup
-$ sudo systemctl enable pcopy
-$ sudo systemctl start pcopy
+sudo pcopy setup
+sudo systemctl enable pcopy
+sudo systemctl start pcopy
 ```
 This will walk you through an interactive setup wizard and place a config file at `/etc/pcopy/server.conf` (see 
 [sample config](configs/pcopy.conf)). The wizard will set up a pcopy user and a systemd service. Once the service 
@@ -41,9 +58,9 @@ If you've enabled the Web UI, you can browse to it an paste text snippets or upl
 ### Join an existing clipboard
 To join an existing clipboard, you may use `pcopy join`:
 ```bash
-$ pcopy join private.example.com
-$ pcopy join work.mycorp.com work
-$ pcopy list
+pcopy join private.example.com
+pcopy join work.mycorp.com work
+pcopy list
 ```
 You can join multiple clipboards and give each of them an optional alias (see `work` clipboard above). Each 
 clipboard has its own config file, either in `~/.config/pcopy` or in `/etc/pcopy` (for root). You can list connected
@@ -54,17 +71,17 @@ Now you can start copying and pasting by using `pcp` (short for: `pcopy copy`) a
 Any connected client, regardless of what computer it's on, can copy/paste like this (see [copy/pasting videos](#videos)):
 
 ```bash
-$ pcp < foo.txt            # Copies foo.txt to the default clipboard
-$ pcp bar < bar.txt        # Copies bar.txt to the default clipboard as 'bar'
-$ echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
-$ echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
-$ pcp : img1/ img2/        # Creates ZIP from two folders, copies it to the clipboard
+pcp < foo.txt            # Copies foo.txt to the default clipboard
+pcp bar < bar.txt        # Copies bar.txt to the default clipboard as 'bar'
+echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
+echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
+pcp : img1/ img2/        # Creates ZIP from two folders, copies it to the clipboard
 
-$ ppaste                   # Reads from the default clipboard and prints its contents
-$ ppaste bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'
-$ ppaste work:             # Reads from the 'work' clipboard and prints its contents
-$ ppaste work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'
-$ ppaste : images/         # Extracts ZIP from default clipboard to folder images/
+ppaste                   # Reads from the default clipboard and prints its contents
+ppaste bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'
+ppaste work:             # Reads from the 'work' clipboard and prints its contents
+ppaste work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'
+ppaste : images/         # Extracts ZIP from default clipboard to folder images/
 ```
 
 ## Advanced features
@@ -102,11 +119,11 @@ If you don't want to install `pcopy` on a server, you can use simple HTTP GET/PU
 to provide the clipboard password (if any). Here's an example for the [demo clipboard](#demo):
 ```bash
 # Copy/upload to clipboard (POST/PUT both work)
-$ curl -u:demo -d Howdy https://heckel.io:2586/hi-there
-$ curl -u:demo -T germany.jpg https://heckel.io:2586/germany
+curl -u:demo -d Howdy https://heckel.io:2586/hi-there
+curl -u:demo -T germany.jpg https://heckel.io:2586/germany
 
 # Paste/download from clipboard
-$ curl -u:demo https://heckel.io:2586/hi-there
+curl -u:demo https://heckel.io:2586/hi-there
 ```
 
 ### Direct temporary links to clipboard content (with TTL/expiration)
