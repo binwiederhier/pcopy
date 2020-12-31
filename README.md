@@ -26,8 +26,8 @@ curl -sSL https://heckel.io:2586/install | sudo sh
 
 **Debian/Ubuntu** (*from a repository*)**:**   
 ```bash
-curl -sSL http://archive.heckel.io/apt/pubkey | sudo apt-key add 
-sudo add-apt-repository "deb [arch=amd64] http://archive.heckel.io/apt debian main"
+curl -sSL https://archive.heckel.io/apt/pubkey.txt | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://archive.heckel.io/apt debian main"
 sudo apt update
 sudo apt install pcopy
 ```
