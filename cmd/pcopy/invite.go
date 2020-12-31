@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func execInvite(args []string)  {
+func execInvite(args []string) {
 	config, clipboard, ttl := parseInviteArgs(args)
 
 	// FIXME Fail when clipboard that is passed is invalid
@@ -42,7 +42,7 @@ func execInvite(args []string)  {
 func parseInviteArgs(args []string) (*pcopy.Config, string, time.Duration) {
 	flags := flag.NewFlagSet("pcopy invite", flag.ExitOnError)
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
-	ttl := flags.Duration("ttl", time.Hour * 24, "Defines the commands are valid for, only protected clipboards")
+	ttl := flags.Duration("ttl", time.Hour*24, "Defines the commands are valid for, only protected clipboards")
 	flags.Usage = func() { showInviteUsage(flags) }
 	if err := flags.Parse(args); err != nil {
 		fail(err)

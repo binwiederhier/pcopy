@@ -27,23 +27,23 @@ import (
 )
 
 const (
-	managerTickerInterval        = 30 * time.Second
-	defaultMaxAuthAge            = time.Minute
-	noAuthRequestAge             = 0
-	rateLimitRequestsPerSecond   = 2
-	rateLimitBurstPerSecond      = 5
-	rateLimitExpungeAfter        = 3 * time.Minute
-	certCommonName               = "pcopy"
+	managerTickerInterval      = 30 * time.Second
+	defaultMaxAuthAge          = time.Minute
+	noAuthRequestAge           = 0
+	rateLimitRequestsPerSecond = 2
+	rateLimitBurstPerSecond    = 5
+	rateLimitExpungeAfter      = 3 * time.Minute
+	certCommonName             = "pcopy"
 )
 
 const (
-	pathRoot = "/"
-	pathInfo = "/info"
-	pathVerify = "/verify"
-	pathInstall = "/install"
+	pathRoot     = "/"
+	pathInfo     = "/info"
+	pathVerify   = "/verify"
+	pathInstall  = "/install"
 	pathDownload = "/download"
-	pathJoin = "/join"
-	pathStatic = "/static"
+	pathJoin     = "/join"
+	pathStatic   = "/static"
 )
 
 var (
@@ -260,7 +260,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 	}
 
 	// Create new file or truncate existing
-	f, err := os.OpenFile(file, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0600)
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		s.countLimiter.Sub(1)
 		s.fail(w, r, http.StatusInternalServerError, err)
@@ -470,7 +470,7 @@ func (s *server) serverManager() {
 	ticker := time.NewTicker(managerTickerInterval)
 	for {
 		s.updateStatsAndExpire()
-		<- ticker.C
+		<-ticker.C
 	}
 }
 

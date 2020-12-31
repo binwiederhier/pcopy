@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
+	"heckel.io/pcopy"
 	"io/ioutil"
 	"os"
-	"heckel.io/pcopy"
 	"syscall"
 )
 
@@ -86,7 +86,7 @@ func execJoin(args []string) {
 	// Write config file
 	config := &pcopy.Config{
 		ServerAddr: serverAddr,
-		Key: key, // May be nil, but that's ok
+		Key:        key, // May be nil, but that's ok
 	}
 	if err := config.WriteFile(configFile); err != nil {
 		fail(err)

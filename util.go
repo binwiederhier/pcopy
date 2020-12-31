@@ -25,23 +25,23 @@ import (
 )
 
 const (
-	keyLenBytes     = 32
-	keyDerivIter    = 10000
-	keySaltLenBytes = 10
-	certNotBeforeAge = -time.Hour * 24 * 7 // ~ 1 week
+	keyLenBytes      = 32
+	keyDerivIter     = 10000
+	keySaltLenBytes  = 10
+	certNotBeforeAge = -time.Hour * 24 * 7      // ~ 1 week
 	certNotAfterAge  = time.Hour * 24 * 365 * 3 // ~ 3 years
 )
 
 var templateFnMap = template.FuncMap{
-	"encodeKey": EncodeKey,
+	"encodeKey":        EncodeKey,
 	"expandServerAddr": ExpandServerAddr,
-	"encodeBase64": base64.StdEncoding.EncodeToString,
+	"encodeBase64":     base64.StdEncoding.EncodeToString,
 }
 
 func DeriveKey(password []byte, salt []byte) *Key {
 	return &Key{
 		Bytes: pbkdf2.Key(password, salt, keyDerivIter, keyLenBytes, sha256.New),
-		Salt: salt,
+		Salt:  salt,
 	}
 }
 
@@ -70,7 +70,7 @@ func DecodeKey(keyEncoded string) (*Key, error) {
 	}
 	return &Key{
 		Bytes: rawKey,
-		Salt: rawSalt,
+		Salt:  rawSalt,
 	}, nil
 }
 
@@ -87,7 +87,7 @@ func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
 	var b bytes.Buffer
 	for _, cert := range certs {
 		err := pem.Encode(&b, &pem.Block{
-			Type: "CERTIFICATE",
+			Type:  "CERTIFICATE",
 			Bytes: cert.Raw,
 		})
 		if err != nil {
@@ -148,10 +148,10 @@ func GenerateKeyAndCert() (string, string, error) {
 
 	cert := x509.Certificate{
 		SerialNumber: serial,
-		Subject: pkix.Name{CommonName: certCommonName},
-		DNSNames: []string{certCommonName},
-		NotBefore: time.Now().Add(certNotBeforeAge),
-		NotAfter:  time.Now().Add(certNotAfterAge),
+		Subject:      pkix.Name{CommonName: certCommonName},
+		DNSNames:     []string{certCommonName},
+		NotBefore:    time.Now().Add(certNotBeforeAge),
+		NotAfter:     time.Now().Add(certNotAfterAge),
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &cert, &cert, &key.PublicKey, key)

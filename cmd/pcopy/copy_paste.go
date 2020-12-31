@@ -60,7 +60,7 @@ func createInteractiveReader() io.ReadCloser {
 	return ioutil.NopCloser(strings.NewReader(content))
 }
 
-func execPaste(cmd string, args []string)  {
+func execPaste(cmd string, args []string) {
 	config, id, files := parseClientArgs(cmd, args)
 	client, err := pcopy.NewClient(config)
 	if err != nil {
@@ -157,13 +157,14 @@ func parseClipboardAndId(clipboardAndId string, configFileOverride string) (stri
 }
 
 var previousProgressLen int
+
 func progressOutput(processed int64, total int64, done bool) {
 	if done {
 		if previousProgressLen > 0 {
 			progress := fmt.Sprintf("%s (100%%)", pcopy.BytesToHuman(processed))
 			progressWithSpaces := progress
 			if len(progress) < previousProgressLen {
-				progressWithSpaces += strings.Repeat(" ", previousProgressLen - len(progress))
+				progressWithSpaces += strings.Repeat(" ", previousProgressLen-len(progress))
 			}
 			eprintf("\r%s\r\n", progressWithSpaces)
 		}
@@ -177,7 +178,7 @@ func progressOutput(processed int64, total int64, done bool) {
 		}
 		progressWithSpaces := progress
 		if len(progress) < previousProgressLen {
-			progressWithSpaces += strings.Repeat(" ", previousProgressLen - len(progress))
+			progressWithSpaces += strings.Repeat(" ", previousProgressLen-len(progress))
 		}
 		eprintf("\r%s", progressWithSpaces)
 		previousProgressLen = len(progress)

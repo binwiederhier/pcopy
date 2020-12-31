@@ -115,7 +115,7 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	}
 	defer os.Remove(tmpFile.Name())
 
-	f, err := os.OpenFile(tmpFile.Name(), os.O_RDWR | os.O_TRUNC, 0700)
+	f, err := os.OpenFile(tmpFile.Name(), os.O_RDWR|os.O_TRUNC, 0700)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	for _, zf := range z.File {
 		filename := filepath.Join(dir, zf.Name)
 
-		if !strings.HasPrefix(filename, filepath.Clean(dir) + string(os.PathSeparator)) {
+		if !strings.HasPrefix(filename, filepath.Clean(dir)+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", filename) // ZipSlip, see https://snyk.io/research/zip-slip-vulnerability#go
 		}
 
@@ -147,11 +147,11 @@ func (c *Client) PasteFiles(dir string, id string) error {
 		}
 
 		if err = os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-			return  err
+			return err
 		}
-		outFile, err := os.OpenFile(filename, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, zf.Mode())
+		outFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zf.Mode())
 		if err != nil {
-			return  err
+			return err
 		}
 		entry, err := zf.Open()
 		if err != nil {
@@ -205,7 +205,6 @@ func (c *Client) Info() (*Info, error) {
 		Certs:      certs,
 	}, nil
 }
-
 
 func (c *Client) Verify(certs []*x509.Certificate, key *Key) error {
 	client, err := c.newHttpClient(certs)
@@ -315,7 +314,7 @@ func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs: rootCAs,
+				RootCAs:    rootCAs,
 				ServerName: serverName, // Note: This is checked despite the insecure config
 			},
 		},
@@ -357,9 +356,9 @@ func (c *Client) createZipReader(files []string) io.ReadCloser {
 
 func (c *Client) addZipFile(z *zip.Writer, file string, stat os.FileInfo) error {
 	zf, err := z.CreateHeader(&zip.FileHeader{
-		Name: file,
+		Name:     file,
 		Modified: stat.ModTime(),
-		Method: zip.Deflate,
+		Method:   zip.Deflate,
 	})
 	if err != nil {
 		return err

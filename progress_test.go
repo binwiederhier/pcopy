@@ -18,7 +18,7 @@ func TestProgressReadCloser_NoDelay(t *testing.T) {
 		atomic.AddInt32(&ticks, 1)
 	}
 	r := ioutil.NopCloser(strings.NewReader("this is a 34 byte long test string"))
-	p := newProgressReaderWithDelay(r, 34, fn, 0, 50 * time.Millisecond)
+	p := newProgressReaderWithDelay(r, 34, fn, 0, 50*time.Millisecond)
 
 	// First tick (no progress)
 	time.Sleep(51 * time.Millisecond)
@@ -69,7 +69,7 @@ func TestProgressReadCloser_WithDelayFastMessage(t *testing.T) {
 		atomic.AddInt32(&ticks, 1)
 	}
 	r := ioutil.NopCloser(strings.NewReader("this is a 34 byte long test string"))
-	p := newProgressReaderWithDelay(r, 34, fn, 50, 50 * time.Millisecond)
+	p := newProgressReaderWithDelay(r, 34, fn, 50, 50*time.Millisecond)
 
 	// Read all before first tick
 	if _, err := p.Read(make([]byte, 999)); err != nil {
@@ -86,7 +86,7 @@ func TestProgressReadCloser_WithDelaySlowMessage(t *testing.T) {
 		atomic.AddInt32(&ticks, 1)
 	}
 	r := ioutil.NopCloser(strings.NewReader("this is a 34 byte long test string"))
-	p := newProgressReaderWithDelay(r, 34, fn, 50, 100 * time.Millisecond)
+	p := newProgressReaderWithDelay(r, 34, fn, 50, 100*time.Millisecond)
 
 	// Read some before first tick
 	if _, err := p.Read(make([]byte, 10)); err != nil {

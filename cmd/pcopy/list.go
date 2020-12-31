@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func execList(args []string)  {
+func execList(args []string) {
 	flags := flag.NewFlagSet("pcopy list", flag.ExitOnError)
 	flags.Usage = showListUsage
 	if err := flags.Parse(args); err != nil {

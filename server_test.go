@@ -231,7 +231,7 @@ func TestServer_AuthorizeBasicSuccessProtected(t *testing.T) {
 	server := newTestServer(t, config)
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte("x:some password")))
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("x:some password")))
 	if err := server.authorize(req); err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +243,7 @@ func TestServer_AuthorizeBasicFailureProtected(t *testing.T) {
 	server := newTestServer(t, config)
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte("x:incorrect password")))
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("x:incorrect password")))
 	if err := server.authorize(req); err != errInvalidAuth {
 		t.Fatalf("expected invalid auth, got %#v", err)
 	}

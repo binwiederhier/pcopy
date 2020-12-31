@@ -86,8 +86,8 @@ func TestParseDuration_WithDaysSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d != 10 * 24 * time.Hour {
-		t.Fatalf("expected %d, got %d", 10 * 24 * time.Hour, d)
+	if d != 10*24*time.Hour {
+		t.Fatalf("expected %d, got %d", 10*24*time.Hour, d)
 	}
 }
 
@@ -96,8 +96,8 @@ func TestParseDuration_WithoutDaysSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d != 10 * time.Hour + 5 * time.Minute {
-		t.Fatalf("expected %d, got %d", 10 * time.Hour + 5 * time.Minute, d)
+	if d != 10*time.Hour+5*time.Minute {
+		t.Fatalf("expected %d, got %d", 10*time.Hour+5*time.Minute, d)
 	}
 }
 

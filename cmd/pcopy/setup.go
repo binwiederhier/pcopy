@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	serviceFile = "/lib/systemd/system/pcopy.service"
+	serviceFile        = "/lib/systemd/system/pcopy.service"
 	defaultServiceUser = "pcopy"
 )
 
@@ -104,7 +104,6 @@ func (s *wizard) askUser() {
 		}
 	}
 }
-
 
 func (s *wizard) askConfigFile() {
 	var defaultConfigFile string
@@ -341,7 +340,7 @@ func (s *wizard) printSuccess() {
 	fmt.Println("Success. You may now start the server by running:")
 	fmt.Println()
 	if s.hasService {
-		 fmt.Println("  $ sudo systemctl start pcopy")
+		fmt.Println("  $ sudo systemctl start pcopy")
 	} else {
 		if s.serviceUser == defaultServiceUser {
 			fmt.Println("  $ sudo -u pcopy pcopy serve")

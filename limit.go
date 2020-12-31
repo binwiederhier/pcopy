@@ -29,7 +29,7 @@ func (l *limiter) Add(n int64) error {
 	defer l.Unlock()
 	if l.limit == 0 {
 		return nil
-	} else if l.value + n <= l.limit {
+	} else if l.value+n <= l.limit {
 		l.value += n
 		return nil
 	} else {
@@ -52,15 +52,15 @@ func (l *limiter) Limit() int64 {
 }
 
 type limitWriter struct {
-	writer io.Writer
-	written int64
+	writer   io.Writer
+	written  int64
 	limiters []*limiter
 	sync.RWMutex
 }
 
-func newLimitWriter(w io.Writer, limiters... *limiter) io.Writer {
+func newLimitWriter(w io.Writer, limiters ...*limiter) io.Writer {
 	return &limitWriter{
-		writer: w,
+		writer:   w,
 		limiters: limiters,
 	}
 }
@@ -70,7 +70,7 @@ func (w *limitWriter) Write(p []byte) (n int, err error) {
 	defer w.Unlock()
 	for i := 0; i < len(w.limiters); i++ {
 		if err := w.limiters[i].Add(int64(len(p))); err != nil {
-			for j := i-1; j >= 0; j-- {
+			for j := i - 1; j >= 0; j-- {
 				w.limiters[j].Sub(int64(len(p)))
 			}
 			return 0, limitReachedError

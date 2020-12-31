@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func execLink(args []string)  {
+func execLink(args []string) {
 	config, clipboard, id, ttl := parseLinkArgs(args)
 	url, err := pcopy.GenerateClipUrl(config, id, ttl)
 	if err != nil {
@@ -28,7 +28,7 @@ func execLink(args []string)  {
 func parseLinkArgs(args []string) (*pcopy.Config, string, string, time.Duration) {
 	flags := flag.NewFlagSet("pcopy link", flag.ExitOnError)
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
-	ttl := flags.Duration("ttl", time.Hour * 6, "Defines the duration the link is valid for, only protected clipboards")
+	ttl := flags.Duration("ttl", time.Hour*6, "Defines the duration the link is valid for, only protected clipboards")
 	flags.Usage = func() { showLinkUsage(flags) }
 	if err := flags.Parse(args); err != nil {
 		fail(err)

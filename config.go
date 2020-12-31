@@ -40,7 +40,7 @@ var (
 
 	//go:embed "configs/pcopy.conf.tmpl"
 	configTemplateSource string
-	configTemplate = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
+	configTemplate       = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
 
 	sizeStrRegex             = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
 	durationStrDaysOnlyRegex = regexp.MustCompile(`(?i)^(\d+)d$`)
@@ -93,7 +93,7 @@ func (c *Config) WriteFile(filename string) error {
 		return err
 	}
 
-	f, err := os.OpenFile(filename, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0600)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -107,8 +107,8 @@ func (c *Config) WriteFile(filename string) error {
 }
 
 func FindConfigFile(clipboard string) string {
-	userConfigFile := filepath.Join(ExpandHome(userConfigDir), clipboard + suffixConf)
-	systemConfigFile := filepath.Join(systemConfigDir, clipboard + suffixConf)
+	userConfigFile := filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
+	systemConfigFile := filepath.Join(systemConfigDir, clipboard+suffixConf)
 
 	if _, err := os.Stat(userConfigFile); err == nil {
 		return userConfigFile
@@ -137,7 +137,7 @@ func FindNewConfigFile(clipboard string) (string, string) {
 	}
 
 	// If all of those are taken (really?), just count up
-	for i := 1 ;; i++ {
+	for i := 1; ; i++ {
 		clipboard = fmt.Sprintf("a%d", i)
 		configFile = FindConfigFile(clipboard)
 		if configFile == "" {
@@ -157,7 +157,7 @@ func GetConfigFileForClipboard(clipboard string) string {
 
 func ListConfigs() map[string]*Config {
 	configs := make(map[string]*Config, 0)
-	dirs := []string {
+	dirs := []string{
 		systemConfigDir,
 		ExpandHome(userConfigDir),
 	}
@@ -199,7 +199,7 @@ func ExpandServerAddr(serverAddr string) string {
 }
 
 func CollapseServerAddr(serverAddr string) string {
-	return strings.TrimSuffix(serverAddr,fmt.Sprintf(":%d", DefaultPort))
+	return strings.TrimSuffix(serverAddr, fmt.Sprintf(":%d", DefaultPort))
 }
 
 func DefaultCertFile(configFile string, mustExist bool) string {
@@ -360,10 +360,14 @@ func parseSize(s string) (int64, error) {
 		return -1, fmt.Errorf("cannot convert number %s", matches[1])
 	}
 	switch strings.ToUpper(matches[2]) {
-	case "G": return int64(value) * 1024 * 1024 * 1024, nil
-	case "M": return int64(value) * 1024 * 1024, nil
-	case "K": return int64(value) * 1024, nil
-	default: return int64(value), nil
+	case "G":
+		return int64(value) * 1024 * 1024 * 1024, nil
+	case "M":
+		return int64(value) * 1024 * 1024, nil
+	case "K":
+		return int64(value) * 1024, nil
+	default:
+		return int64(value), nil
 	}
 }
 
