@@ -45,18 +45,39 @@
 
         <label for="file-id">File name:</label>
         <input type="text" id="file-id" class="textfield" placeholder="default (optional)"/>
-        <button id="save-button" class="button">Save</button>
-        <span id="save-status"></span>
-
         <button id="logout-button" class="button hidden">Logout</button>
-        <button id="upload-button" class="button">Upload File</button>
-        <span id="upload-status"></span>
+        <button id="upload-button" class="button">Upload file</button>
+        <button id="save-button" class="button">Save text</button>
 
         <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
     </div>
     <div id="text-area" class="section fit">
         <div class="t">
             <div class="tc"><textarea id="text" placeholder="Paste your content here or drag & drop a file" spellcheck="false"></textarea></div>
+        </div>
+    </div>
+</div>
+
+<div id="info-area" class="container hidden">
+    <div class="section fit">
+        <div class="t">
+            <div class="tc">
+                <div id="info-box-finished" class="info-box hidden">
+                    <h1>Your clipboard entry has been copied.</h1>
+                    <p>
+                        You may now use <tt>pcopy</tt> or <tt>curl</tt> to download it on any connected computer,
+                        or simply download it via the <a href="" id="info-direct-link">direct link</a>.
+                    </p>
+                    <p>Paste using <tt>pcopy</tt> (<em>you may need a <a href="https://github.com/binwiederhier/pcopy#support-for-multiple-clipboards">clipboard prefix</a></em>):</p>
+                    <pre id="info-command-ppaste"></pre>
+                    <p>Paste using <tt>curl</tt>:</p>
+                    <pre id="info-command-curl"></pre>
+                </div>
+                <div id="info-box-uploading" class="info-box">
+                    <h1 id="info-uploading-title"></h1>
+                    <h2 id="info-uploading-status"></h2>
+                </div>
+            </div>
         </div>
     </div>
 </div>

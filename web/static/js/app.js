@@ -1,12 +1,31 @@
+/* All the things */
+
 let mainArea = document.getElementById("main-area")
+let dropArea = document.getElementById('drop-area');
 
-/* Login */
+let text = document.getElementById("text")
+let headerSaveButton = document.getElementById("save-button")
+let headerLogoutButton = document.getElementById("logout-button")
+let headerFileId = document.getElementById("file-id")
+let headerUploadButton = document.getElementById("upload-button")
+let headerFileUpload = document.getElementById("file-upload")
 
+let loginButton = document.getElementById("login")
 let loginArea = document.getElementById("login-area")
 let loginForm = document.getElementById("login-form")
-let passwordField = document.getElementById("password")
-let passwordInvalid = document.getElementById("password-status")
-let loginButton = document.getElementById("login")
+let loginPasswordField = document.getElementById("password")
+let loginPasswordInvalid = document.getElementById("password-status")
+
+let infoArea = document.getElementById("info-area")
+let infoBoxUploading = document.getElementById("info-box-uploading")
+let infoUploadProgressTitle = document.getElementById("info-uploading-title")
+let infoUploadProgressStatus = document.getElementById("info-uploading-status")
+let infoBoxFinished = document.getElementById("info-box-finished")
+let infoDirectLink = document.getElementById("info-direct-link")
+let infoCommandPpaste = document.getElementById("info-command-ppaste")
+let infoCommandCurl = document.getElementById("info-command-curl")
+
+/* Login */
 
 loginButton.addEventListener('click', login)
 loginForm.addEventListener('submit', login)
@@ -14,7 +33,7 @@ loginForm.addEventListener('submit', login)
 function login(e) {
     e.preventDefault()
 
-    let password = passwordField.value
+    let password = loginPasswordField.value
     let salt = CryptoJS.enc.Base64.parse(config.salt)
     let key = CryptoJS.PBKDF2(password, salt, {
         keySize: config.keySize * 8 / 32,
@@ -36,7 +55,7 @@ function login(e) {
             storeKey(key)
             showMainArea()
         } else if (xhr.readyState === 4 && xhr.status === 401) {
-            passwordInvalid.classList.remove('invisible')
+            loginPasswordInvalid.classList.remove('invisible')
         }
     })
 
@@ -45,11 +64,9 @@ function login(e) {
 
 /* Logout */
 
-let logoutButton = document.getElementById("logout-button")
-
-logoutButton.addEventListener('click', logout)
+headerLogoutButton.addEventListener('click', logout)
 if (config.salt) {
-    logoutButton.classList.remove('hidden')
+    headerLogoutButton.classList.remove('hidden')
 }
 
 function logout() {
@@ -58,8 +75,6 @@ function logout() {
 }
 
 /* Drag & drop */
-
-let dropArea = document.getElementById('drop-area');
 
 function showDropZone() {
     dropArea.style.visibility = "visible";
@@ -99,11 +114,7 @@ function removeDropListeners() {
 
 /* Text field & saving text */
 
-let text = document.getElementById("text")
-let saveButton = document.getElementById("save-button")
-let saveStatus = document.getElementById('save-status')
-
-saveButton.addEventListener('click', save)
+headerSaveButton.addEventListener('click', save)
 
 text.value = ''
 text.addEventListener('keydown', keyHandler,false)
@@ -121,8 +132,10 @@ function keyHandler(e) {
 }
 
 function save() {
+    showUploadProgress('Saving', '')
+
     let method = 'PUT'
-    let path = '/' + (fileId.value || 'default')
+    let path = '/' + (headerFileId.value || 'default')
     let url = 'https://' + location.host + path
     let key = loadKey()
 
@@ -134,15 +147,11 @@ function save() {
         xhr.setRequestHeader('Authorization', generateAuthHmacForNow(key, method, path))
     }
 
-    xhr.upload.addEventListener("progress", function (e) {
-        saveStatus.innerHTML = 'Saving'
-    })
-
     xhr.addEventListener('readystatechange', function (e) {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-            saveStatus.innerHTML = 'Saved'
-        } else if (xhr.readyState == 4 && xhr.status != 200) {
-            saveStatus.innerHTML = 'Error ' + xhr.status
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            showInfoUploadFinished(url, path, key)
+        } else if (xhr.readyState === 4 && xhr.status !== 200) {
+            updateUploadProgress('Error ' + xhr.status)
         }
     })
 
@@ -151,22 +160,45 @@ function save() {
 
 /* Uploading */
 
-let fileId = document.getElementById("file-id")
-let uploadButton = document.getElementById("upload-button")
-let uploadStatus = document.getElementById('upload-status')
-let fileUpload = document.getElementById("file-upload")
-
-fileId.value = ''
-uploadButton.addEventListener('click', function() { fileUpload.click() })
+headerFileId.value = ''
+headerUploadButton.addEventListener('click', function() { headerFileUpload.click() })
 
 function handleFile(file) {
-    uploadStatus.innerHTML = '0%'
     uploadFile(file)
 }
 
+function showUploadProgress(title, status) {
+    infoUploadProgressTitle.innerHTML = title
+    infoUploadProgressStatus.innerHTML = status
+    infoBoxUploading.classList.remove("hidden")
+    infoBoxFinished.classList.add("hidden")
+    infoArea.classList.remove("hidden")
+}
+
+function showInfoUploadFinished(url, path, key) {
+    infoCommandPpaste.innerHTML = headerFileId.value ? 'ppaste ' + headerFileId.value : 'ppaste'
+    if (key) {
+        let authParam = generateAuthHmacParamForNow(key, 'GET', path)
+        let directLink = `${url}?a=${authParam}`
+        infoDirectLink.href = directLink
+        infoCommandCurl.innerHTML = `curl -k "${directLink}"`
+    } else {
+        infoDirectLink.href = url
+        infoCommandCurl.innerHTML = `curl "${url}`
+    }
+    infoBoxUploading.classList.add("hidden")
+    infoBoxFinished.classList.remove("hidden")
+}
+
+function updateUploadProgress(status) {
+    infoUploadProgressStatus.innerHTML = status
+}
+
 function uploadFile(file) {
+    showUploadProgress('Uploading', '0%')
+
     let method = 'PUT'
-    let path = '/' + (fileId.value || 'default')
+    let path = '/' + (headerFileId.value || 'default')
     let url = 'https://' + location.host + path
     let key = loadKey()
 
@@ -180,19 +212,41 @@ function uploadFile(file) {
 
     xhr.overrideMimeType(file.type);
     xhr.upload.addEventListener("progress", function (e) {
-        uploadStatus.innerHTML = Math.round((e.loaded * 100.0 / e.total) || 100) + '%'
+        updateUploadProgress(Math.round((e.loaded * 100.0 / e.total) || 100) + '%')
     })
 
     xhr.addEventListener('readystatechange', function (e) {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-            uploadStatus.innerHTML = 'Uploaded'
-        } else if (xhr.readyState == 4 && xhr.status != 200) {
-            uploadStatus.innerHTML = 'Error ' + xhr.status
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            showInfoUploadFinished(url, path, key)
+        } else if (xhr.readyState === 4 && xhr.status !== 200) {
+            updateUploadProgress('Error ' + xhr.status)
         }
     })
 
     xhr.send(file)
 }
+
+/* Info area */
+
+let hasClickClass = (el) => {
+    for (var c of el.classList.values()) {
+        if (["container", "section", "t", "tc"].indexOf(c) !== -1) {
+            return true
+        }
+    }
+    return false
+}
+
+infoArea.addEventListener('click', function(e) {
+    if (!hasClickClass(e.target)) return;
+
+    infoArea.classList.add("fade-out")
+    infoArea.addEventListener('transitionend', function handler() {
+        infoArea.classList.add("hidden")
+        infoArea.classList.remove("fade-out")
+        infoArea.removeEventListener('transitionend', handler)
+    })
+})
 
 /* Show/hide password area */
 
@@ -213,9 +267,9 @@ function showMainArea() {
 function showLoginArea() {
     mainArea.classList.add('hidden')
     loginArea.classList.remove('hidden')
-    logoutButton.classList.remove('hidden')
-    passwordInvalid.classList.add('invisible')
-    passwordField.focus()
+    headerLogoutButton.classList.remove('hidden')
+    loginPasswordInvalid.classList.add('invisible')
+    loginPasswordField.focus()
     removeDropListeners()
 }
 
@@ -231,6 +285,10 @@ function generateAuthHmac(key, method, path, timestamp, ttl) {
 
 function generateAuthHmacForNow(key, method, path) {
     return generateAuthHmac(key, method, path, Math.floor(new Date().getTime()/1000), 0)
+}
+
+function generateAuthHmacParamForNow(key, method, path) {
+    return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(generateAuthHmacForNow(key, method, path)))
 }
 
 function storeKey(key) {
