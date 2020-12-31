@@ -78,7 +78,9 @@ function logout() {
 
 function showDropZone() {
     dropArea.style.visibility = "visible";
+    hideInfoArea()
 }
+
 function hideDropZone() {
     dropArea.style.visibility = "hidden";
 }
@@ -237,16 +239,22 @@ let hasClickClass = (el) => {
     return false
 }
 
-infoArea.addEventListener('click', function(e) {
+infoArea.addEventListener('click', fadeOutInfoArea)
+
+function hideInfoArea() {
+    infoArea.classList.add("hidden")
+    infoArea.classList.remove("fade-out")
+}
+
+function fadeOutInfoArea(e) {
     if (!hasClickClass(e.target)) return;
 
     infoArea.classList.add("fade-out")
     infoArea.addEventListener('transitionend', function handler() {
-        infoArea.classList.add("hidden")
-        infoArea.classList.remove("fade-out")
+        hideInfoArea()
         infoArea.removeEventListener('transitionend', handler)
     })
-})
+}
 
 /* Show/hide password area */
 
