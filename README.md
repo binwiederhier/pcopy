@@ -5,7 +5,7 @@ the hostname (`pcopy join`).
 
 **Features:**
 * 📋 Copy/paste across computers (via STDIN/STDOUT)
-* 🔒 HTTPS-only secure server (via cert-pinning, Let's Encrypt support coming)
+* 🔒 HTTPS-only secure server (via cert-pinning)
 * 🔑 Clipboards can be password-protected, or they can be open for everyone
 * 📚 Support for multiple clipboards (e.g. personal, work, ...)
 * 🌎 Simple Web UI for uploading text snippets or large files

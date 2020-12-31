@@ -7,15 +7,6 @@ import (
 	"runtime"
 )
 
-// TODO add more tests
-// TODO Let's Encrypt certs
-// TODO allow piping (mkfifo or io.Pipe)
-// TODO UI embed fonts
-// TODO UI modal after upload/save
-// TODO UI mobile + scroll
-// TODO UI favicon
-// TODO "pcopy invite" and "pcopy paste abc:" does not check if clipboard exists
-
 var (
 	version = "dev"
 	commit  = "unknown"
