@@ -279,7 +279,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 	limitWriter := newLimitWriter(f, fileSizeLimiter, s.sizeLimiter)
 
 	if _, err := io.Copy(limitWriter, r.Body); err != nil {
-		if err == limitReachedError {
+		if err == errLimitReached {
 			s.fail(w, r, http.StatusBadRequest, err)
 		} else {
 			s.fail(w, r, http.StatusInternalServerError, err)

@@ -1,3 +1,4 @@
+GO=go1.16beta1
 VERSION := $(shell git describe --tag)
 
 .PHONY:
@@ -12,10 +13,20 @@ help:
 	@echo "  make release-snapshot  - Create a test release"
 	@echo "  make install           - Copy binary from dist/ to /usr/bin"
 	@echo "  make install-deb       - Install .deb from dist/"
+	@echo "  make install-lint      - Install golint"
 	@echo "  make clean             - Clean build folder"
 
 test: .PHONY
-	go1.16beta1 test
+	$(GO) test
+
+fmt:
+	$(GO) fmt ./...
+
+vet:
+	$(GO) vet ./...
+
+lint:
+	$(GO) list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status
 
 build: .PHONY
 	goreleaser build --rm-dist
@@ -25,7 +36,7 @@ build-snapshot:
 
 build-simple: clean
 	mkdir -p dist/pcopy_linux_amd64
-	go1.16beta1 build \
+	$(GO) build \
 		-o dist/pcopy_linux_amd64/pcopy \
 		-ldflags \
 		"-s -w -X main.version=$(VERSION) -X main.commit=$(shell git rev-parse --short HEAD) -X main.date=$(shell date +%s)" \
@@ -45,6 +56,9 @@ install-deb:
 	sudo systemctl stop pcopy || true
 	sudo apt-get purge pcopy || true
 	sudo dpkg -i dist/*.deb
+
+install-lint:
+	$(GO) get -u golang.org/x/lint/golint
 
 clean: .PHONY
 	rm -rf dist

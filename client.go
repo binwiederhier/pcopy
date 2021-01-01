@@ -18,21 +18,33 @@ import (
 	"strings"
 )
 
+// Client represents a pcopy client. It can be used to communicate with the server to
+// verify the user password, and ultimately to copy/paste files.
 type Client struct {
 	config *Config
 }
 
+// ServerInfo contains information about the server needed o join a server.
+type ServerInfo struct {
+	ServerAddr string
+	Salt       []byte
+	Certs      []*x509.Certificate
+}
+
+// NewClient creates a new pcopy client. It fails if the ServerAddr is not filled.
 func NewClient(config *Config) (*Client, error) {
 	if config.ServerAddr == "" {
-		return nil, missingServerAddrError
+		return nil, errMissingServerAddr
 	}
 	return &Client{
 		config: config,
 	}, nil
 }
 
+// Copy streams the data from reader to the server via a HTTP PUT request. The id parameter
+// is the file identifier that can be used to paste the data later using Paste.
 func (c *Client) Copy(reader io.ReadCloser, id string) error {
-	client, err := c.newHttpClient(nil)
+	client, err := c.newHTTPClient(nil)
 	if err != nil {
 		return err
 	}
@@ -57,12 +69,15 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 	return nil
 }
 
+// CopyFiles creates a ZIP archive of the given files and streams it to the server using the Copy
+// method. No temporary ZIP archive is created on disk. It's all streamed.
 func (c *Client) CopyFiles(files []string, id string) error {
 	return c.Copy(c.createZipReader(files), id)
 }
 
+// Paste reads the file with the given id from the server and writes it to writer.
 func (c *Client) Paste(writer io.Writer, id string) error {
-	client, err := c.newHttpClient(nil)
+	client, err := c.newHTTPClient(nil)
 	if err != nil {
 		return err
 	}
@@ -102,8 +117,10 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 	return nil
 }
 
+// PasteFiles reads the file with the given id from the server (assuming that it is a ZIP archive)
+// and unpacks it to dir. This method creates a temporary file of the archive first before unpacking.
 func (c *Client) PasteFiles(dir string, id string) error {
-	// From: https://golangcode.com/unzip-files-in-go/
+	// Heavily inspired by: https://golangcode.com/unzip-files-in-go/
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -169,7 +186,11 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	return nil
 }
 
-func (c *Client) Info() (*Info, error) {
+// Info queries the server for information (password salt, advertised address) required during the
+// join operation. This method will first attempt to securely connect over HTTPS, and (if that fails)
+// fall back to skipping certificate verification. In the latter case, it will download and return
+// the server certificates so the client can pin them.
+func (c *Client) Info() (*ServerInfo, error) {
 	var certs []*x509.Certificate
 	var err error
 
@@ -199,15 +220,17 @@ func (c *Client) Info() (*Info, error) {
 		}
 	}
 
-	return &Info{
+	return &ServerInfo{
 		ServerAddr: info.ServerAddr,
 		Salt:       salt,
 		Certs:      certs,
 	}, nil
 }
 
+// Verify verifies that the given key (derived from the user password) is in fact correct
+// by calling the server's verify endpoint. If the call fails, the key is assumed to be incorrect.
 func (c *Client) Verify(certs []*x509.Certificate, key *Key) error {
-	client, err := c.newHttpClient(certs)
+	client, err := c.newHTTPClient(certs)
 	if err != nil {
 		return err
 	}
@@ -251,9 +274,8 @@ func (c *Client) addAuthHeader(req *http.Request, key *Key) error {
 func (c *Client) withProgressReader(reader io.ReadCloser, total int64) io.ReadCloser {
 	if c.config.ProgressFunc != nil {
 		return newProgressReader(reader, total, c.config.ProgressFunc)
-	} else {
-		return reader
 	}
+	return reader
 }
 
 func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
@@ -283,21 +305,21 @@ func (c *Client) retrieveCerts() ([]*x509.Certificate, error) {
 	return conn.ConnectionState().PeerCertificates, nil
 }
 
-func (c *Client) newHttpClient(certs []*x509.Certificate) (*http.Client, error) {
+func (c *Client) newHTTPClient(certs []*x509.Certificate) (*http.Client, error) {
 	if certs != nil {
-		return c.newHttpClientWithRootCAs(certs)
+		return c.newHTTPClientWithRootCAs(certs)
 	} else if c.config.CertFile != "" {
 		certs, err := LoadCertsFromFile(c.config.CertFile)
 		if err != nil {
 			return nil, err
 		}
-		return c.newHttpClientWithRootCAs(certs)
+		return c.newHTTPClientWithRootCAs(certs)
 	} else {
 		return &http.Client{}, nil
 	}
 }
 
-func (c *Client) newHttpClientWithRootCAs(certs []*x509.Certificate) (*http.Client, error) {
+func (c *Client) newHTTPClientWithRootCAs(certs []*x509.Certificate) (*http.Client, error) {
 	rootCAs := x509.NewCertPool()
 	serverName := certCommonName
 	for _, cert := range certs {
@@ -391,10 +413,4 @@ func (c *Client) addZipDir(z *zip.Writer, dir string) error {
 	})
 }
 
-type Info struct {
-	ServerAddr string
-	Salt       []byte
-	Certs      []*x509.Certificate
-}
-
-var missingServerAddrError = errors.New("server address missing")
+var errMissingServerAddr = errors.New("server address missing")

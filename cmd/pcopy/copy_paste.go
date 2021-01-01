@@ -90,7 +90,7 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string, []st
 	}
 
 	// Parse clipboard, id and files
-	clipboard, id, files := parseClipboardIdAndFiles(flags, *configFileOverride)
+	clipboard, id, files := parseClipboardIDAndFiles(flags, *configFileOverride)
 
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(*configFileOverride, clipboard)
@@ -123,12 +123,12 @@ func parseClientArgs(command string, args []string) (*pcopy.Config, string, []st
 	return config, id, files
 }
 
-func parseClipboardIdAndFiles(flags *flag.FlagSet, configFileOverride string) (string, string, []string) {
+func parseClipboardIDAndFiles(flags *flag.FlagSet, configFileOverride string) (string, string, []string) {
 	clipboard := pcopy.DefaultClipboard
-	id := pcopy.DefaultId
+	id := pcopy.DefaultID
 	files := make([]string, 0)
 	if flags.NArg() > 0 {
-		clipboard, id = parseClipboardAndId(flags.Arg(0), configFileOverride)
+		clipboard, id = parseClipboardAndID(flags.Arg(0), configFileOverride)
 	}
 	if flags.NArg() > 1 {
 		files = flags.Args()[1:]
@@ -136,9 +136,9 @@ func parseClipboardIdAndFiles(flags *flag.FlagSet, configFileOverride string) (s
 	return clipboard, id, files
 }
 
-func parseClipboardAndId(clipboardAndId string, configFileOverride string) (string, string) {
+func parseClipboardAndID(clipboardAndId string, configFileOverride string) (string, string) {
 	clipboard := pcopy.DefaultClipboard
-	id := pcopy.DefaultId
+	id := pcopy.DefaultID
 	re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]*):)?([-_a-zA-Z0-9]*)$`)
 	parts := re.FindStringSubmatch(clipboardAndId)
 	if len(parts) != 3 {

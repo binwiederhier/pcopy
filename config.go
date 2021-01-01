@@ -2,7 +2,7 @@ package pcopy
 
 import (
 	"bufio"
-	_ "embed"
+	_ "embed" // Required for go:embed instructions
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,15 +17,38 @@ import (
 )
 
 const (
-	DefaultPort                = 2586
-	DefaultServerConfigFile    = "/etc/pcopy/server.conf"
-	DefaultClipboardDir        = "/var/cache/pcopy"
-	DefaultClipboard           = "default"
-	DefaultId                  = "default"
-	DefaultFileExpireAfter     = time.Hour * 24 * 7
-	DefaultClipboardSizeLimit  = 0
-	DefaultFileSizeLimit       = 0
+	// DefaultPort defines the default port. Server addresses without port will be expanded to include it.
+	DefaultPort = 2586
+
+	// DefaultServerConfigFile defines the default config file at which "pcopy serve" will look for the config.
+	// This is a server-only setting.
+	DefaultServerConfigFile = "/etc/pcopy/server.conf"
+
+	// DefaultClipboardDir defines the default location to store the clipboard contents at. This setting is only
+	// relevant for the server.
+	DefaultClipboardDir = "/var/cache/pcopy"
+
+	// DefaultClipboard defines the default clipboard name if it's not overridden by the user. This is primarily
+	// used to find the config file location. This setting is only relevant for the client.
+	DefaultClipboard = "default"
+
+	// DefaultID is the default file name if none is passed by the user.
+	DefaultID = "default"
+
+	// DefaultClipboardSizeLimit is the total size in bytes that the server will allow to be written to the
+	// clipboard directory. This setting is only relevant for the server.
+	DefaultClipboardSizeLimit = 0
+
+	// DefaultClipboardCountLimit is the total number of files that the server will allow in the clipboard directory.
+	// This setting is only relevant for the server.
 	DefaultClipboardCountLimit = 0
+
+	// DefaultFileSizeLimit is the size in bytes that each individual clipboard file is allowed to have. The server
+	// will reject files larger than that.
+	DefaultFileSizeLimit = 0
+
+	// DefaultFileExpireAfter is the duration after which the server will delete a clipboard file.
+	DefaultFileExpireAfter = time.Hour * 24 * 7
 
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
@@ -35,6 +58,7 @@ const (
 )
 
 var (
+	// SystemdUnit contains the systemd unit file content.
 	//go:embed "init/pcopy.service"
 	SystemdUnit string
 
@@ -46,6 +70,8 @@ var (
 	durationStrDaysOnlyRegex = regexp.MustCompile(`(?i)^(\d+)d$`)
 )
 
+// Config is the configuration struct used to configure the client and the server. Some settings only apply to
+// the client, others only to the server. Some apply to both.
 type Config struct {
 	ListenAddr          string
 	ServerAddr          string
@@ -150,9 +176,8 @@ func GetConfigFileForClipboard(clipboard string) string {
 	u, _ := user.Current()
 	if u.Uid == "0" {
 		return filepath.Join(systemConfigDir, clipboard+suffixConf)
-	} else {
-		return filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
 	}
+	return filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
 }
 
 func ListConfigs() map[string]*Config {
@@ -369,15 +394,6 @@ func parseSize(s string) (int64, error) {
 	default:
 		return int64(value), nil
 	}
-}
-
-func loadRawConfigFromFile(filename string) (map[string]string, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	return loadRawConfig(file)
 }
 
 func loadRawConfig(reader io.Reader) (map[string]string, error) {

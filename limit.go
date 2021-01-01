@@ -33,7 +33,7 @@ func (l *limiter) Add(n int64) error {
 		l.value += n
 		return nil
 	} else {
-		return limitReachedError
+		return errLimitReached
 	}
 }
 
@@ -73,7 +73,7 @@ func (w *limitWriter) Write(p []byte) (n int, err error) {
 			for j := i - 1; j >= 0; j-- {
 				w.limiters[j].Sub(int64(len(p)))
 			}
-			return 0, limitReachedError
+			return 0, errLimitReached
 		}
 	}
 	n, err = w.writer.Write(p)
@@ -81,4 +81,4 @@ func (w *limitWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-var limitReachedError = errors.New("limit reached")
+var errLimitReached = errors.New("limit reached")

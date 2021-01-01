@@ -13,8 +13,8 @@ func TestLimiter_Add(t *testing.T) {
 	if err := l.Add(5); err != nil {
 		t.Fatal(err)
 	}
-	if err := l.Add(5); err != limitReachedError {
-		t.Fatalf("expected limitReachedError, got %#v", err)
+	if err := l.Add(5); err != errLimitReached {
+		t.Fatalf("expected errLimitReached, got %#v", err)
 	}
 }
 
@@ -51,8 +51,8 @@ func TestLimitWriter_WriteOneLimiter(t *testing.T) {
 	if _, err := lw.Write(make([]byte, 10)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := lw.Write(make([]byte, 1)); err != limitReachedError {
-		t.Fatalf("expected limitReachedError, got %#v", err)
+	if _, err := lw.Write(make([]byte, 1)); err != errLimitReached {
+		t.Fatalf("expected errLimitReached, got %#v", err)
 	}
 	if buf.Len() != 10 {
 		t.Fatalf("expected buffer length to be %d, got %d", 10, buf.Len())
@@ -70,8 +70,8 @@ func TestLimitWriter_WriteTwoLimiters(t *testing.T) {
 	if _, err := lw.Write(make([]byte, 8)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := lw.Write(make([]byte, 2)); err != limitReachedError {
-		t.Fatalf("expected limitReachedError, got %#v", err)
+	if _, err := lw.Write(make([]byte, 2)); err != errLimitReached {
+		t.Fatalf("expected errLimitReached, got %#v", err)
 	}
 	if buf.Len() != 8 {
 		t.Fatalf("expected buffer length to be %d, got %d", 8, buf.Len())

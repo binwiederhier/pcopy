@@ -35,9 +35,9 @@ func parseLinkArgs(args []string) (*pcopy.Config, string, string, time.Duration)
 	}
 
 	// Parse clipboard and file
-	clipboard, id := pcopy.DefaultClipboard, pcopy.DefaultId
+	clipboard, id := pcopy.DefaultClipboard, pcopy.DefaultID
 	if flags.NArg() > 0 {
-		clipboard, id = parseClipboardAndId(flags.Arg(0), *configFileOverride)
+		clipboard, id = parseClipboardAndID(flags.Arg(0), *configFileOverride)
 	}
 
 	// Load config

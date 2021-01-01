@@ -40,7 +40,7 @@ func execJoin(args []string) {
 	} else {
 		configFile = pcopy.FindConfigFile(clipboard)
 		if configFile != "" && !*force {
-			fail(errors.New(fmt.Sprintf("config file %s exists, you may want to specify a different clipboard name, or use -force to override", configFile)))
+			fail(fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use -force to override", configFile))
 		}
 		configFile = pcopy.GetConfigFileForClipboard(clipboard)
 	}
@@ -78,7 +78,7 @@ func execJoin(args []string) {
 			key = pcopy.DeriveKey(password, info.Salt)
 			err = client.Verify(info.Certs, key)
 			if err != nil {
-				fail(errors.New(fmt.Sprintf("Failed to join clipboard, %s", err.Error())))
+				fail(fmt.Errorf("Failed to join clipboard, %s", err.Error()))
 			}
 		}
 	}
@@ -119,7 +119,7 @@ func readPassword() []byte {
 	return password
 }
 
-func printInstructions(configFile string, clipboard string, info *pcopy.Info) {
+func printInstructions(configFile string, clipboard string, info *pcopy.ServerInfo) {
 	clipboardPrefix := ""
 	if clipboard != pcopy.DefaultClipboard {
 		clipboardPrefix = fmt.Sprintf(" %s:", clipboard)
