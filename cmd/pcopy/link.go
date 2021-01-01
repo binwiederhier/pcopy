@@ -10,7 +10,7 @@ import (
 
 func execLink(args []string) {
 	config, clipboard, id, ttl := parseLinkArgs(args)
-	url, err := pcopy.GenerateClipUrl(config, id, ttl)
+	url, err := pcopy.GenerateClipURL(config, id, ttl)
 	if err != nil {
 		fail(err)
 	}

@@ -357,12 +357,12 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 func (s *server) getClipboardFile(r *http.Request) (string, error) {
 	for _, path := range reservedPaths {
 		if r.URL.Path == path {
-			return "", errInvalidFileId
+			return "", errInvalidFileID
 		}
 	}
 	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
 	if matches == nil {
-		return "", errInvalidFileId
+		return "", errInvalidFileID
 	}
 	return fmt.Sprintf("%s/%s", s.config.ClipboardDir, matches[1]), nil
 }
@@ -595,5 +595,5 @@ var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidAuth = errors.New("invalid auth")
 var errInvalidMethod = errors.New("invalid method")
-var errInvalidFileId = errors.New("invalid file id")
+var errInvalidFileID = errors.New("invalid file id")
 var errRateLimitReached = errors.New("rate limit reached")

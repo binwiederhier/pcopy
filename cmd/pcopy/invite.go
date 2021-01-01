@@ -31,7 +31,7 @@ func execInvite(args []string) {
 	fmt.Printf("# Instructions for clipboard '%s'\n", clipboard)
 	fmt.Println()
 	fmt.Println("# Install pcopy on other computers (as root):")
-	fmt.Printf("%s | sudo sh\n", curlCommand("install", config, certs, 0))
+	fmt.Printf("%s | sudo sh\n", curlCommand("install", config, certs, 0)) // TODO use GenerateUrl for this
 
 	fmt.Println()
 	fmt.Println("# Join this clipboard on other computers:")
@@ -80,7 +80,7 @@ func curlCommand(cmd string, config *pcopy.Config, certs []*x509.Certificate, tt
 		}
 	}
 	path := fmt.Sprintf("/%s", cmd)
-	url, err := pcopy.GenerateUrl(config, path, ttl)
+	url, err := pcopy.GenerateURL(config, path, ttl)
 	if err != nil {
 		fail(err)
 	}

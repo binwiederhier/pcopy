@@ -116,6 +116,7 @@ func newConfig() *Config {
 	}
 }
 
+// WriteFile writes the configuration to a file.
 func (c *Config) WriteFile(filename string) error {
 	dir := filepath.Dir(filename)
 	if err := os.MkdirAll(dir, 0744); err != nil {
@@ -183,6 +184,7 @@ func GetConfigFileForClipboard(clipboard string) string {
 	return filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
 }
 
+// ListConfigs reads the config folder and returns a map of config files and their Config structs
 func ListConfigs() map[string]*Config {
 	configs := make(map[string]*Config, 0)
 	dirs := []string{
@@ -207,16 +209,19 @@ func ListConfigs() map[string]*Config {
 	return configs
 }
 
+// ExtractClipboard extracts the name of the clipboard from the config filename, e.g. the name of a clipboard with
+// the config file /etc/pcopy/work.conf is "work".
 func ExtractClipboard(filename string) string {
 	return strings.TrimSuffix(filepath.Base(filename), suffixConf)
 }
 
-func LoadConfig(file string, clipboard string) (string, *Config, error) {
-	if file != "" {
-		return loadConfigFromFile(file)
-	} else {
-		return loadConfigFromClipboardIfExists(clipboard)
+// LoadConfig is a helper to load the config file either from the given filename, or if that is empty, determine
+// the filename based on the clipboard name.
+func LoadConfig(filename string, clipboard string) (string, *Config, error) {
+	if filename != "" {
+		return loadConfigFromFile(filename)
 	}
+	return loadConfigFromClipboardIfExists(clipboard)
 }
 
 func ExpandServerAddr(serverAddr string) string {
@@ -249,8 +254,8 @@ func defaultFileWithNewExt(newExtension string, configFile string, mustExist boo
 	return keyFile
 }
 
-func loadConfigFromClipboardIfExists(alias string) (string, *Config, error) {
-	configFile := FindConfigFile(alias)
+func loadConfigFromClipboardIfExists(clipboard string) (string, *Config, error) {
+	configFile := FindConfigFile(clipboard)
 
 	if configFile != "" {
 		file, config, err := loadConfigFromFile(configFile)
@@ -258,9 +263,8 @@ func loadConfigFromClipboardIfExists(alias string) (string, *Config, error) {
 			return "", nil, err
 		}
 		return file, config, nil
-	} else {
-		return "", newConfig(), nil
 	}
+	return "", newConfig(), nil
 }
 
 func loadConfigFromFile(filename string) (string, *Config, error) {
