@@ -71,7 +71,8 @@ var (
 )
 
 // Config is the configuration struct used to configure the client and the server. Some settings only apply to
-// the client, others only to the server. Some apply to both.
+// the client, others only to the server. Some apply to both. Many (but not all) of these settings can be set either
+// via the config file, or via command line parameters.
 type Config struct {
 	ListenAddr          string
 	ServerAddr          string
@@ -89,6 +90,8 @@ type Config struct {
 	WebUI               bool
 }
 
+// Key defines the symmetric key that is derived from the user password. It consists of the raw key bytes
+// and the randomly generated salt.
 type Key struct {
 	Bytes []byte
 	Salt  []byte
