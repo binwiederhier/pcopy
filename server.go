@@ -90,6 +90,9 @@ type visitor struct {
 	lastSeen time.Time
 }
 
+// Serve starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
+// verify, ...), as well as the actual clipboard functionality (GET/PUT/POST). It also starts a background process
+// to prune old
 func Serve(config *Config) error {
 	server, err := newServer(config)
 	if err != nil {
@@ -135,7 +138,7 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc(pathInstall, s.limit(s.handleInstall))
 	http.HandleFunc(pathJoin, s.limit(s.handleJoin))
 	http.HandleFunc(pathDownload, s.limit(s.handleDownload))
-	http.HandleFunc(pathRoot, s.limit(s.handleDefault))
+	http.HandleFunc(pathRoot, s.handleDefault) // Rate limiting is added downstream
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -185,7 +188,7 @@ func (s *server) handleDefault(w http.ResponseWriter, r *http.Request) {
 	} else if s.config.WebUI && r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, pathStatic) {
 		s.handleWebStatic(w, r)
 	} else {
-		s.handleClipboard(w, r)
+		s.limit(s.handleClipboard) // Rate limiting only for clipboard, not for static resources
 	}
 }
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {

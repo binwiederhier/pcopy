@@ -12,5 +12,9 @@ jobs:
         uses: actions/checkout@v2
       - name: Install go1.16 beta
         run: go get golang.org/dl/go1.16beta1 && go1.16beta1 download
-      - name: Test
+      - name: fmt
+        run: make fmt
+      - name: vet
+        run: make vet
+      - name: test
         run: make test

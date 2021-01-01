@@ -94,8 +94,9 @@ func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func LoadCertsFromFile(file string) ([]*x509.Certificate, error) {
-	b, err := ioutil.ReadFile(file)
+// LoadCertsFromFile loads PEM-encoded certificates from the given filename.
+func LoadCertsFromFile(filename string) ([]*x509.Certificate, error) {
+	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +118,9 @@ func LoadCertsFromFile(file string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
+// GenerateAuthHMAC generates the HMAC auth header used to authorize uthenticate against the server.
+// The result can be used in the HTTP "Authorization" header. If the TTL is non-zero, the authorization
+// header will only be valid for the given duration.
 func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration) (string, error) {
 	timestamp := time.Now().Unix()
 	ttlSecs := int(ttl.Seconds())
@@ -130,6 +134,8 @@ func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration)
 	return fmt.Sprintf(authHmacFormat, timestamp, ttlSecs, hashBase64), nil
 }
 
+// GenerateKeyAndCert generates a ECDSA P-256 key, and a self-signed certificate.
+// It returns both as PEM-encoded values.
 func GenerateKeyAndCert() (string, string, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

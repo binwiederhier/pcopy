@@ -23,8 +23,6 @@ type progressReadCloser struct {
 	sync.RWMutex
 }
 
-type ProgressFunc func(processed int64, total int64, done bool)
-
 func newProgressReader(r io.ReadCloser, total int64, fn ProgressFunc) *progressReadCloser {
 	return newProgressReaderWithDelay(r, total, fn, defaultProgressDelay, defaultProgressInterval)
 }

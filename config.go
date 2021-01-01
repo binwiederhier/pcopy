@@ -90,6 +90,10 @@ type Config struct {
 	WebUI               bool
 }
 
+// ProgressFunc is callback that is called during copy/paste operations to indicate progress to the user.
+type ProgressFunc func(processed int64, total int64, done bool)
+
+
 // Key defines the symmetric key that is derived from the user password. It consists of the raw key bytes
 // and the randomly generated salt.
 type Key struct {
