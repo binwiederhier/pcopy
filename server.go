@@ -138,7 +138,7 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc(pathInstall, s.limit(s.handleInstall))
 	http.HandleFunc(pathJoin, s.limit(s.handleJoin))
 	http.HandleFunc(pathDownload, s.limit(s.handleDownload))
-	http.HandleFunc(pathRoot, s.handleDefault) // Rate limiting is added downstream
+	http.HandleFunc(pathRoot, s.limit(s.handleDefault))
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -188,7 +188,7 @@ func (s *server) handleDefault(w http.ResponseWriter, r *http.Request) {
 	} else if s.config.WebUI && r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, pathStatic) {
 		s.handleWebStatic(w, r)
 	} else {
-		s.limit(s.handleClipboard) // Rate limiting only for clipboard, not for static resources
+		s.handleClipboard(w, r)
 	}
 }
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {

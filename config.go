@@ -93,7 +93,6 @@ type Config struct {
 // ProgressFunc is callback that is called during copy/paste operations to indicate progress to the user.
 type ProgressFunc func(processed int64, total int64, done bool)
 
-
 // Key defines the symmetric key that is derived from the user password. It consists of the raw key bytes
 // and the randomly generated salt.
 type Key struct {
@@ -140,6 +139,8 @@ func (c *Config) WriteFile(filename string) error {
 	return nil
 }
 
+// FindConfigFile returns the path to the config file for the clipboard with the given name.
+// This looks in both the system and the user config directory.
 func FindConfigFile(clipboard string) string {
 	userConfigFile := filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
 	systemConfigFile := filepath.Join(systemConfigDir, clipboard+suffixConf)
@@ -153,11 +154,14 @@ func FindConfigFile(clipboard string) string {
 	return ""
 }
 
+// FindNewConfigFile finds a new config file for the given clipboard name, and returns both clipboard name
+// and the config file path. If the config file with the clipboard name already exists, a new clipboard name is
+// picked.
 func FindNewConfigFile(clipboard string) (string, string) {
 	// Try the given clipboard first
 	configFile := FindConfigFile(clipboard)
 	if configFile == "" {
-		return clipboard, GetConfigFileForClipboard(clipboard)
+		return clipboard, GetConfigFile(clipboard)
 	}
 
 	// If that is taken, try single letter clipboard
@@ -166,7 +170,7 @@ func FindNewConfigFile(clipboard string) (string, string) {
 		clipboard = string(c)
 		configFile = FindConfigFile(clipboard)
 		if configFile == "" {
-			return clipboard, GetConfigFileForClipboard(clipboard)
+			return clipboard, GetConfigFile(clipboard)
 		}
 	}
 
@@ -175,12 +179,13 @@ func FindNewConfigFile(clipboard string) (string, string) {
 		clipboard = fmt.Sprintf("a%d", i)
 		configFile = FindConfigFile(clipboard)
 		if configFile == "" {
-			return clipboard, GetConfigFileForClipboard(clipboard)
+			return clipboard, GetConfigFile(clipboard)
 		}
 	}
 }
 
-func GetConfigFileForClipboard(clipboard string) string {
+// GetConfigFile returns the config file path for the given clipboard name.
+func GetConfigFile(clipboard string) string {
 	u, _ := user.Current()
 	if u.Uid == "0" {
 		return filepath.Join(systemConfigDir, clipboard+suffixConf)
@@ -228,6 +233,8 @@ func LoadConfig(filename string, clipboard string) (string, *Config, error) {
 	return loadConfigFromClipboardIfExists(clipboard)
 }
 
+// ExpandServerAddr expands the server address with the default port if no port is provided,
+// e.g. "myhost" will become "myhost:2586", but "myhost:1234" will remain unchanged.
 func ExpandServerAddr(serverAddr string) string {
 	if !strings.Contains(serverAddr, ":") {
 		serverAddr = fmt.Sprintf("%s:%d", serverAddr, DefaultPort)
@@ -235,14 +242,20 @@ func ExpandServerAddr(serverAddr string) string {
 	return serverAddr
 }
 
+// CollapseServerAddr removes the default port from the given server address if the address contains
+// the default port, but leaves the address unchanged if it doesn't contain it.
 func CollapseServerAddr(serverAddr string) string {
 	return strings.TrimSuffix(serverAddr, fmt.Sprintf(":%d", DefaultPort))
 }
 
+// DefaultCertFile returns the default path to the certificate file, relative to the config file. If mustExist is
+// true, the function returns an empty string.
 func DefaultCertFile(configFile string, mustExist bool) string {
 	return defaultFileWithNewExt(suffixCert, configFile, mustExist)
 }
 
+// DefaultKeyFile returns the default path to the key file, relative to the config file. If mustExist is
+// true, the function returns an empty string.
 func DefaultKeyFile(configFile string, mustExist bool) string {
 	return defaultFileWithNewExt(suffixKey, configFile, mustExist)
 }

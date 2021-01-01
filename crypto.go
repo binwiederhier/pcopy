@@ -59,9 +59,9 @@ func EncodeKey(key *Key) string {
 }
 
 // DecodeKey decodes a key that was previously encoded with the EncodeKey function.
-func DecodeKey(keyEncoded string) (*Key, error) {
+func DecodeKey(s string) (*Key, error) {
 	re := regexp.MustCompile(`^([^:]+):(.+)$`)
-	matches := re.FindStringSubmatch(keyEncoded)
+	matches := re.FindStringSubmatch(s)
 	if matches == nil {
 		return nil, errInvalidKeyFormat
 	}
@@ -71,6 +71,12 @@ func DecodeKey(keyEncoded string) (*Key, error) {
 	}
 	rawKey, err := base64.StdEncoding.DecodeString(matches[2])
 	if err != nil {
+		return nil, errInvalidKeyFormat
+	}
+	if len(rawKey) != keyLenBytes {
+		return nil, errInvalidKeyFormat
+	}
+	if len(rawSalt) != keySaltLenBytes {
 		return nil, errInvalidKeyFormat
 	}
 	return &Key{

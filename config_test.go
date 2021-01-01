@@ -107,3 +107,35 @@ func TestParseDuration_WithDaysAndHoursFailure(t *testing.T) {
 		t.Fatalf("expected error, got none")
 	}
 }
+
+func TestExpandServerAddr_Expand(t *testing.T) {
+	actual := ExpandServerAddr("myhost")
+	expected := "myhost:2586"
+	if actual != expected {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+}
+
+func TestExpandServerAddr_NoExpand(t *testing.T) {
+	actual := ExpandServerAddr("myhost:1234")
+	expected := "myhost:1234"
+	if actual != expected {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+}
+
+func TestCollapseServerAddr_Collapse(t *testing.T) {
+	actual := CollapseServerAddr("myhost:2586")
+	expected := "myhost"
+	if actual != expected {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+}
+
+func TestCollapseServerAddr_NoCollapse(t *testing.T) {
+	actual := CollapseServerAddr("myhost:1234")
+	expected := "myhost:1234"
+	if actual != expected {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+}

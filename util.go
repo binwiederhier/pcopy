@@ -30,7 +30,6 @@ func CollapseHome(path string) string {
 	return path
 }
 
-
 // GenerateURL generates a URL for the given path. If the clipboard is password-protected, an auth parameter is
 // added and the URL will only be valid for the given TTL.
 func GenerateURL(config *Config, path string, ttl time.Duration) (string, error) {

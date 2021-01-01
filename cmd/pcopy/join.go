@@ -42,7 +42,7 @@ func execJoin(args []string) {
 		if configFile != "" && !*force {
 			fail(fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use -force to override", configFile))
 		}
-		configFile = pcopy.GetConfigFileForClipboard(clipboard)
+		configFile = pcopy.GetConfigFile(clipboard)
 	}
 
 	// Read basic info from server

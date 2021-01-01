@@ -19,6 +19,11 @@ help:
 test: .PHONY
 	$(GO) test
 
+coverage:
+	$(GO) test -cover -coverprofile=profile.cov
+	$(GO) tool cover -func profile.cov
+	rm -f profile.cov
+
 fmt:
 	$(GO) fmt ./...
 
