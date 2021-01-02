@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -66,3 +68,70 @@ func BytesToHuman(b int64) string {
 	return fmt.Sprintf("%.1f %cB",
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
+
+// commonPrefix determines the longest common prefix across a list of paths.
+func commonPrefix(paths []string) string {
+	// From: https://rosettacode.org/wiki/Find_common_directory_path#Go (GFDLv1.2)
+	// Some comments have been removed for brevity.
+
+	// Handle special cases.
+	switch len(paths) {
+	case 0:
+		return ""
+	case 1:
+		return path.Clean(paths[0])
+	}
+
+	// Note, we treat string as []byte, not []rune as is often done in Go. This is okay,
+	// see link above for details.
+	c := []byte(path.Clean(paths[0]))
+
+	// We add a trailing sep to handle the case where the common prefix directory is included in the path
+	// list (e.g. /home/user1, /home/user1/foo, /home/user1/bar). path.Clean will have cleaned off trailing /
+	// separators with the exception of the root directory, "/" (in which case we make it "//", but this will get
+	// fixed up to "/" bellow).
+	sep := byte(filepath.Separator)
+	c = append(c, sep)
+
+	// Ignore the first path since it's already in c
+	for _, v := range paths[1:] {
+		v = path.Clean(v) + string(sep)
+
+		if len(v) < len(c) {
+			c = c[:len(v)] // Find the first non-common byte and truncate c
+		}
+		for i := 0; i < len(c); i++ {
+			if v[i] != c[i] {
+				c = c[:i]
+				break
+			}
+		}
+	}
+
+	// Remove trailing non-separator characters and the final separator
+	for i := len(c) - 1; i >= 0; i-- {
+		if c[i] == sep {
+			c = c[:i]
+			break
+		}
+	}
+
+	return string(c)
+}
+
+func relativizeFiles(files []string) (base string, rel []string, err error) {
+	abs := make([]string, len(files))
+	for i, f := range files {
+		abs[i], err = filepath.Abs(f)
+		if err != nil {
+			return
+		}
+	}
+	base = commonPrefix(abs)
+	rel = make([]string, len(abs))
+	for i, f := range abs {
+		rel[i] = f[len(base)+1:]
+	}
+	return
+}
+

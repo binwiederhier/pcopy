@@ -14,10 +14,11 @@ import (
 )
 
 func execInvite(args []string) {
-	config, clipboard, ttl := parseInviteArgs(args)
+	configFile, config, clipboard, ttl := parseInviteArgs(args)
 
-	// FIXME Fail when clipboard that is passed is invalid
-
+	if configFile == "" {
+		fail(fmt.Errorf("clipboard '%s' does not exist", clipboard))
+	}
 	var certs []*x509.Certificate
 	if config.CertFile != "" {
 		if _, err := os.Stat(config.CertFile); err == nil {
@@ -39,7 +40,7 @@ func execInvite(args []string) {
 	fmt.Println()
 }
 
-func parseInviteArgs(args []string) (*pcopy.Config, string, time.Duration) {
+func parseInviteArgs(args []string) (string, *pcopy.Config, string, time.Duration) {
 	flags := flag.NewFlagSet("pcopy invite", flag.ExitOnError)
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
 	ttl := flags.Duration("ttl", time.Hour*24, "Defines the commands are valid for, only protected clipboards")
@@ -65,7 +66,7 @@ func parseInviteArgs(args []string) (*pcopy.Config, string, time.Duration) {
 		config.CertFile = pcopy.DefaultCertFile(configFile, true)
 	}
 
-	return config, clipboard, *ttl
+	return configFile, config, clipboard, *ttl
 }
 
 func curlCommand(cmd string, config *pcopy.Config, certs []*x509.Certificate, ttl time.Duration) string {

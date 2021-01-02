@@ -3,6 +3,7 @@ package pcopy
 import (
 	"encoding/base64"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,8 +13,13 @@ import (
 	"time"
 )
 
+func TestMain(m *testing.M) {
+	log.SetOutput(ioutil.Discard)
+	os.Exit(m.Run())
+}
+
 func TestServer_InfoUnprotected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
@@ -24,7 +30,7 @@ func TestServer_InfoUnprotected(t *testing.T) {
 }
 
 func TestServer_InfoProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	server := newTestServer(t, config)
 
@@ -36,7 +42,7 @@ func TestServer_InfoProtected(t *testing.T) {
 }
 
 func TestServer_DefaultWebRootNoGUI(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.WebUI = false
 	server := newTestServer(t, config)
 
@@ -48,7 +54,7 @@ func TestServer_DefaultWebRootNoGUI(t *testing.T) {
 }
 
 func TestServer_DefaultWebRootWithGUI(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
@@ -58,7 +64,7 @@ func TestServer_DefaultWebRootWithGUI(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardGetExists(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	filename := filepath.Join(config.ClipboardDir, "this-exists")
@@ -73,7 +79,7 @@ func TestServer_DefaultClipboardGetExists(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardGetDoesntExist(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
@@ -83,7 +89,7 @@ func TestServer_DefaultClipboardGetDoesntExist(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardPut(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	content := "this is a new thing"
@@ -95,7 +101,7 @@ func TestServer_DefaultClipboardPut(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardPutInvalidId(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
@@ -106,7 +112,7 @@ func TestServer_DefaultClipboardPutInvalidId(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardPutGet(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
@@ -121,7 +127,7 @@ func TestServer_DefaultClipboardPutGet(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardPutLargeFailed(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.FileSizeLimit = 10 // bytes
 	server := newTestServer(t, config)
 
@@ -138,7 +144,7 @@ func TestServer_DefaultClipboardPutLargeFailed(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardPutManySmallFailed(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.ClipboardCountLimit = 2
 	server := newTestServer(t, config)
 
@@ -162,7 +168,7 @@ func TestServer_DefaultClipboardPutManySmallFailed(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardPutManySmallOverwriteSuccess(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.ClipboardCountLimit = 2
 	server := newTestServer(t, config)
 
@@ -187,7 +193,7 @@ func TestServer_DefaultClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 }
 
 func TestServer_DefaultClipboardPutTotalSizeLimitFailed(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.ClipboardSizeLimit = 10
 	server := newTestServer(t, config)
 
@@ -205,7 +211,7 @@ func TestServer_DefaultClipboardPutTotalSizeLimitFailed(t *testing.T) {
 }
 
 func TestServer_AuthorizeSuccessUnprotected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	req, _ := http.NewRequest("GET", "/", nil)
@@ -215,7 +221,7 @@ func TestServer_AuthorizeSuccessUnprotected(t *testing.T) {
 }
 
 func TestServer_AuthorizeFailureMissingProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, config)
 
@@ -226,7 +232,7 @@ func TestServer_AuthorizeFailureMissingProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeBasicSuccessProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, config)
 
@@ -238,7 +244,7 @@ func TestServer_AuthorizeBasicSuccessProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeBasicFailureProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, config)
 
@@ -250,7 +256,7 @@ func TestServer_AuthorizeBasicFailureProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacSuccessProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, config)
 
@@ -263,7 +269,7 @@ func TestServer_AuthorizeHmacSuccessProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacFailureWrongPathProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, config)
 
@@ -276,7 +282,7 @@ func TestServer_AuthorizeHmacFailureWrongPathProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacFailureWrongMethodProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, config)
 
@@ -289,7 +295,7 @@ func TestServer_AuthorizeHmacFailureWrongMethodProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacFailureWrongKeyProtected(t *testing.T) {
-	config := newTestConfig(t)
+	config := newTestServerConfig(t)
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, config)
 
@@ -309,7 +315,7 @@ func newTestServer(t *testing.T, config *Config) *server {
 	return server
 }
 
-func newTestConfig(t *testing.T) *Config {
+func newTestServerConfig(t *testing.T) *Config {
 	config := newConfig()
 	tempDir := t.TempDir()
 

@@ -38,6 +38,8 @@ func main() {
 			execServe(args)
 		case "join":
 			execJoin(args)
+		case "leave":
+			execLeave(args)
 		case "invite":
 			execInvite(args)
 		case "keygen":
@@ -69,6 +71,7 @@ func showUsageWithError(error string) {
 	eprintln("  copy      Read from STDIN/file(s) and copy to remote clipboard")
 	eprintln("  paste     Write remote clipboard contents to STDOUT/file(s)")
 	eprintln("  join      Join a remote clipboard")
+	eprintln("  leave     Leave a remote clipboard")
 	eprintln("  list      Lists all of the clipboards that have been joined")
 	eprintln("  invite    Generate commands to invite others to join a clipboard")
 	eprintln("  link      Generate direct download link to clipboard content")

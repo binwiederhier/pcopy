@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,6 +21,7 @@ import (
 // verify the user password, and ultimately to copy/paste files.
 type Client struct {
 	config *Config
+	httpClient *http.Client // Allow injecting HTTP client for testing
 }
 
 // ServerInfo contains information about the server needed o join a server.
@@ -72,7 +72,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 // CopyFiles creates a ZIP archive of the given files and streams it to the server using the Copy
 // method. No temporary ZIP archive is created on disk. It's all streamed.
 func (c *Client) CopyFiles(files []string, id string) error {
-	return c.Copy(c.createZipReader(files), id)
+	return c.Copy(createZipReader(files), id)
 }
 
 // Paste reads the file with the given id from the server and writes it to writer.
@@ -306,7 +306,9 @@ func (c *Client) retrieveCerts() ([]*x509.Certificate, error) {
 }
 
 func (c *Client) newHTTPClient(certs []*x509.Certificate) (*http.Client, error) {
-	if certs != nil {
+	if c.httpClient != nil { // For testing only!
+		return c.httpClient, nil
+	} else if certs != nil {
 		return c.newHTTPClientWithRootCAs(certs)
 	} else if c.config.CertFile != "" {
 		certs, err := LoadCertsFromFile(c.config.CertFile)
@@ -341,76 +343,6 @@ func (c *Client) newHTTPClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 			},
 		},
 	}, nil
-}
-
-func (c *Client) createZipReader(files []string) io.ReadCloser {
-	pr, pw := io.Pipe()
-
-	go func() {
-		defer pw.Close()
-
-		z := zip.NewWriter(pw)
-		defer z.Close()
-
-		for _, file := range files {
-			stat, err := os.Stat(file)
-			if err != nil {
-				log.Printf("Skipping file %s due to error: %s\n", file, err.Error())
-				continue
-			}
-
-			if stat.IsDir() {
-				if err := c.addZipDir(z, file); err != nil {
-					log.Printf("Skipping directory %s due to error: %s\n", file, err.Error())
-					continue
-				}
-			} else {
-				if err := c.addZipFile(z, file, stat); err != nil {
-					log.Printf("Skipping file %s due to error: %s\n", file, err.Error())
-					continue
-				}
-			}
-		}
-	}()
-
-	return pr
-}
-
-func (c *Client) addZipFile(z *zip.Writer, file string, stat os.FileInfo) error {
-	zf, err := z.CreateHeader(&zip.FileHeader{
-		Name:     file,
-		Modified: stat.ModTime(),
-		Method:   zip.Deflate,
-	})
-	if err != nil {
-		return err
-	}
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err := io.Copy(zf, f); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Client) addZipDir(z *zip.Writer, dir string) error {
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			log.Printf("Skipping %s due to error: %s\n", path, err.Error())
-			return nil
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if err := c.addZipFile(z, path, info); err != nil {
-			log.Printf("Cannot add %s due to error: %s\n", path, err.Error())
-			return nil
-		}
-		return nil
-	})
 }
 
 var errMissingServerAddr = errors.New("server address missing")
