@@ -2,48 +2,83 @@ package pcopy
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 )
 
-func createZipReader(files []string) io.ReadCloser {
-	pr, pw := io.Pipe()
+func createZipReader(paths []string) (io.ReadCloser, error) {
+	baseDir, relativeFiles, err := relativizeFiles(findAllFiles(paths))
+	if err != nil {
+		return nil, err
+	}
 
+	pr, pw := io.Pipe()
 	go func() {
 		defer pw.Close()
 
 		z := zip.NewWriter(pw)
 		defer z.Close()
 
-		for _, file := range files {
-			stat, err := os.Stat(file)
-			if err != nil {
-				log.Printf("Skipping file %s due to error: %s\n", file, err.Error())
+		for _, relativeFile := range relativeFiles {
+			file := baseDir + string(os.PathSeparator) + relativeFile
+			if err := addFileToZip(z, relativeFile, file); err != nil {
+				fmt.Fprintf(os.Stderr, "skipping file %s due to error (5): %s\n", file, err.Error())
 				continue
-			}
-
-			if stat.IsDir() {
-				if err := walkDirAndAddFilesToZip(z, file); err != nil {
-					log.Printf("Skipping directory %s due to error: %s\n", file, err.Error())
-					continue
-				}
-			} else {
-				if err := addFileToZip(z, file, stat); err != nil {
-					log.Printf("Skipping file %s due to error: %s\n", file, err.Error())
-					continue
-				}
 			}
 		}
 	}()
 
-	return pr
+	return pr, nil
 }
 
-func addFileToZip(z *zip.Writer, file string, stat os.FileInfo) error {
+func findAllFiles(paths []string) []string {
+	files := make([]string, 0)
+	for _, path := range paths {
+		stat, err := os.Stat(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "skipping file %s due to error (1): %s\n", path, err.Error())
+			continue
+		}
+		if stat.IsDir() {
+			filesInDir, err := findFilesRecursively(path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "skipping dir %s due to error (2): %s\n", path, err.Error())
+			}
+			files = append(files, filesInDir...)
+		} else {
+			files = append(files, path)
+		}
+	}
+	return files
+}
+
+func findFilesRecursively(dir string) ([]string, error) {
+	files := make([]string, 0)
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "skipping %s due to error (3): %s\n", path, err.Error())
+			return err
+		}
+		if !info.IsDir() {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
+func addFileToZip(z *zip.Writer, name string, file string) error {
+	stat, err := os.Stat(file)
+	if err != nil {
+		return err
+	}
 	zf, err := z.CreateHeader(&zip.FileHeader{
-		Name:     file,
+		Name:     name,
 		Modified: stat.ModTime(),
 		Method:   zip.Deflate,
 	})
@@ -59,21 +94,4 @@ func addFileToZip(z *zip.Writer, file string, stat os.FileInfo) error {
 		return err
 	}
 	return nil
-}
-
-func walkDirAndAddFilesToZip(z *zip.Writer, dir string) error {
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			log.Printf("Skipping %s due to error: %s\n", path, err.Error())
-			return nil
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if err := addFileToZip(z, path, info); err != nil {
-			log.Printf("Cannot add %s due to error: %s\n", path, err.Error())
-			return nil
-		}
-		return nil
-	})
 }

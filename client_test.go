@@ -66,7 +66,7 @@ func TestClient_CopyFilesSuccess(t *testing.T) {
 			switch f.Name {
 			case "file1":
 				assertStrEquals(t, "file content 1", readZipEntryToString(t, f))
-			case "dir/file2":
+			case "dir1/file2":
 				assertStrEquals(t, "file content 2", readZipEntryToString(t, f))
 			default:
 				t.Fatalf("unexpected file in ZIP archive: %s", f.Name)

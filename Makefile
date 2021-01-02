@@ -17,7 +17,7 @@ help:
 	@echo "  make clean             - Clean build folder"
 
 test: .PHONY
-	$(GO) test
+	$(GO) test -v
 
 coverage:
 	$(GO) test -cover -coverprofile=profile.cov

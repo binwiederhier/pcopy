@@ -72,7 +72,11 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 // CopyFiles creates a ZIP archive of the given files and streams it to the server using the Copy
 // method. No temporary ZIP archive is created on disk. It's all streamed.
 func (c *Client) CopyFiles(files []string, id string) error {
-	return c.Copy(createZipReader(files), id)
+	zipReader, err := createZipReader(files)
+	if err != nil {
+		return err
+	}
+	return c.Copy(zipReader, id)
 }
 
 // Paste reads the file with the given id from the server and writes it to writer.
