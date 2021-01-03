@@ -32,6 +32,7 @@ curl -sSL https://heckel.io:2586/install | sudo sh
 **Debian/Ubuntu** (*from a repository*)**:**   
 ```bash
 curl -sSL https://archive.heckel.io/apt/pubkey.txt | sudo apt-key add -
+sudo apt install apt-transport-https
 sudo add-apt-repository "deb [arch=amd64] https://archive.heckel.io/apt debian main"
 sudo apt update
 sudo apt install pcopy
@@ -39,18 +40,25 @@ sudo apt install pcopy
 
 **Debian/Ubuntu** (*manual install*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.2/pcopy_0.4.2_amd64.deb
-dpkg -i pcopy_0.4.2_amd64.deb
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.3/pcopy_0.4.3_amd64.deb
+dpkg -i pcopy_0.4.3_amd64.deb
 ```
 
 **Fedora/RHEL/CentOS:**
 ```bash
-rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.2/pcopy_0.4.2_amd64.rpm
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.3/pcopy_0.4.3_amd64.rpm
 ```
 
 **Docker** (*see [detailed instructions](#docker-usage)*)**:**
 ```bash
 docker run --rm -it binwiederhier/pcopy
+```
+
+**Go** (*requires Go 1.16beta1*)**:**
+```bash
+go get golang.org/dl/go1.16beta1
+go1.16beta1 download
+go1.16beta1 get heckel.io/pcopy/cmd/pcopy
 ```
 
 ## Usage
