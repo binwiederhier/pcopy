@@ -199,7 +199,7 @@ I have a **demo clipboard** (password: *demo*) running that you can play with:
 - Or use the [web UI](https://heckel.io:2586) (this is *work in progress*, I'm not a web designer, please help!)
 - Or simply use `curl` (see [curl usage](#curl-compatible-usage)) 
 
-*(The demo clipboard is limited to 10 MB total, 10k per file, 100 files max. Clipboard contents time out after 3 minutes.)*
+*(The demo clipboard is limited to 100 MB total, 1 MB per file, 100 files. Clipboard contents time out after 5 minutes.)*
 
 I also made a couple [more videos](#videos) to show what else pcopy can do.
 
