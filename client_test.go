@@ -3,6 +3,7 @@ package pcopy
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -86,6 +87,37 @@ func TestClient_CopyFilesSuccess(t *testing.T) {
 
 	files := []string{file1, dir1}
 	if err := client.CopyFiles(files, "a-few-files"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestClient_PasteNoAuthSuccess(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hi there what's up"))
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	if err := client.Paste(&buf, "default"); err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "hi there what's up", buf.String())
+}
+
+func TestClient_PasteNoAuthNotFound(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	var httpErr *errHttpNotOK
+	err := client.Paste(&buf, "default")
+	if err == nil {
+		t.Fatalf("expected errHttpNotOK, got no error")
+	} else if !errors.As(err, &httpErr) {
 		t.Fatal(err)
 	}
 }

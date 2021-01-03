@@ -5,6 +5,14 @@ import (
 	"testing"
 )
 
+func TestExpandHome_WithTilde(t *testing.T) {
+	assertStrEquals(t, os.Getenv("HOME")+"/this/is/a/path", ExpandHome("~/this/is/a/path"))
+}
+
+func TestExpandHome_NoTilde(t *testing.T) {
+	assertStrEquals(t, "/this/is/an/absolute/path", ExpandHome("/this/is/an/absolute/path"))
+}
+
 func TestCommonPrefix_1(t *testing.T) {
 	paths := []string{
 		"/home/phil/code/pcopy/go.mod",
@@ -101,8 +109,8 @@ func TestRelativizePaths_RelAndAbsFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertStrEquals(t, "", baseDir)
-	assertStrEquals(t, tmpDir[1:] + "/some/file.txt", relativeFiles[0])
-	assertStrEquals(t, tmpDir[1:] + "/other/file2.txt", relativeFiles[1])
+	assertStrEquals(t, tmpDir[1:]+"/some/file.txt", relativeFiles[0])
+	assertStrEquals(t, tmpDir[1:]+"/other/file2.txt", relativeFiles[1])
 	assertStrEquals(t, "etc/pcopy/server.conf", relativeFiles[2])
 }
 
@@ -118,7 +126,6 @@ func TestRelativizePaths_SingleRelFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertStrEquals(t, tmpDir + "/dir", baseDir)
+	assertStrEquals(t, tmpDir+"/dir", baseDir)
 	assertStrEquals(t, "file.txt", relativeFiles[0])
 }
-

@@ -20,7 +20,7 @@ import (
 // Client represents a pcopy client. It can be used to communicate with the server to
 // verify the user password, and ultimately to copy/paste files.
 type Client struct {
-	config *Config
+	config     *Config
 	httpClient *http.Client // Allow injecting HTTP client for testing
 }
 
@@ -63,7 +63,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 	if err != nil {
 		return err
 	} else if resp.StatusCode != http.StatusOK {
-		return errors.New(resp.Status)
+		return &errHttpNotOK{resp.StatusCode, resp.Status}
 	}
 
 	return nil
@@ -100,9 +100,9 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 	if err != nil {
 		return err
 	} else if resp.Body == nil {
-		return errors.New("response body was empty")
+		return errResponseBodyEmpty
 	} else if resp.StatusCode != http.StatusOK {
-		return errors.New(resp.Status)
+		return &errHttpNotOK{resp.StatusCode, resp.Status}
 	}
 
 	var total int
@@ -252,7 +252,7 @@ func (c *Client) Verify(certs []*x509.Certificate, key *Key) error {
 	if err != nil {
 		return err
 	} else if resp.StatusCode != http.StatusOK {
-		return errors.New(resp.Status)
+		return &errHttpNotOK{resp.StatusCode, resp.Status}
 	}
 
 	return nil
@@ -350,3 +350,13 @@ func (c *Client) newHTTPClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 }
 
 var errMissingServerAddr = errors.New("server address missing")
+var errResponseBodyEmpty = errors.New("response body was empty")
+
+type errHttpNotOK struct {
+	code   int
+	status string
+}
+
+func (e errHttpNotOK) Error() string {
+	return fmt.Sprintf("http: %s", e.status)
+}

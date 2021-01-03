@@ -149,4 +149,3 @@ func relativizeFiles(files []string) (string, []string, error) {
 	}
 	return base, rel, nil
 }
-
