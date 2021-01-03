@@ -230,6 +230,7 @@ Client-side commands:
   copy      Read from STDIN/file(s) and copy to remote clipboard
   paste     Write remote clipboard contents to STDOUT/file(s)
   join      Join a remote clipboard
+  leave     Leave a remote clipboard
   list      Lists all of the clipboards that have been joined
   invite    Generate commands to invite others to join a clipboard
   link      Generate direct download link to clipboard content
