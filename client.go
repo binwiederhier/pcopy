@@ -325,18 +325,26 @@ func (c *Client) newHTTPClient(certs []*x509.Certificate) (*http.Client, error) 
 	}
 }
 
-func (c *Client) newHTTPClientWithRootCAs(certs []*x509.Certificate) (*http.Client, error) {
+func (c *Client) newHTTPClientWithRootCAs(trusted []*x509.Certificate) (*http.Client, error) {
+	// TODO This logic is too vague and a little guesswork; implement proper pinning instead
+
+	if len(trusted) == 0 {
+		return nil, errNoTrustedCert
+	}
+
 	rootCAs := x509.NewCertPool()
-	serverName := certCommonName
-	for _, cert := range certs {
+	for _, cert := range trusted {
 		rootCAs.AddCert(cert)
+	}
+
+	serverName := ""
+	for _, cert := range trusted {
 		if !cert.IsCA {
-			if len(cert.DNSNames) > 0 {
-				serverName = cert.DNSNames[0]
-			} else {
-				serverName = cert.Subject.CommonName
-			}
+			serverName = certName(cert)
 		}
+	}
+	if serverName == "" {
+		serverName = certName(trusted[0])
 	}
 
 	return &http.Client{
@@ -349,8 +357,16 @@ func (c *Client) newHTTPClientWithRootCAs(certs []*x509.Certificate) (*http.Clie
 	}, nil
 }
 
+func certName(cert *x509.Certificate) string {
+	if len(cert.DNSNames) > 0 {
+		return cert.DNSNames[0]
+	}
+	return cert.Subject.CommonName
+}
+
 var errMissingServerAddr = errors.New("server address missing")
 var errResponseBodyEmpty = errors.New("response body was empty")
+var errNoTrustedCert = errors.New("no trusted cert found")
 
 type errHttpNotOK struct {
 	code   int

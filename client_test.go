@@ -3,6 +3,7 @@ package pcopy
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/x509"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -118,6 +119,22 @@ func TestClient_PasteNoAuthNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected errHttpNotOK, got no error")
 	} else if !errors.As(err, &httpErr) {
+		t.Fatal(err)
+	}
+}
+
+func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Unset, we don't want to override the HTTP client for this test.
+	// Instead, pass the certs in the Verify function.
+	client.httpClient = nil
+
+	if err := client.Verify([]*x509.Certificate{server.Certificate()}, nil); err != nil {
 		t.Fatal(err)
 	}
 }
