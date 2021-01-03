@@ -114,10 +114,10 @@ func TestClient_PasteNoAuthNotFound(t *testing.T) {
 	defer server.Close()
 
 	var buf bytes.Buffer
-	var httpErr *errHttpNotOK
+	var httpErr *errHTTPNotOK
 	err := client.Paste(&buf, "default")
 	if err == nil {
-		t.Fatalf("expected errHttpNotOK, got no error")
+		t.Fatalf("expected errHTTPNotOK, got no error")
 	} else if !errors.As(err, &httpErr) {
 		t.Fatal(err)
 	}

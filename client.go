@@ -63,7 +63,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 	if err != nil {
 		return err
 	} else if resp.StatusCode != http.StatusOK {
-		return &errHttpNotOK{resp.StatusCode, resp.Status}
+		return &errHTTPNotOK{resp.StatusCode, resp.Status}
 	}
 
 	return nil
@@ -102,7 +102,7 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 	} else if resp.Body == nil {
 		return errResponseBodyEmpty
 	} else if resp.StatusCode != http.StatusOK {
-		return &errHttpNotOK{resp.StatusCode, resp.Status}
+		return &errHTTPNotOK{resp.StatusCode, resp.Status}
 	}
 
 	var total int
@@ -252,7 +252,7 @@ func (c *Client) Verify(certs []*x509.Certificate, key *Key) error {
 	if err != nil {
 		return err
 	} else if resp.StatusCode != http.StatusOK {
-		return &errHttpNotOK{resp.StatusCode, resp.Status}
+		return &errHTTPNotOK{resp.StatusCode, resp.Status}
 	}
 
 	return nil
@@ -368,11 +368,11 @@ var errMissingServerAddr = errors.New("server address missing")
 var errResponseBodyEmpty = errors.New("response body was empty")
 var errNoTrustedCert = errors.New("no trusted cert found")
 
-type errHttpNotOK struct {
+type errHTTPNotOK struct {
 	code   int
 	status string
 }
 
-func (e errHttpNotOK) Error() string {
+func (e errHTTPNotOK) Error() string {
 	return fmt.Sprintf("http: %s", e.status)
 }
