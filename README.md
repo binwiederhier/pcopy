@@ -2,6 +2,7 @@
 [![Release](https://img.shields.io/github/release/binwiederhier/pcopy.svg?color=success&style=flat-square)](https://github.com/nakabonne/pbgopy/releases/latest)
 [![Go Reference](https://pkg.go.dev/badge/heckel.io/pcopy.svg)](https://pkg.go.dev/heckel.io/pcopy)
 [![Tests](https://github.com/binwiederhier/pcopy/workflows/test/badge.svg)](https://github.com/binwiederhier/pcopy/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/binwiederhier/pcopy)](https://goreportcard.com/report/github.com/binwiederhier/pcopy)
 
 pcopy is an across-the-network clipboard that allows copying (`pcp < file.txt`) and pasting (`ppaste > file.txt`)
 across different computers. Other users can be invited to join (`pcopy invite`), or simply join by specifying 
