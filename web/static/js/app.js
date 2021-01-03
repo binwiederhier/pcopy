@@ -7,6 +7,7 @@ let text = document.getElementById("text")
 let headerSaveButton = document.getElementById("save-button")
 let headerLogoutButton = document.getElementById("logout-button")
 let headerFileId = document.getElementById("file-id")
+let headerRandomFileId = document.getElementById("random-file-id")
 let headerUploadButton = document.getElementById("upload-button")
 let headerFileUpload = document.getElementById("file-upload")
 
@@ -86,10 +87,8 @@ function hideDropZone() {
 }
 
 function allowDrag(e) {
-    if (true) {  // Test that the item being dragged is a valid one
-        e.dataTransfer.dropEffect = 'copy';
-        e.preventDefault();
-    }
+    e.dataTransfer.dropEffect = 'copy';
+    e.preventDefault();
 }
 
 function handleDrop(e) {
@@ -114,6 +113,29 @@ function removeDropListeners() {
     dropArea.removeEventListener('drop', handleDrop);
 }
 
+/* File ID */
+
+let previousFileId = ''
+headerFileId.value = ''
+headerRandomFileId.checked = randomFileIdEnabled()
+changeRandomFileIdEnabled(randomFileIdEnabled())
+
+headerRandomFileId.addEventListener('change', (e) => { changeRandomFileIdEnabled(e.target.checked) })
+
+function changeRandomFileIdEnabled(enabled) {
+    storeRandomFileIdEnabled(enabled)
+    if (enabled) {
+        previousFileId = headerFileId.value
+        headerFileId.value = ''
+        headerFileId.disabled = true
+        headerFileId.placeholder = '(randomly chosen)'
+    } else {
+        headerFileId.value = previousFileId
+        headerFileId.disabled = false
+        headerFileId.placeholder = 'default (optional)'
+    }
+}
+
 /* Text field & saving text */
 
 headerSaveButton.addEventListener('click', save)
@@ -136,8 +158,9 @@ function keyHandler(e) {
 function save() {
     showUploadProgress('Saving', '')
 
+    let fileId = getFileId()
     let method = 'PUT'
-    let path = '/' + (headerFileId.value || 'default')
+    let path = '/' + fileId
     let url = 'https://' + location.host + path
     let key = loadKey()
 
@@ -151,7 +174,7 @@ function save() {
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            showInfoUploadFinished(url, path, key)
+            showInfoUploadFinished(fileId, url, path, key)
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
             updateUploadProgress('Error ' + xhr.status)
         }
@@ -162,7 +185,6 @@ function save() {
 
 /* Uploading */
 
-headerFileId.value = ''
 headerUploadButton.addEventListener('click', function() { headerFileUpload.click() })
 
 function handleFile(file) {
@@ -177,8 +199,8 @@ function showUploadProgress(title, status) {
     infoArea.classList.remove("hidden")
 }
 
-function showInfoUploadFinished(url, path, key) {
-    infoCommandPpaste.innerHTML = headerFileId.value ? 'ppaste ' + headerFileId.value : 'ppaste'
+function showInfoUploadFinished(fileId, url, path, key) {
+    infoCommandPpaste.innerHTML = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
     if (key) {
         let authParam = generateAuthHmacParamForNow(key, 'GET', path)
         let directLink = `${url}?a=${authParam}`
@@ -199,8 +221,9 @@ function updateUploadProgress(status) {
 function uploadFile(file) {
     showUploadProgress('Uploading', '0%')
 
+    let fileId = getFileId()
     let method = 'PUT'
-    let path = '/' + (headerFileId.value || 'default')
+    let path = '/' + fileId
     let url = 'https://' + location.host + path
     let key = loadKey()
 
@@ -219,7 +242,7 @@ function uploadFile(file) {
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            showInfoUploadFinished(url, path, key)
+            showInfoUploadFinished(fileId, url, path, key)
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
             updateUploadProgress('Error ' + xhr.status)
         }
@@ -313,4 +336,24 @@ function loadKey() {
 
 function clearKey() {
     localStorage.removeItem('key')
+}
+
+function getFileId() {
+    if (randomFileIdEnabled()) {
+        return Math.random().toString(36).slice(2)
+    } else {
+        return (headerFileId.value || 'default')
+    }
+}
+
+function storeRandomFileIdEnabled(randomFileId) {
+    localStorage.setItem('randomName', randomFileId)
+}
+
+function randomFileIdEnabled() {
+    if (localStorage.getItem('randomName') !== null) {
+        return localStorage.getItem('randomName') === 'true'
+    } else {
+        return false
+    }
 }

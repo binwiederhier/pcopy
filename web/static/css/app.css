@@ -246,6 +246,11 @@ html, body {
     margin: 4px 5px;
 }
 
+#header-area #random-file-id {
+    margin: 0 2px 0 10px;
+    height: 40px;
+}
+
 #save-button, #upload-button, #upload-status, #logout-button {
     float: right;
 }
