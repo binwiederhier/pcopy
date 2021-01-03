@@ -1,6 +1,7 @@
 package pcopy
 
 import (
+	"bytes"
 	"encoding/base64"
 	"io/ioutil"
 	"log"
@@ -61,6 +62,22 @@ func TestServer_DefaultWebRootWithGUI(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	server.handleDefault(rr, req)
 	assertStatus(t, rr, http.StatusOK)
+	if !strings.Contains(rr.Body.String(), "<html") {
+		t.Fatalf("expected html, got: %s", rr.Body.String())
+	}
+}
+
+func TestServer_DefaultWebStaticResourceWithGUI(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/static/js/app.js", nil)
+	server.handleDefault(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+	if !strings.Contains(rr.Body.String(), "getElementById") {
+		t.Fatalf("expected js, got: %s", rr.Body.String())
+	}
 }
 
 func TestServer_DefaultClipboardGetExists(t *testing.T) {
@@ -208,6 +225,64 @@ func TestServer_DefaultClipboardPutTotalSizeLimitFailed(t *testing.T) {
 	server.handleDefault(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
 	assertNotExists(t, config, "file2")
+}
+
+func TestServer_HandleDownloadSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/download", nil)
+	server.handleDownload(rr, req)
+
+	assertStatus(t, rr, http.StatusOK)
+	exePath, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	exeBytes, err := ioutil.ReadFile(exePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(rr.Body.Bytes(), exeBytes) {
+		t.Fatalf("executable differs from currently running one")
+	}
+}
+
+func TestServer_HandleInstallSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.ServerAddr = "some-server.com"
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/install", nil)
+	server.handleInstall(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+	if !strings.Contains(rr.Body.String(), "#!/bin/sh") {
+		t.Fatalf("expected shell code, got: %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "some-server.com") {
+		t.Fatalf("expected server address, got: %s", rr.Body.String())
+	}
+}
+
+func TestServer_HandleJoinWithKeySuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/join", nil)
+	hmac, _ := GenerateAuthHMAC(config.Key.Bytes, "GET", "/join", time.Minute)
+	req.Header.Set("Authorization", hmac)
+	server.handleJoin(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+	if !strings.Contains(rr.Body.String(), "#!/bin/sh") {
+		t.Fatalf("expected shell code, got: %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "PCOPY_KEY=") {
+		t.Fatalf("expected PCOPY_KEY env, got: %s", rr.Body.String())
+	}
 }
 
 func TestServer_AuthorizeSuccessUnprotected(t *testing.T) {
