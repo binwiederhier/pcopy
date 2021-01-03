@@ -70,6 +70,7 @@ func BytesToHuman(b int64) string {
 }
 
 // commonPrefix determines the longest common prefix across a list of paths.
+// The given paths can be files or directories.
 func commonPrefix(paths []string) string {
 	// From: https://rosettacode.org/wiki/Find_common_directory_path#Go (GFDLv1.2)
 	// Some comments have been removed for brevity.
@@ -119,19 +120,33 @@ func commonPrefix(paths []string) string {
 	return string(c)
 }
 
-func relativizeFiles(files []string) (base string, rel []string, err error) {
+// relativizeFiles takes a list of files (NOT folders!), find their common prefix and relativizes them
+// baed on that prefix.
+func relativizeFiles(files []string) (string, []string, error) {
+	// Turn all given files into absolute paths
+	var err error
 	abs := make([]string, len(files))
 	for i, f := range files {
 		abs[i], err = filepath.Abs(f)
 		if err != nil {
-			return
+			return "", nil, err
 		}
 	}
-	base = commonPrefix(abs)
-	rel = make([]string, len(abs))
+
+	// Handle special cases
+	switch len(abs) {
+	case 0:
+		return "", []string{}, nil
+	case 1:
+		return filepath.Dir(abs[0]), []string{filepath.Base(abs[0])}, nil
+	}
+
+	// Find common path and relativize all files based on it
+	base := commonPrefix(abs)
+	rel := make([]string, len(abs))
 	for i, f := range abs {
 		rel[i] = f[len(base)+1:]
 	}
-	return
+	return base, rel, nil
 }
 

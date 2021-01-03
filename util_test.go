@@ -21,12 +21,19 @@ func TestCommonPrefix_2(t *testing.T) {
 	assertStrEquals(t, "/home/phil", commonPrefix(paths))
 }
 
-func TestCommonPrefix_3(t *testing.T) {
+func TestCommonPrefix_NoCommonPrefix(t *testing.T) {
 	paths := []string{
 		"/home/phil/code/pcopy/go.mod",
 		"/etc/file.txt",
 	}
 	assertStrEquals(t, "", commonPrefix(paths))
+}
+
+func TestCommonPrefix_SingleFile(t *testing.T) {
+	paths := []string{
+		"/home/phil/code/pcopy",
+	}
+	assertStrEquals(t, "/home/phil/code/pcopy", commonPrefix(paths))
 }
 
 func TestRelativizePaths_AbsFilesOnly(t *testing.T) {
@@ -97,5 +104,21 @@ func TestRelativizePaths_RelAndAbsFiles(t *testing.T) {
 	assertStrEquals(t, tmpDir[1:] + "/some/file.txt", relativeFiles[0])
 	assertStrEquals(t, tmpDir[1:] + "/other/file2.txt", relativeFiles[1])
 	assertStrEquals(t, "etc/pcopy/server.conf", relativeFiles[2])
+}
+
+func TestRelativizePaths_SingleRelFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	files := []string{
+		"dir/file.txt",
+	}
+	baseDir, relativeFiles, err := relativizeFiles(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, tmpDir + "/dir", baseDir)
+	assertStrEquals(t, "file.txt", relativeFiles[0])
 }
 
