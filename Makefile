@@ -5,33 +5,33 @@ VERSION := $(shell git describe --tag)
 
 help:
 	@echo "Typical commands:"
-	@echo "  make check                   - Run all tests, vetting/formatting checks and linters"
-	@echo "  make build-snapshot install  - Build latest and install to local system"
+	@echo "  make check                       - Run all tests, vetting/formatting checks and linters"
+	@echo "  make fmt build-snapshot install  - Build latest and install to local system"
 	@echo
 	@echo "Test/check:"
-	@echo "  make test                    - Run tests"
-	@echo "  make coverage                - Run tests and show coverage"
+	@echo "  make test                        - Run tests"
+	@echo "  make coverage                    - Run tests and show coverage"
 	@echo
 	@echo "Lint/format:"
-	@echo "  make fmt                     - Run 'go fmt'"
-	@echo "  make fmt-check               - Run 'go fmt', but don't change anything"
-	@echo "  make vet                     - Run 'go vet'"
-	@echo "  make lint                    - Run 'golint'"
+	@echo "  make fmt                         - Run 'go fmt'"
+	@echo "  make fmt-check                   - Run 'go fmt', but don't change anything"
+	@echo "  make vet                         - Run 'go vet'"
+	@echo "  make lint                        - Run 'golint'"
 	@echo
 	@echo "Build:"
-	@echo "  make build                   - Build"
-	@echo "  make build-snapshot          - Build snapshot"
-	@echo "  make build-simple            - Build (using go build, without goreleaser)"
-	@echo "  make clean                   - Clean build folder"
+	@echo "  make build                       - Build"
+	@echo "  make build-snapshot              - Build snapshot"
+	@echo "  make build-simple                - Build (using go build, without goreleaser)"
+	@echo "  make clean                       - Clean build folder"
 	@echo
 	@echo "Releasing (requires goreleaser):"
-	@echo "  make release                 - Create a release"
-	@echo "  make release-snapshot        - Create a test release"
+	@echo "  make release                     - Create a release"
+	@echo "  make release-snapshot            - Create a test release"
 	@echo
 	@echo "Install locally (requires sudo):"
-	@echo "  make install                 - Copy binary from dist/ to /usr/bin"
-	@echo "  make install-deb             - Install .deb from dist/"
-	@echo "  make install-lint            - Install golint"
+	@echo "  make install                     - Copy binary from dist/ to /usr/bin"
+	@echo "  make install-deb                 - Install .deb from dist/"
+	@echo "  make install-lint                - Install golint"
 
 
 # Test/check targets
