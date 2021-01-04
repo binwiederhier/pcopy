@@ -11,6 +11,7 @@ help:
 	@echo "Test/check:"
 	@echo "  make test                        - Run tests"
 	@echo "  make coverage                    - Run tests and show coverage"
+	@echo "  make coverage-upload             - Upload coverage results to codecov.io"
 	@echo
 	@echo "Lint/format:"
 	@echo "  make fmt                         - Run 'go fmt'"
@@ -56,13 +57,7 @@ fmt:
 	$(GO) fmt ./...
 
 fmt-check:
-	@dirty="`find -name '*.go' | grep -v vendor/ | xargs gofmt -l`"; \
-	if [ -n "$$dirty" ]; then \
-	  echo "gofmt has warnings, run 'make fmt' to fix:\n$$dirty"; \
-	  exit 1; \
-	else \
-	  echo "gofmt ok"; \
-	fi
+	test -z $(shell gofmt -l .)
 
 vet:
 	$(GO) vet ./...
