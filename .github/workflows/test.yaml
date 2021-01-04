@@ -14,3 +14,5 @@ jobs:
         run: go get golang.org/dl/go1.16beta1 && go1.16beta1 download
       - name: Run tests, formatting, vetting and linting
         run: make check
+      - name: Run and upload coverage to codecov.io
+        run: make coverage coverage-upload

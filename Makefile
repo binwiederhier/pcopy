@@ -43,10 +43,12 @@ test: .PHONY
 	$(GO) test
 
 coverage:
-	$(GO) test -cover -coverprofile=profile.cov
-	$(GO) tool cover -func profile.cov
-	rm -f profile.cov
+	mkdir -p build/coverage
+	$(GO) test -race -coverprofile=build/coverage/coverage.txt -covermode=atomic
+	$(GO) tool cover -func build/coverage/coverage.txt
 
+coverage-upload:
+	cd build/coverage && (curl -s https://codecov.io/bash | bash)
 
 # Lint/formatting targets
 
@@ -70,12 +72,12 @@ lint:
 	$(GO) list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status
 
 staticcheck: .PHONY
-	rm -rf .staticcheck
+	rm -rf build/staticcheck
 	which staticcheck || go get honnef.co/go/tools/cmd/staticcheck
-	mkdir -p .staticcheck
-	ln -s "$(GO)" .staticcheck/go
-	PATH="$(PWD)/.staticcheck:$(PATH)" staticcheck ./...
-	rm -rf .staticcheck
+	mkdir -p build/staticcheck
+	ln -s "$(GO)" build/staticcheck/go
+	PATH="$(PWD)/build/staticcheck:$(PATH)" staticcheck ./...
+	rm -rf build/staticcheck
 
 # Building targets
 
@@ -94,7 +96,7 @@ build-simple: clean
 		cmd/pcopy/*.go
 
 clean: .PHONY
-	rm -rf dist
+	rm -rf dist build
 
 
 # Releasing targets
