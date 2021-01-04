@@ -345,7 +345,7 @@ func (c *Client) newHTTPClientWithPinnedCerts(trusted []*x509.Certificate) (*htt
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // Certs are checked manually
+				InsecureSkipVerify:    true, // Certs are checked manually
 				VerifyPeerCertificate: verifyCertFn,
 			},
 		},

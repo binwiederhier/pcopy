@@ -88,12 +88,15 @@
 <script>
     {{if .Key}}
     let config = {
-        salt: "{{.Key.Salt | encodeBase64}}",
-        iterations: {{.KeyDerivIter}},
-        keySize: {{.KeyLenBytes}}
+        KeySalt: "{{.Key.Salt | encodeBase64}}",
+        KeyDerivIter: {{.KeyDerivIter}},
+        KeyLenBytes: {{.KeyLenBytes}},
+        FileExpireAfter: {{.FileExpireAfter.Seconds}}
     }
     {{else}}
-    let config = {}
+    let config = {
+        FileExpireAfter: {{.FileExpireAfter.Seconds}}
+    }
     {{end}}
 </script>
 <script src="static/vendor/cryptojs/crypto-js.min.js"></script>

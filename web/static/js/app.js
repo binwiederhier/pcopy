@@ -43,10 +43,10 @@ function login(e) {
     e.preventDefault()
 
     let password = loginPasswordField.value
-    let salt = CryptoJS.enc.Base64.parse(config.salt)
+    let salt = CryptoJS.enc.Base64.parse(config.KeySalt)
     let key = CryptoJS.PBKDF2(password, salt, {
-        keySize: config.keySize * 8 / 32,
-        iterations: config.iterations,
+        keySize: config.KeyLenBytes * 8 / 32,
+        iterations: config.KeyDerivIter,
         hasher: CryptoJS.algo.SHA256
     });
 
@@ -57,7 +57,7 @@ function login(e) {
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
-    xhr.setRequestHeader('Authorization', generateAuthHmacForNow(key, method, path))
+    xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
@@ -74,7 +74,7 @@ function login(e) {
 /* Logout */
 
 headerLogoutButton.addEventListener('click', logout)
-if (config.salt) {
+if (config.KeySalt) {
     headerLogoutButton.classList.remove('hidden')
 }
 
@@ -177,7 +177,7 @@ function save() {
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
 
     if (key) {
-        xhr.setRequestHeader('Authorization', generateAuthHmacForNow(key, method, path))
+        xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
     }
 
     xhr.addEventListener('readystatechange', function (e) {
@@ -210,7 +210,7 @@ function showUploadProgress(title, status) {
 function showInfoUploadFinished(fileId, url, path, key) {
     infoCommandPpaste.innerHTML = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
     if (key) {
-        let authParam = generateAuthHmacParamForNow(key, 'GET', path)
+        let authParam = generateAuthHMACParam(key, 'GET', path)
         let directLink = `${url}?a=${authParam}`
         infoDirectLink.href = directLink
         infoCommandCurl.innerHTML = `curl -k "${directLink}"`
@@ -240,7 +240,7 @@ function uploadFile(file) {
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
 
     if (key) {
-        xhr.setRequestHeader('Authorization', generateAuthHmacForNow(key, method, path))
+        xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
     }
 
     xhr.overrideMimeType(file.type);
@@ -289,7 +289,7 @@ function fadeOutInfoArea(e) {
 
 /* Show/hide password area */
 
-let loggedIn = !config.salt || loadKey()
+let loggedIn = !config.KeySalt || loadKey()
 if (loggedIn) {
     showMainArea()
 } else {
@@ -314,20 +314,21 @@ function showLoginArea() {
 
 /* Util functions */
 
-// See util.go/GenerateAuthHmac
-function generateAuthHmac(key, method, path, timestamp, ttl) {
+function generateAuthHMAC(key, method, path) {
+    return generateAuthHMACWithTTL(key, method, path, config.FileExpireAfter)
+}
+
+function generateAuthHMACParam(key, method, path) {
+    return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(generateAuthHMAC(key, method, path)))
+}
+
+// See crypto.go/GenerateAuthHMAC
+function generateAuthHMACWithTTL(key, method, path, ttl) {
+    let timestamp = Math.floor(new Date().getTime()/1000)
     let message = `${timestamp}:${ttl}:${method}:${path}`
     let hash = CryptoJS.HmacSHA256(message, key)
     let hashBase64 = hash.toString(CryptoJS.enc.Base64)
     return `HMAC ${timestamp} ${ttl} ${hashBase64}`
-}
-
-function generateAuthHmacForNow(key, method, path) {
-    return generateAuthHmac(key, method, path, Math.floor(new Date().getTime()/1000), 0)
-}
-
-function generateAuthHmacParamForNow(key, method, path) {
-    return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(generateAuthHmacForNow(key, method, path)))
 }
 
 function storeKey(key) {
