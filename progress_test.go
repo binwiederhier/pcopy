@@ -21,7 +21,7 @@ func TestProgressReadCloser_NoDelay(t *testing.T) {
 	p := newProgressReaderWithDelay(r, 34, fn, 0, 50*time.Millisecond)
 
 	// First tick (no progress)
-	time.Sleep(51 * time.Millisecond)
+	time.Sleep(60 * time.Millisecond)
 	if atomic.LoadInt32(&ticks) != 1 {
 		t.Fatalf("expected 1 tick, got %d", atomic.LoadInt32(&ticks))
 	}
@@ -36,7 +36,7 @@ func TestProgressReadCloser_NoDelay(t *testing.T) {
 	if _, err := p.Read(make([]byte, 11)); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(51 * time.Millisecond)
+	time.Sleep(60 * time.Millisecond)
 	if atomic.LoadInt32(&ticks) != 2 {
 		t.Fatalf("expected 2 ticks, got %d", atomic.LoadInt32(&ticks))
 	}
@@ -51,7 +51,7 @@ func TestProgressReadCloser_NoDelay(t *testing.T) {
 	if _, err := p.Read(make([]byte, 999)); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(51 * time.Millisecond)
+	time.Sleep(60 * time.Millisecond)
 	if atomic.LoadInt32(&ticks) != 3 {
 		t.Fatalf("expected 3 ticks, got %d", atomic.LoadInt32(&ticks))
 	}
