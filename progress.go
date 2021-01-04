@@ -18,7 +18,6 @@ type progressReadCloser struct {
 	processed int64
 	total     int64
 	fn        ProgressFunc
-	delay     time.Duration
 	ticker    *time.Ticker
 	sync.RWMutex
 }

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"heckel.io/pcopy"
 	"io/ioutil"
 	"os"
@@ -171,7 +171,7 @@ func (s *wizard) askServerAddr() {
 func (s *wizard) askPassword() {
 	fmt.Println("To protect the server with a key, enter a password. A key will be derived from it.")
 	fmt.Print("Password: ")
-	password, err := terminal.ReadPassword(syscall.Stdin)
+	password, err := term.ReadPassword(syscall.Stdin)
 	if err != nil {
 		fail(err)
 	}

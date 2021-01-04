@@ -195,7 +195,7 @@ func GetConfigFile(clipboard string) string {
 
 // ListConfigs reads the config folder and returns a map of config files and their Config structs
 func ListConfigs() map[string]*Config {
-	configs := make(map[string]*Config, 0)
+	configs := make(map[string]*Config)
 	dirs := []string{
 		systemConfigDir,
 		ExpandHome(userConfigDir),

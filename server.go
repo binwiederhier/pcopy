@@ -443,7 +443,7 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 		maxAge = time.Second * time.Duration(ttlSecs)
 	}
 	if maxAge > 0 {
-		age := time.Now().Sub(time.Unix(int64(timestamp), 0))
+		age := time.Since(time.Unix(int64(timestamp), 0))
 		if age > maxAge {
 			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
 			return errInvalidAuth
@@ -533,7 +533,7 @@ func (s *server) printStats() {
 
 // maybeExpire deletes a file if it has expired and returns true if it did
 func (s *server) maybeExpire(file os.FileInfo) bool {
-	if s.config.FileExpireAfter == 0 || time.Now().Sub(file.ModTime()) <= s.config.FileExpireAfter {
+	if s.config.FileExpireAfter == 0 || time.Since(file.ModTime()) <= s.config.FileExpireAfter {
 		return false
 	}
 	if err := os.Remove(filepath.Join(s.config.ClipboardDir, file.Name())); err != nil {

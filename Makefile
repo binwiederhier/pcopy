@@ -1,4 +1,4 @@
-GO=go1.16beta1
+GO=$(shell which go1.16beta1)
 VERSION := $(shell git describe --tag)
 
 .PHONY:
@@ -17,6 +17,7 @@ help:
 	@echo "  make fmt-check                   - Run 'go fmt', but don't change anything"
 	@echo "  make vet                         - Run 'go vet'"
 	@echo "  make lint                        - Run 'golint'"
+	@echo "  make staticcheck                 - Run 'staticcheck'"
 	@echo
 	@echo "Build:"
 	@echo "  make build                       - Build"
@@ -36,7 +37,7 @@ help:
 
 # Test/check targets
 
-check: test fmt-check vet lint
+check: test fmt-check vet lint staticcheck
 
 test: .PHONY
 	$(GO) test
@@ -68,6 +69,13 @@ lint:
 	which golint || $(GO) get -u golang.org/x/lint/golint
 	$(GO) list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status
 
+staticcheck: .PHONY
+	rm -rf .staticcheck
+	which staticcheck || go get honnef.co/go/tools/cmd/staticcheck
+	mkdir -p .staticcheck
+	ln -s "$(GO)" .staticcheck/go
+	PATH="$(PWD)/.staticcheck:$(PATH)" staticcheck ./...
+	rm -rf .staticcheck
 
 # Building targets
 

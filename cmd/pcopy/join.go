@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"heckel.io/pcopy"
 	"io/ioutil"
 	"os"
@@ -78,7 +78,7 @@ func execJoin(args []string) {
 			key = pcopy.DeriveKey(password, info.Salt)
 			err = client.Verify(info.Cert, key)
 			if err != nil {
-				fail(fmt.Errorf("Failed to join clipboard, %s", err.Error()))
+				fail(fmt.Errorf("failed to join clipboard: %s", err.Error()))
 			}
 		}
 	}
@@ -111,7 +111,7 @@ func execJoin(args []string) {
 
 func readPassword() []byte {
 	fmt.Print("Enter password to join clipboard: ")
-	password, err := terminal.ReadPassword(syscall.Stdin)
+	password, err := term.ReadPassword(syscall.Stdin)
 	if err != nil {
 		fail(err)
 	}

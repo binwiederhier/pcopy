@@ -31,7 +31,7 @@ func execLeave(args []string) {
 func parseLeaveArgs(args []string) (string, string, *pcopy.Config) {
 	flags := flag.NewFlagSet("pcopy leave", flag.ExitOnError)
 	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
-	flags.Usage = func() { showInviteUsage(flags) }
+	flags.Usage = func() { showLeaveUsage(flags) }
 	if err := flags.Parse(args); err != nil {
 		fail(err)
 	}

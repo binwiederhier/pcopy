@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"heckel.io/pcopy"
 	"syscall"
 )
@@ -16,7 +16,7 @@ func execKeygen(args []string) {
 	}
 
 	eprint("Enter Password: ")
-	password, err := terminal.ReadPassword(syscall.Stdin)
+	password, err := term.ReadPassword(syscall.Stdin)
 	if err != nil {
 		fail(err)
 	}
