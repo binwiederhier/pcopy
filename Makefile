@@ -65,6 +65,7 @@ vet:
 	$(GO) vet ./...
 
 lint:
+	which golint || $(GO) get -u golang.org/x/lint/golint
 	$(GO) list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status
 
 
@@ -107,6 +108,3 @@ install-deb:
 	sudo systemctl stop pcopy || true
 	sudo apt-get purge pcopy || true
 	sudo dpkg -i dist/*.deb
-
-install-lint:
-	$(GO) get -u golang.org/x/lint/golint
