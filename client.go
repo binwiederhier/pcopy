@@ -2,6 +2,7 @@ package pcopy
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -313,60 +314,48 @@ func (c *Client) newHTTPClient(certs []*x509.Certificate) (*http.Client, error) 
 	if c.httpClient != nil { // For testing only!
 		return c.httpClient, nil
 	} else if certs != nil {
-		return c.newHTTPClientWithRootCAs(certs)
+		return c.newHTTPClientWithPinnedCerts(certs)
 	} else if c.config.CertFile != "" {
 		certs, err := LoadCertsFromFile(c.config.CertFile)
 		if err != nil {
 			return nil, err
 		}
-		return c.newHTTPClientWithRootCAs(certs)
+		return c.newHTTPClientWithPinnedCerts(certs)
 	} else {
 		return &http.Client{}, nil
 	}
 }
 
-func (c *Client) newHTTPClientWithRootCAs(trusted []*x509.Certificate) (*http.Client, error) {
-	// TODO This logic is too vague and a little guesswork; implement proper pinning instead
-
+func (c *Client) newHTTPClientWithPinnedCerts(trusted []*x509.Certificate) (*http.Client, error) {
 	if len(trusted) == 0 {
 		return nil, errNoTrustedCert
 	}
 
-	rootCAs := x509.NewCertPool()
-	for _, cert := range trusted {
-		rootCAs.AddCert(cert)
-	}
-
-	serverName := ""
-	for _, cert := range trusted {
-		if !cert.IsCA {
-			serverName = certName(cert)
+	verifyCertFn := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		for _, t := range trusted {
+			for _, r := range rawCerts {
+				if bytes.Equal(t.Raw, r) {
+					return nil
+				}
+			}
 		}
-	}
-	if serverName == "" {
-		serverName = certName(trusted[0])
+		return errNoTrustedCertMatch
 	}
 
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs:    rootCAs,
-				ServerName: serverName, // Note: This is checked despite the insecure config
+				InsecureSkipVerify: true, // Certs are checked manually
+				VerifyPeerCertificate: verifyCertFn,
 			},
 		},
 	}, nil
 }
 
-func certName(cert *x509.Certificate) string {
-	if len(cert.DNSNames) > 0 {
-		return cert.DNSNames[0]
-	}
-	return cert.Subject.CommonName
-}
-
 var errMissingServerAddr = errors.New("server address missing")
 var errResponseBodyEmpty = errors.New("response body was empty")
 var errNoTrustedCert = errors.New("no trusted cert found")
+var errNoTrustedCertMatch = errors.New("no trusted cert matches")
 
 type errHTTPNotOK struct {
 	code   int
