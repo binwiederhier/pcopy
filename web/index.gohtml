@@ -39,8 +39,8 @@
     </div>
 </div>
 
-<div id="main-area" class="container hidden">
-    <div id="header-area" class="section">
+<div id="main-area" class="hidden">
+    <div id="header-area">
         <a href="https://heckel.io/pcopy"><h1>pcopy</h1></a>
 
         <label for="file-id">File name:</label>
@@ -54,10 +54,8 @@
 
         <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
     </div>
-    <div id="text-area" class="section fit">
-        <div class="t">
-            <div class="tc"><textarea id="text" placeholder="Paste your content here or drag & drop a file" spellcheck="false"></textarea></div>
-        </div>
+    <div id="text-area">
+        <textarea id="text" placeholder="Paste your content here or drag & drop a file" spellcheck="false"></textarea>
     </div>
 </div>
 
