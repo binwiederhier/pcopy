@@ -19,7 +19,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestServer_InfoUnprotected(t *testing.T) {
+func TestServer_HandleInfoUnprotected(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
@@ -30,7 +30,7 @@ func TestServer_InfoUnprotected(t *testing.T) {
 	assertResponse(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":""}`)
 }
 
-func TestServer_InfoProtected(t *testing.T) {
+func TestServer_HandleInfoProtected(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	server := newTestServer(t, config)
@@ -42,7 +42,7 @@ func TestServer_InfoProtected(t *testing.T) {
 	assertResponse(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":"c29tZSBzYWx0"}`)
 }
 
-func TestServer_DefaultWebRootNoGUI(t *testing.T) {
+func TestServer_HandleDefaultWebRootNoGUI(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.WebUI = false
 	server := newTestServer(t, config)
@@ -54,7 +54,7 @@ func TestServer_DefaultWebRootNoGUI(t *testing.T) {
 	assertStatus(t, rr, http.StatusBadRequest)
 }
 
-func TestServer_DefaultWebRootWithGUI(t *testing.T) {
+func TestServer_HandleWebRootWithGUI(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
@@ -67,7 +67,7 @@ func TestServer_DefaultWebRootWithGUI(t *testing.T) {
 	}
 }
 
-func TestServer_DefaultWebStaticResourceWithGUI(t *testing.T) {
+func TestServer_HandleWebStaticResourceWithGUI(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
@@ -80,7 +80,7 @@ func TestServer_DefaultWebStaticResourceWithGUI(t *testing.T) {
 	}
 }
 
-func TestServer_DefaultClipboardGetExists(t *testing.T) {
+func TestServer_HandleClipboardGetExists(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
@@ -91,138 +91,138 @@ func TestServer_DefaultClipboardGetExists(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-exists", nil)
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertResponse(t, rr, http.StatusOK, "hi there")
 }
 
-func TestServer_DefaultClipboardGetDoesntExist(t *testing.T) {
+func TestServer_HandleClipboardGetDoesntExist(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-does-not-exist", nil)
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusNotFound)
 }
 
-func TestServer_DefaultClipboardPut(t *testing.T) {
+func TestServer_HandleClipboardPut(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	content := "this is a new thing"
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/new-thing", strings.NewReader(content))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "new-thing", content)
 }
 
-func TestServer_DefaultClipboardPutInvalidId(t *testing.T) {
+func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/../invalid-id", strings.NewReader("hi"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
 	assertNotExists(t, config, "/../invalid-id")
 }
 
-func TestServer_DefaultClipboardPutGet(t *testing.T) {
+func TestServer_HandleClipboardPutGet(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/you-cant-always", strings.NewReader("get what you want"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("GET", "/you-cant-always", nil)
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertResponse(t, rr, http.StatusOK, "get what you want")
 }
 
-func TestServer_DefaultClipboardPutLargeFailed(t *testing.T) {
+func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.FileSizeLimit = 10 // bytes
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/too-large", strings.NewReader("more than 10 bytes"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
 	assertNotExists(t, config, "too-large")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("GET", "/too-large", nil)
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusNotFound)
 }
 
-func TestServer_DefaultClipboardPutManySmallFailed(t *testing.T) {
+func TestServer_HandleClipboardPutManySmallFailed(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.ClipboardCountLimit = 2
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("lalala"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "another one")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file3", strings.NewReader("yet another one"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
 	assertNotExists(t, config, "file3")
 }
 
-func TestServer_DefaultClipboardPutManySmallOverwriteSuccess(t *testing.T) {
+func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.ClipboardCountLimit = 2
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("lalala"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "another one")
 
 	// Overwrite file 2 should succeed
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("overwriting file 2"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "overwriting file 2")
 }
 
-func TestServer_DefaultClipboardPutTotalSizeLimitFailed(t *testing.T) {
+func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.ClipboardSizeLimit = 10
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("7 bytes"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file1", "7 bytes")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("4 bytes"))
-	server.handleDefault(rr, req)
+	server.handleClipboard(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
 	assertNotExists(t, config, "file2")
 }

@@ -138,7 +138,7 @@ func (s *server) listenAndServeTLS() error {
 	http.HandleFunc(pathInstall, s.limit(s.handleInstall))
 	http.HandleFunc(pathJoin, s.limit(s.handleJoin))
 	http.HandleFunc(pathDownload, s.limit(s.handleDownload))
-	http.HandleFunc(pathRoot, s.limit(s.handleDefault))
+	http.HandleFunc(pathRoot, s.handleDefault) // Rate limiting for clipboard in handleClipboard
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
@@ -183,12 +183,20 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleDefault(w http.ResponseWriter, r *http.Request) {
-	if s.config.WebUI && r.Method == http.MethodGet && r.URL.Path == pathRoot {
+	if r.URL.Path == pathRoot {
+		if !s.config.WebUI || r.Method != http.MethodGet {
+			s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+			return
+		}
 		s.handleWebRoot(w, r)
-	} else if s.config.WebUI && r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, pathStatic) {
+	} else if strings.HasPrefix(r.URL.Path, pathStatic+string(os.PathSeparator)) {
+		if !s.config.WebUI || r.Method != http.MethodGet {
+			s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+			return
+		}
 		s.handleWebStatic(w, r)
 	} else {
-		s.handleClipboard(w, r)
+		s.limit(s.handleClipboard)(w, r)
 	}
 }
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
