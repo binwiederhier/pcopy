@@ -85,28 +85,25 @@ func DecodeKey(s string) (*Key, error) {
 	}, nil
 }
 
-// EncodeCerts encodes a list of X.509 certificates as PEM.
-func EncodeCerts(certs []*x509.Certificate) ([]byte, error) {
+// EncodeCert encodes a X.509 certificates as PEM.
+func EncodeCert(cert *x509.Certificate) ([]byte, error) {
 	var b bytes.Buffer
-	for _, cert := range certs {
-		err := pem.Encode(&b, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cert.Raw,
-		})
-		if err != nil {
-			return nil, err
-		}
+	err := pem.Encode(&b, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	})
+	if err != nil {
+		return nil, err
 	}
 	return b.Bytes(), nil
 }
 
-// LoadCertsFromFile loads PEM-encoded certificates from the given filename.
-func LoadCertsFromFile(filename string) ([]*x509.Certificate, error) {
+// LoadCertFromFile loads the first PEM-encoded certificate from the given filename
+func LoadCertFromFile(filename string) (*x509.Certificate, error) {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	certs := make([]*x509.Certificate, 0)
 	for {
 		block, rest := pem.Decode(b)
 		if block == nil {
@@ -117,11 +114,11 @@ func LoadCertsFromFile(filename string) ([]*x509.Certificate, error) {
 			if err != nil {
 				return nil, err
 			}
-			certs = append(certs, cert)
+			return cert, nil
 		}
 		b = rest
 	}
-	return certs, nil
+	return nil, errNoCertFound
 }
 
 // GenerateAuthHMAC generates the HMAC auth header used to authorize uthenticate against the server.
@@ -188,3 +185,4 @@ func GenerateKeyAndCert() (string, string, error) {
 }
 
 var errInvalidKeyFormat = errors.New("invalid key format")
+var errNoCertFound = errors.New("no cert found in file")

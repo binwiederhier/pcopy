@@ -19,10 +19,10 @@ func execInvite(args []string) {
 	if configFile == "" {
 		fail(fmt.Errorf("clipboard '%s' does not exist", clipboard))
 	}
-	var certs []*x509.Certificate
+	var cert *x509.Certificate
 	if config.CertFile != "" {
 		if _, err := os.Stat(config.CertFile); err == nil {
-			certs, err = pcopy.LoadCertsFromFile(config.CertFile)
+			cert, err = pcopy.LoadCertFromFile(config.CertFile)
 			if err != nil {
 				fail(err)
 			}
@@ -32,11 +32,11 @@ func execInvite(args []string) {
 	fmt.Printf("# Instructions for clipboard '%s'\n", clipboard)
 	fmt.Println()
 	fmt.Println("# Install pcopy on other computers (as root):")
-	fmt.Printf("%s | sudo sh\n", curlCommand("install", config, certs, 0)) // TODO use GenerateUrl for this
+	fmt.Printf("%s | sudo sh\n", curlCommand("install", config, cert, 0)) // TODO use GenerateUrl for this
 
 	fmt.Println()
 	fmt.Println("# Join this clipboard on other computers:")
-	fmt.Printf("%s | sh\n", curlCommand("join", config, certs, ttl))
+	fmt.Printf("%s | sh\n", curlCommand("join", config, cert, ttl))
 	fmt.Println()
 }
 
@@ -69,13 +69,13 @@ func parseInviteArgs(args []string) (string, *pcopy.Config, string, time.Duratio
 	return configFile, config, clipboard, *ttl
 }
 
-func curlCommand(cmd string, config *pcopy.Config, certs []*x509.Certificate, ttl time.Duration) string {
+func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl time.Duration) string {
 	args := make([]string, 0)
-	if certs == nil {
+	if cert == nil {
 		args = append(args, "-sSL")
 	} else {
-		if hashes, err := calculatePublicKeyHashes(certs); err == nil {
-			args = append(args, "-sSLk", fmt.Sprintf("--pinnedpubkey %s", strings.Join(hashes, ";")))
+		if hash, err := calculatePublicKeyHash(cert); err == nil {
+			args = append(args, "-sSLk", fmt.Sprintf("--pinnedpubkey %s", hash))
 		} else {
 			args = append(args, "-sSLk")
 		}
@@ -88,20 +88,14 @@ func curlCommand(cmd string, config *pcopy.Config, certs []*x509.Certificate, tt
 	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url)
 }
 
-func calculatePublicKeyHashes(certs []*x509.Certificate) ([]string, error) {
-	hashes := make([]string, len(certs))
-
-	for i, cert := range certs {
-		derCert, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
-		if err != nil {
-			return nil, err
-		}
-		hash := sha256.New()
-		hash.Write(derCert)
-		hashes[i] = fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash.Sum(nil)))
+func calculatePublicKeyHash(cert *x509.Certificate) (string, error) {
+	der, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	if err != nil {
+		return "", err
 	}
-
-	return hashes, nil
+	hash := sha256.New()
+	hash.Write(der)
+	return fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash.Sum(nil))), nil
 }
 
 func showInviteUsage(flags *flag.FlagSet) {

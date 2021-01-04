@@ -76,7 +76,7 @@ func execJoin(args []string) {
 		} else {
 			password := readPassword()
 			key = pcopy.DeriveKey(password, info.Salt)
-			err = client.Verify(info.Certs, key)
+			err = client.Verify(info.Cert, key)
 			if err != nil {
 				fail(fmt.Errorf("Failed to join clipboard, %s", err.Error()))
 			}
@@ -92,10 +92,10 @@ func execJoin(args []string) {
 		fail(err)
 	}
 
-	// Write self-signed certs (only if Verify didn't work with secure client)
-	if info.Certs != nil {
+	// Write self-signed cert (only if Verify didn't work with secure client)
+	if info.Cert != nil {
 		certFile := pcopy.DefaultCertFile(configFile, false)
-		certsEncoded, err := pcopy.EncodeCerts(info.Certs)
+		certsEncoded, err := pcopy.EncodeCert(info.Cert)
 		if err != nil {
 			fail(err)
 		}
@@ -131,7 +131,7 @@ func printInstructions(configFile string, clipboard string, info *pcopy.ServerIn
 		fmt.Printf("Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, pcopy.CollapseHome(configFile))
 	}
 
-	if info.Certs != nil {
+	if info.Cert != nil {
 		fmt.Println()
 		fmt.Println("Warning: The TLS certificate was self-signed and has been pinned.")
 		fmt.Println("Future communication will be secure, but joining could have been intercepted.")

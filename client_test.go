@@ -3,7 +3,6 @@ package pcopy
 import (
 	"archive/zip"
 	"bytes"
-	"crypto/x509"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -134,7 +133,7 @@ func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {
 	// Instead, pass the certs in the Verify function.
 	client.httpClient = nil
 
-	if err := client.Verify([]*x509.Certificate{server.Certificate()}, nil); err != nil {
+	if err := client.Verify(server.Certificate(), nil); err != nil {
 		t.Fatal(err)
 	}
 }

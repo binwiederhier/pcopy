@@ -29,7 +29,7 @@ type Client struct {
 type ServerInfo struct {
 	ServerAddr string
 	Salt       []byte
-	Certs      []*x509.Certificate
+	Cert       *x509.Certificate
 }
 
 // NewClient creates a new pcopy client. It fails if the ServerAddr is not filled.
@@ -194,9 +194,9 @@ func (c *Client) PasteFiles(dir string, id string) error {
 // Info queries the server for information (password salt, advertised address) required during the
 // join operation. This method will first attempt to securely connect over HTTPS, and (if that fails)
 // fall back to skipping certificate verification. In the latter case, it will download and return
-// the server certificates so the client can pin them.
+// the server certificate so the client can pin them.
 func (c *Client) Info() (*ServerInfo, error) {
-	var certs []*x509.Certificate
+	var cert *x509.Certificate
 	var err error
 
 	// First attempt to retrieve info with secure HTTP client
@@ -211,7 +211,7 @@ func (c *Client) Info() (*ServerInfo, error) {
 		}
 
 		// Retrieve bad cert(s) for cert pinning
-		certs, err = c.retrieveCerts()
+		cert, err = c.retrieveCert()
 		if err != nil {
 			return nil, err
 		}
@@ -228,14 +228,14 @@ func (c *Client) Info() (*ServerInfo, error) {
 	return &ServerInfo{
 		ServerAddr: info.ServerAddr,
 		Salt:       salt,
-		Certs:      certs,
+		Cert:       cert,
 	}, nil
 }
 
 // Verify verifies that the given key (derived from the user password) is in fact correct
 // by calling the server's verify endpoint. If the call fails, the key is assumed to be incorrect.
-func (c *Client) Verify(certs []*x509.Certificate, key *Key) error {
-	client, err := c.newHTTPClient(certs)
+func (c *Client) Verify(cert *x509.Certificate, key *Key) error {
+	client, err := c.newHTTPClient(cert)
 	if err != nil {
 		return err
 	}
@@ -298,7 +298,8 @@ func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
 	return info, nil
 }
 
-func (c *Client) retrieveCerts() ([]*x509.Certificate, error) {
+// retrieveCert opens a raw TLS connection and retrieves the leaf certificate
+func (c *Client) retrieveCert() (*x509.Certificate, error) {
 	conn, err := tls.Dial("tcp", c.config.ServerAddr, &tls.Config{
 		InsecureSkipVerify: true,
 	})
@@ -307,36 +308,33 @@ func (c *Client) retrieveCerts() ([]*x509.Certificate, error) {
 	}
 	defer conn.Close()
 
-	return conn.ConnectionState().PeerCertificates, nil
+	if len(conn.ConnectionState().PeerCertificates) == 0 {
+		return nil, errNoPeerCert
+	}
+	return conn.ConnectionState().PeerCertificates[0], nil
 }
 
-func (c *Client) newHTTPClient(certs []*x509.Certificate) (*http.Client, error) {
+func (c *Client) newHTTPClient(cert *x509.Certificate) (*http.Client, error) {
 	if c.httpClient != nil { // For testing only!
 		return c.httpClient, nil
-	} else if certs != nil {
-		return c.newHTTPClientWithPinnedCerts(certs)
+	} else if cert != nil {
+		return c.newHTTPClientWithPinnedCert(cert)
 	} else if c.config.CertFile != "" {
-		certs, err := LoadCertsFromFile(c.config.CertFile)
+		cert, err := LoadCertFromFile(c.config.CertFile)
 		if err != nil {
 			return nil, err
 		}
-		return c.newHTTPClientWithPinnedCerts(certs)
+		return c.newHTTPClientWithPinnedCert(cert)
 	} else {
 		return &http.Client{}, nil
 	}
 }
 
-func (c *Client) newHTTPClientWithPinnedCerts(trusted []*x509.Certificate) (*http.Client, error) {
-	if len(trusted) == 0 {
-		return nil, errNoTrustedCert
-	}
-
+func (c *Client) newHTTPClientWithPinnedCert(pinned *x509.Certificate) (*http.Client, error) {
 	verifyCertFn := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-		for _, t := range trusted {
-			for _, r := range rawCerts {
-				if bytes.Equal(t.Raw, r) {
-					return nil
-				}
+		for _, r := range rawCerts {
+			if bytes.Equal(pinned.Raw, r) {
+				return nil
 			}
 		}
 		return errNoTrustedCertMatch
@@ -354,7 +352,7 @@ func (c *Client) newHTTPClientWithPinnedCerts(trusted []*x509.Certificate) (*htt
 
 var errMissingServerAddr = errors.New("server address missing")
 var errResponseBodyEmpty = errors.New("response body was empty")
-var errNoTrustedCert = errors.New("no trusted cert found")
+var errNoPeerCert = errors.New("no peer cert found")
 var errNoTrustedCertMatch = errors.New("no trusted cert matches")
 
 type errHTTPNotOK struct {
