@@ -111,3 +111,21 @@ func TestProgressReadCloser_WithDelaySlowMessage(t *testing.T) {
 		t.Fatalf("expected 1 ticks, got %d", atomic.LoadInt32(&ticks))
 	}
 }
+
+func TestProgressReadCloser_Close(t *testing.T) {
+	done := int32(0)
+	fn := func(p int64, t int64, d bool) {
+		if d {
+			atomic.AddInt32(&done, 1)
+		}
+	}
+	r := ioutil.NopCloser(strings.NewReader("this is a 34 byte long test string"))
+	p := newProgressReaderWithDelay(r, 0, fn, 0, 50*time.Millisecond)
+
+	if err := p.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if atomic.LoadInt32(&done) != 1 {
+		t.Fatalf("expected 1 done call, got %d", atomic.LoadInt32(&done))
+	}
+}
