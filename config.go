@@ -208,7 +208,7 @@ func ListConfigs() map[string]*Config {
 		for _, f := range files {
 			if strings.HasSuffix(f.Name(), suffixConf) {
 				filename := filepath.Join(dir, f.Name())
-				_, config, err := loadConfigFromFile(filename)
+				config, err := loadConfigFromFile(filename)
 				if err == nil {
 					configs[filename] = config
 				}
@@ -228,7 +228,11 @@ func ExtractClipboard(filename string) string {
 // the filename based on the clipboard name.
 func LoadConfig(filename string, clipboard string) (string, *Config, error) {
 	if filename != "" {
-		return loadConfigFromFile(filename)
+		config, err := loadConfigFromFile(filename)
+		if err != nil {
+			return "", nil, err
+		}
+		return filename, config, err
 	}
 	return loadConfigFromClipboardIfExists(clipboard)
 }
@@ -261,40 +265,40 @@ func DefaultKeyFile(configFile string, mustExist bool) string {
 }
 
 func defaultFileWithNewExt(newExtension string, configFile string, mustExist bool) string {
-	keyFile := strings.TrimSuffix(configFile, suffixConf) + newExtension
+	file := strings.TrimSuffix(configFile, suffixConf) + newExtension
 	if mustExist {
-		if _, err := os.Stat(keyFile); err != nil {
+		if _, err := os.Stat(file); err != nil {
 			return ""
 		}
 	}
 
-	return keyFile
+	return file
 }
 
 func loadConfigFromClipboardIfExists(clipboard string) (string, *Config, error) {
 	configFile := FindConfigFile(clipboard)
 
 	if configFile != "" {
-		file, config, err := loadConfigFromFile(configFile)
+		config, err := loadConfigFromFile(configFile)
 		if err != nil {
 			return "", nil, err
 		}
-		return file, config, nil
+		return configFile, config, nil
 	}
 	return "", newConfig(), nil
 }
 
-func loadConfigFromFile(filename string) (string, *Config, error) {
+func loadConfigFromFile(filename string) (*Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	defer file.Close()
 	config, err := loadConfig(file)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	return filename, config, nil
+	return config, nil
 }
 
 func loadConfig(reader io.Reader) (*Config, error) {

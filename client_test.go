@@ -177,3 +177,15 @@ func assertStrEquals(t *testing.T, expected string, actual string) {
 		t.Fatalf("expected %s, got %s", expected, actual)
 	}
 }
+
+func assertStrContains(t *testing.T, s string, substr string) {
+	if !strings.Contains(s, substr) {
+		t.Fatalf("expected %s to be contained in string, but it wasn't: %s", substr, s)
+	}
+}
+
+func assertInt64Equals(t *testing.T, expected int64, actual int64) {
+	if actual != expected {
+		t.Fatalf("expected %d, got %d", expected, actual)
+	}
+}
