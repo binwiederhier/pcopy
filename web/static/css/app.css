@@ -146,14 +146,42 @@ html, body {
     margin: 20px 0 15px 0;
 }
 
-#info-area .info-box input.code-box {
+#info-area .info-box .code-area {
+    display: inline-flex;
+    width: 100%;
+}
+
+#info-area .code-area input.code-box {
+    flex-grow: 6;
     font-family: monospace;
-    margin: 0 0 10px 0;
+    margin: 0;
     background: #ccc;
     padding: 15px 10px;
     border: none;
-    border-radius: 3px;
+    border-radius: 3px 0 0 3px;
     width: 100%;
+}
+
+#info-area .code-area button {
+    flex-grow: 1;
+    display: inline-block;
+    padding: 0 15px;
+    background: #006099;
+    cursor: pointer;
+    color: white;
+    border: 1px solid #03124c;
+    border-radius: 0 3px 3px 0;
+    white-space: nowrap;
+    font-size: .8em;
+}
+
+#info-area .code-area button:hover {
+    background: #007cc9;
+    border: 1px solid #007cc9;
+}
+
+#info-area .code-area button svg {
+    vertical-align: bottom;
 }
 
 #info-area #info-box-uploading {

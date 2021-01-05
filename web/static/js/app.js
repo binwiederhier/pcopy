@@ -32,7 +32,9 @@ let infoUploadProgressStatus = document.getElementById("info-uploading-status")
 let infoBoxFinished = document.getElementById("info-box-finished")
 let infoDirectLink = document.getElementById("info-direct-link")
 let infoCommandPpaste = document.getElementById("info-command-ppaste")
+let infoCommandPpasteCopy = document.getElementById("info-command-ppaste-copy")
 let infoCommandCurl = document.getElementById("info-command-curl")
+let infoCommandCurlCopy = document.getElementById("info-command-curl-copy")
 
 /* Login */
 
@@ -286,6 +288,20 @@ function fadeOutInfoArea(e) {
         infoArea.removeEventListener('transitionend', handler)
     })
 }
+
+infoCommandPpasteCopy.addEventListener('click', function() {
+    infoCommandPpaste.select();
+    infoCommandPpaste.setSelectionRange(0, 99999); /* For mobile devices */
+    document.execCommand("copy");
+    infoCommandPpaste.blur()
+})
+
+infoCommandCurlCopy.addEventListener('click', function() {
+    infoCommandCurl.select();
+    infoCommandCurl.setSelectionRange(0, 99999); /* For mobile devices */
+    document.execCommand("copy");
+    infoCommandCurl.blur()
+})
 
 /* Show/hide password area */
 
