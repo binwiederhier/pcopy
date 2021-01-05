@@ -3,6 +3,7 @@ package pcopy
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -136,7 +137,6 @@ func TestClient_PasteFilesSuccess(t *testing.T) {
 	assertStrEquals(t, "this is file 2", string(f2))
 }
 
-
 func TestClient_PasteFilesFailure(t *testing.T) {
 	config := newConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +166,25 @@ func TestClient_PasteNoAuthNotFound(t *testing.T) {
 	} else if !errors.As(err, &httpErr) {
 		t.Fatal(err)
 	}
+}
+
+func TestClient_Info(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(&infoResponse{
+			ServerAddr: "hi-there.com",
+			Salt:       "aSBhbSBiYXNlNjQ=",
+		})
+	}))
+	defer server.Close()
+
+	info, err := client.Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "hi-there.com", info.ServerAddr)
+	assertBytesEquals(t, []byte("i am base64"), info.Salt)
+	assertBytesEquals(t, server.Certificate().Raw, info.Cert.Raw)
 }
 
 func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {
@@ -233,5 +252,11 @@ func assertStrContains(t *testing.T, s string, substr string) {
 func assertInt64Equals(t *testing.T, expected int64, actual int64) {
 	if actual != expected {
 		t.Fatalf("expected %d, got %d", expected, actual)
+	}
+}
+
+func assertBytesEquals(t *testing.T, expected []byte, actual []byte) {
+	if !bytes.Equal(actual, expected) {
+		t.Fatalf("expected %x, got %x", expected, actual)
 	}
 }
