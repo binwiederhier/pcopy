@@ -133,23 +133,18 @@ func (s *server) listenAndServeTLS() error {
 		log.Printf("Listening on %s\n", s.config.ListenAddr)
 	}
 
-	http.HandleFunc(pathInfo, s.limit(s.handleInfo))
-	http.HandleFunc(pathVerify, s.limit(s.handleVerify))
-	http.HandleFunc(pathInstall, s.limit(s.handleInstall))
-	http.HandleFunc(pathJoin, s.limit(s.handleJoin))
-	http.HandleFunc(pathDownload, s.limit(s.handleDownload))
-	http.HandleFunc(pathRoot, s.handleDefault) // Rate limiting for clipboard in handleClipboard
+	http.HandleFunc(pathInfo, s.limit(s.onlyGET(s.handleInfo)))
+	http.HandleFunc(pathInstall, s.limit(s.onlyGET(s.handleInstall)))
+	http.HandleFunc(pathDownload, s.limit(s.onlyGET(s.handleDownload)))
+	http.HandleFunc(pathVerify, s.limit(s.onlyGET(s.auth(s.handleVerify))))
+	http.HandleFunc(pathJoin, s.limit(s.onlyGET(s.auth(s.handleJoin))))
+	http.HandleFunc(pathRoot, s.handleDefault) // Auth & rate limiting in handleDefault
 
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
 }
 
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-
-	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-		return
-	}
 
 	salt := ""
 	if s.config.Key != nil {
@@ -169,63 +164,32 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r); err != nil {
-		s.fail(w, r, http.StatusUnauthorized, err)
-		return
-	}
-
-	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-		return
-	}
-
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 }
 
 func (s *server) handleDefault(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == pathRoot {
-		if !s.config.WebUI || r.Method != http.MethodGet {
-			s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-			return
-		}
-		s.handleWebRoot(w, r)
+		s.onlyIfWebUI(s.onlyGET(s.handleWebRoot)).ServeHTTP(w, r)
 	} else if strings.HasPrefix(r.URL.Path, pathStatic+string(os.PathSeparator)) {
-		if !s.config.WebUI || r.Method != http.MethodGet {
-			s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-			return
-		}
-		s.handleWebStatic(w, r)
+		s.onlyIfWebUI(s.onlyGET(s.handleWebStatic)).ServeHTTP(w, r)
 	} else {
-		s.limit(s.handleClipboard)(w, r)
+		allowedMethods := []string{http.MethodGet, http.MethodPut, http.MethodPost}
+		s.limit(s.onlyMethods(s.auth(s.handleClipboard), allowedMethods...)).ServeHTTP(w, r)
 	}
 }
-func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-		return
-	}
 
+func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
 	if err := webTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 	}
 }
 
 func (s *server) handleWebStatic(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-		return
-	}
-
 	r.URL.Path = "/web" + r.URL.Path // This is a hack to get the embedded path
 	http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
 }
 
 func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r); err != nil {
-		s.fail(w, r, http.StatusUnauthorized, err)
-		return
-	}
-
 	file, err := s.getClipboardFile(r)
 	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, err)
@@ -308,11 +272,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
-	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-		return
-	}
-
 	executable, err := getExecutable()
 	if err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
@@ -334,12 +293,6 @@ func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-
-	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-		return
-	}
-
 	if err := installTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -347,18 +300,7 @@ func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
-	if err := s.authorize(r); err != nil {
-		s.fail(w, r, http.StatusUnauthorized, err)
-		return
-	}
-
-	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-		return
-	}
-
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-
 	if err := joinTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -376,6 +318,16 @@ func (s *server) getClipboardFile(r *http.Request) (string, error) {
 		return "", errInvalidFileID
 	}
 	return fmt.Sprintf("%s/%s", s.config.ClipboardDir, matches[1]), nil
+}
+
+func (s *server) auth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := s.authorize(r); err != nil {
+			s.fail(w, r, http.StatusUnauthorized, err)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
 }
 
 func (s *server) authorize(r *http.Request) error {
@@ -541,6 +493,34 @@ func (s *server) maybeExpire(file os.FileInfo) bool {
 	}
 	log.Printf("removed expired entry: %s (%s)", file.Name(), BytesToHuman(file.Size()))
 	return true
+}
+
+func (s *server) onlyGET(next http.HandlerFunc) http.HandlerFunc {
+	return s.onlyMethods(next, http.MethodGet)
+}
+
+func (s *server) onlyMethods(next http.HandlerFunc, methods ...string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		for _, m := range methods {
+			if m == r.Method {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+	}
+}
+
+func (s *server) onlyIfWebUI(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.config.WebUI {
+			s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
 }
 
 // limit wraps all HTTP endpoints and limits API use to a certain number of requests per second.
