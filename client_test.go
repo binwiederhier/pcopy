@@ -168,7 +168,7 @@ func TestClient_PasteNoAuthNotFound(t *testing.T) {
 	}
 }
 
-func TestClient_Info(t *testing.T) {
+func TestClient_InfoSuccess(t *testing.T) {
 	config := newConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&infoResponse{
@@ -185,6 +185,39 @@ func TestClient_Info(t *testing.T) {
 	assertStrEquals(t, "hi-there.com", info.ServerAddr)
 	assertBytesEquals(t, []byte("i am base64"), info.Salt)
 	assertBytesEquals(t, server.Certificate().Raw, info.Cert.Raw)
+}
+
+func TestClient_InfoFailed(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("invalid response"))
+	}))
+	defer server.Close()
+
+	_, err := client.Info()
+	if err == nil {
+		t.Fatalf("expected error, got none")
+	}
+}
+
+func TestClient_PasteWithCertFile(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("some response"))
+	}))
+	defer server.Close()
+	client.httpClient = nil // We want to use the cert file on disk, and not the mock HTTP client
+
+	config.CertFile = filepath.Join(t.TempDir(), "server.crt")
+	pemCert, _ := EncodeCert(server.Certificate())
+	ioutil.WriteFile(config.CertFile, pemCert, 0700)
+
+	var buf bytes.Buffer
+	err := client.Paste(&buf, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "some response", buf.String())
 }
 
 func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {
