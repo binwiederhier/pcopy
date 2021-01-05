@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func createZipReader(paths []string) (io.ReadCloser, error) {
@@ -87,4 +88,53 @@ func addToZip(z *zip.Writer, name string, file string) error {
 		return err
 	}
 	return nil
+}
+
+func extractToDir(filename string, dir string) error {
+	z, err := zip.OpenReader(filename)
+	if err != nil {
+		return err
+	}
+	defer z.Close()
+
+	for _, zf := range z.File {
+		filename := filepath.Join(dir, zf.Name)
+
+		if !strings.HasPrefix(filename, filepath.Clean(dir)+string(os.PathSeparator)) {
+			return &errInvalidZipPath{filename} // ZipSlip, see https://snyk.io/research/zip-slip-vulnerability#go
+		}
+
+		if zf.FileInfo().IsDir() {
+			os.MkdirAll(filename, 0755)
+			continue
+		}
+
+		if err = os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+			return err
+		}
+		outFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zf.Mode())
+		if err != nil {
+			return err
+		}
+		entry, err := zf.Open()
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(outFile, entry)
+		outFile.Close()
+		entry.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type errInvalidZipPath struct {
+	filename string
+}
+
+func (e errInvalidZipPath) Error() string {
+	return fmt.Sprintf("invalid ZIP path: %s", e.filename)
 }

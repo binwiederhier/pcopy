@@ -1,7 +1,6 @@
 package pcopy
 
 import (
-	"archive/zip"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -13,9 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 )
 
 // Client represents a pcopy client. It can be used to communicate with the server to
@@ -130,7 +127,6 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-
 	tmpFile, err := ioutil.TempFile(dir, ".pcopy-paste.*.tmp")
 	if err != nil {
 		return err
@@ -149,45 +145,9 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-
-	z, err := zip.OpenReader(tmpFile.Name())
-	if err != nil {
+	if err := extractToDir(tmpFile.Name(), dir); err != nil {
 		return err
 	}
-	defer z.Close()
-
-	for _, zf := range z.File {
-		filename := filepath.Join(dir, zf.Name)
-
-		if !strings.HasPrefix(filename, filepath.Clean(dir)+string(os.PathSeparator)) {
-			return fmt.Errorf("%s: illegal file path", filename) // ZipSlip, see https://snyk.io/research/zip-slip-vulnerability#go
-		}
-
-		if zf.FileInfo().IsDir() {
-			os.MkdirAll(filename, 0755)
-			continue
-		}
-
-		if err = os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-			return err
-		}
-		outFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zf.Mode())
-		if err != nil {
-			return err
-		}
-		entry, err := zf.Open()
-		if err != nil {
-			return err
-		}
-
-		_, err = io.Copy(outFile, entry)
-		outFile.Close()
-		entry.Close()
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

@@ -105,6 +105,52 @@ func TestClient_PasteNoAuthSuccess(t *testing.T) {
 	assertStrEquals(t, "hi there what's up", buf.String())
 }
 
+func TestClient_PasteFilesSuccess(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var buf bytes.Buffer
+		z := zip.NewWriter(&buf)
+		zf1, _ := z.Create("file1.txt")
+		zf1.Write([]byte("this is file 1"))
+		zf2, _ := z.Create("dir1/file2.txt")
+		zf2.Write([]byte("this is file 2"))
+		z.Close()
+		w.Write(buf.Bytes())
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	err := client.PasteFiles(tmpDir, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f1, err := ioutil.ReadFile(filepath.Join(tmpDir, "file1.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f2, err := ioutil.ReadFile(filepath.Join(tmpDir, "dir1/file2.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "this is file 1", string(f1))
+	assertStrEquals(t, "this is file 2", string(f2))
+}
+
+
+func TestClient_PasteFilesFailure(t *testing.T) {
+	config := newConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("this is not a zip file"))
+	}))
+	defer server.Close()
+
+	tmpDir := t.TempDir()
+	err := client.PasteFiles(tmpDir, "default")
+	if err == nil {
+		t.Fatalf("expected error, got no error")
+	}
+}
+
 func TestClient_PasteNoAuthNotFound(t *testing.T) {
 	config := newConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
