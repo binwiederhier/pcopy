@@ -225,7 +225,7 @@ html, body {
 }
 
 #header-area h1:hover {
-    color: #f1f4fc;
+    color: #dde7ff;
 }
 
 #header-area label {
@@ -275,7 +275,7 @@ html, body {
     right: 0;
     margin: 0;
     padding: 0;
-    overflow: auto;
+    overflow: hidden;
 }
 
 #text {
@@ -285,5 +285,6 @@ html, body {
     width: calc(100% - 20px);
     height: calc(100% - 20px);
     font-size: 1.3em;
-    overflow: scroll;
+    overflow: auto;
+    white-space: nowrap;
 }
