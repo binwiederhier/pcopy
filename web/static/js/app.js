@@ -162,6 +162,10 @@ function keyHandler(e) {
         text.selectionStart = text.selectionEnd = start + 1;
 
         e.preventDefault()
+    } else if (e.ctrlKey && e.keyCode == 13) { // <ctrl>+<return>
+        e.preventDefault()
+        text.blur()
+        save()
     }
 }
 
@@ -293,6 +297,7 @@ infoCommandPpasteCopy.addEventListener('click', function() {
     infoCommandPpaste.select();
     infoCommandPpaste.setSelectionRange(0, 99999); /* For mobile devices */
     document.execCommand("copy");
+    infoCommandPpaste.setSelectionRange(0, 0);
     infoCommandPpaste.blur()
 })
 
@@ -300,6 +305,7 @@ infoCommandCurlCopy.addEventListener('click', function() {
     infoCommandCurl.select();
     infoCommandCurl.setSelectionRange(0, 99999); /* For mobile devices */
     document.execCommand("copy");
+    infoCommandCurl.setSelectionRange(0, 0);
     infoCommandCurl.blur()
 })
 
