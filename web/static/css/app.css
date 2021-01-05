@@ -146,13 +146,14 @@ html, body {
     margin: 20px 0 15px 0;
 }
 
-#info-area .info-box pre {
-    margin: 10px 0;
+#info-area .info-box input.code-box {
+    font-family: monospace;
+    margin: 0 0 10px 0;
     background: #ccc;
-    overflow-x: auto;
-    white-space: nowrap;
-    padding: 10px;
+    padding: 15px 10px;
+    border: none;
     border-radius: 3px;
+    width: 100%;
 }
 
 #info-area #info-box-uploading {

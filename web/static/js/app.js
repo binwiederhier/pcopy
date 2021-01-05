@@ -208,15 +208,15 @@ function showUploadProgress(title, status) {
 }
 
 function showInfoUploadFinished(fileId, url, path, key) {
-    infoCommandPpaste.innerHTML = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
+    infoCommandPpaste.value = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
     if (key) {
         let authParam = generateAuthHMACParam(key, 'GET', path)
         let directLink = `${url}?a=${authParam}`
         infoDirectLink.href = directLink
-        infoCommandCurl.innerHTML = `curl -k "${directLink}"`
+        infoCommandCurl.value = `curl -k "${directLink}"`
     } else {
         infoDirectLink.href = url
-        infoCommandCurl.innerHTML = `curl "${url}`
+        infoCommandCurl.value = `curl "${url}`
     }
     infoBoxUploading.classList.add("hidden")
     infoBoxFinished.classList.remove("hidden")
