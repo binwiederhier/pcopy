@@ -308,5 +308,4 @@ html, body {
     height: calc(100% - 20px);
     font-size: 1.3em;
     overflow: auto;
-    white-space: nowrap;
 }
