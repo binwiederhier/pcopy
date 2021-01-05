@@ -122,44 +122,37 @@ html, body {
 
 #info-area .info-box {
     margin: auto;
-    padding: 25px;
+    padding: 25px 45px;
     width: 800px;
     height: 440px;
     background: white;
     font-size: 1.5em;
     color: #444;
     text-align: left;
+    border-radius: 5px;
 }
 
 #info-area .info-box h1 {
     font-size: 1.8em;
-    margin: 30px 10px 20px 10px;
+    margin: 30px 0 20px 0;
 }
 
 #info-area .info-box h2 {
     font-size: 1.5em;
-    margin: 30px 10px 20px 10px;
 }
 
 #info-area .info-box p {
     font-size: 1em;
-    margin: 15px 10px;
+    margin: 20px 0 15px 0;
 }
 
 #info-area .info-box pre {
-    margin: 10px 10px;
+    margin: 10px 0;
     background: #ccc;
     overflow-x: auto;
     white-space: nowrap;
     padding: 10px;
-}
-
-#info-area .info-box pre {
-    margin: 10px 10px;
-    background: #ccc;
-    overflow-x: auto;
-    white-space: nowrap;
-    padding: 10px;
+    border-radius: 3px;
 }
 
 #info-area #info-box-uploading {
