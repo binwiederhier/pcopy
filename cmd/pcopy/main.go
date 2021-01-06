@@ -83,7 +83,7 @@ func showUsageWithError(error string) {
 	eprintln()
 	eprintln("Try 'pcopy COMMAND -help' for more information.")
 	eprintln()
-	eprintf("pcopy %s (%s, runtime %s), built at %s\n", version, commit[:7], runtime.Version(), date)
+	eprintf("pcopy %s (%s), runtime %s, built at %s\n", version, commit[:7], runtime.Version(), date)
 	eprintf("Copyright (C) 2020 Philipp C. Heckel, distributed under the Apache License 2.0\n")
 	os.Exit(1)
 }

@@ -41,13 +41,13 @@ sudo apt install pcopy
 
 **Debian/Ubuntu** (*manual install*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.3/pcopy_0.4.3_amd64.deb
-dpkg -i pcopy_0.4.3_amd64.deb
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.4/pcopy_0.4.4_amd64.deb
+dpkg -i pcopy_0.4.4_amd64.deb
 ```
 
 **Fedora/RHEL/CentOS:**
 ```bash
-rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.3/pcopy_0.4.3_amd64.rpm
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.4/pcopy_0.4.4_amd64.rpm
 ```
 
 **Docker** (*see [detailed instructions](#docker-usage)*)**:**
