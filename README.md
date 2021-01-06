@@ -14,11 +14,11 @@ the hostname (`pcopy join`).
 * 🔒 HTTPS-only secure server (via cert-pinning)
 * 🔑 Clipboards can be password-protected, or they can be open for everyone
 * 📚 Support for multiple clipboards (e.g. personal, work, ...)
-* 🌎 Simple Web UI for uploading text snippets or large files
+* 🌎 Simple [Web UI](#web-ui-for-uploading-text-snippets-or-large-files) for uploading text snippets or large files
 * 🔗 Direct temporary links to clipboard content (with TTL/expiration) 
 * 💻 No-install `curl`-compatible clipboard usage
 
-To see what else pcopy can do, check out the **[live demo](#demo)** or the [videos](#videos).
+To see what else pcopy can do, check out the **[live demo](#demo)** or the **[videos](#videos)**.
 
 ![pcopy demo](assets/demo-simple.gif)
 
@@ -220,11 +220,13 @@ I also made a couple [more videos](#videos) to show what else pcopy can do.
   <tr>
     <td><img src="assets/demo-link.gif" width="300"></td>    
     <td><img src="assets/demo-webui.gif" width="300"></td>
+    <td><img src="assets/demo-curl.gif" width="300"></td>
     <td></td>
   </tr>
   <tr>
     <td>Creating a link to a password-protected clipboard</td>        
     <td>Copying/uploading through the Web UI</td>
+    <td>Copy/pasting with `curl`</td>
     <td></td>
   </tr>
 </table>
