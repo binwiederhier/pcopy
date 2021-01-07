@@ -18,6 +18,35 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestServer_NewServerInvalidListenAddr(t *testing.T) {
+	config := newConfig()
+	config.ListenAddr = ""
+	_, err := newServer(config)
+	if err == nil {
+		t.Fatalf("expected error, got none")
+	}
+}
+
+func TestServer_NewServerInvalidKeyFile(t *testing.T) {
+	config := newConfig()
+	config.KeyFile = ""
+	config.CertFile = "something"
+	_, err := newServer(config)
+	if err == nil {
+		t.Fatalf("expected error, got none")
+	}
+}
+
+func TestServer_NewServerInvalidCertFile(t *testing.T) {
+	config := newConfig()
+	config.KeyFile = "something"
+	config.CertFile = ""
+	_, err := newServer(config)
+	if err == nil {
+		t.Fatalf("expected error, got none")
+	}
+}
+
 func TestServer_HandleInfoUnprotected(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
@@ -39,6 +68,17 @@ func TestServer_HandleInfoProtected(t *testing.T) {
 	server.handle(rr, req)
 
 	assertResponse(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":"c29tZSBzYWx0"}`)
+}
+
+func TestServer_HandleDoesNotExist(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/some path that can't be a clipboard id", nil)
+	server.handle(rr, req)
+
+	assertStatus(t, rr, http.StatusNotFound)
 }
 
 func TestServer_HandleWebRootNoGUI(t *testing.T) {
@@ -94,6 +134,38 @@ func TestServer_HandleClipboardGetExists(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/this-exists", nil)
 	server.handle(rr, req)
 	assertResponse(t, rr, http.StatusOK, "hi there")
+}
+
+func TestServer_HandleClipboardGetExistsWithAuthParam(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
+	server := newTestServer(t, config)
+
+	filename := filepath.Join(config.ClipboardDir, "this-exists-again")
+	if err := ioutil.WriteFile(filename, []byte("hi there again"), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	hmac, _ := GenerateAuthHMAC(config.Key.Bytes, "GET", "/this-exists-again", time.Minute)
+	hmacOverrideParam := base64.StdEncoding.EncodeToString([]byte(hmac))
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/this-exists-again?a="+hmacOverrideParam, nil)
+	server.handle(rr, req)
+	assertResponse(t, rr, http.StatusOK, "hi there again")
+}
+
+func TestServer_HandleClipboardGetExistsWithAuthParamFailure(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
+	server := newTestServer(t, config)
+
+	hmacOverrideParam := base64.StdEncoding.EncodeToString([]byte("invalid auth"))
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/this-exists-again?a=invalid"+hmacOverrideParam, nil)
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusUnauthorized)
 }
 
 func TestServer_HandleClipboardGetDoesntExist(t *testing.T) {
