@@ -133,6 +133,7 @@ func CalculatePublicKeyHash(cert *x509.Certificate) ([]byte, error) {
 	return hash.Sum(nil), nil
 }
 
+// EncodeCurlPinnedPublicKeyHash encodes a public key hash in the format that curl's --pinnedpubkey option expects.
 func EncodeCurlPinnedPublicKeyHash(hash []byte) string {
 	return fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash))
 }
