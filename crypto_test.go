@@ -141,6 +141,13 @@ RgIhAMp7oFxtc93HbfkdhtlBBibc0AJw1tnSYOj+nGbPlxX/AiEA64WsMewc29LT
 	assertStrEquals(t, "sha256//Z0tCCalbcr2Y9+UXq9p72cwGhodTUaptkHUfuy1fvCs=", EncodeCurlPinnedPublicKeyHash(hash))
 }
 
+func TestLoadCertFromFile_FileDoesNotExist(t *testing.T) {
+	_, err := LoadCertFromFile("/not/a/file")
+	if err == nil {
+		t.Fatalf("expected error, but got none")
+	}
+}
+
 func TestLoadCertFromFile_FailureNoCert(t *testing.T) {
 	pemCert := `-----NOT A CERT-----
 MIIBMzCB2aADAgECAhED/nPE4UooT9Ru76nApxRWWzAKBggqhkjOPQQDAjAQMQ4w
