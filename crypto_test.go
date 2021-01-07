@@ -3,6 +3,8 @@ package pcopy
 import (
 	"bytes"
 	"encoding/base64"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 )
 
@@ -83,8 +85,24 @@ func TestDecodeKey_Success(t *testing.T) {
 	}
 }
 
+func TestDecodeKey_FailureInvalidFormat(t *testing.T) {
+	keyEncoded := "this is invalid"
+	_, err := DecodeKey(keyEncoded)
+	if err != errInvalidKeyFormat {
+		t.Fatalf("expected errInvalidKeyFormat, but got no error")
+	}
+}
+
 func TestDecodeKey_FailureSaltTooShort(t *testing.T) {
 	keyEncoded := "ZGRzcwo=:XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I="
+	_, err := DecodeKey(keyEncoded)
+	if err != errInvalidKeyFormat {
+		t.Fatalf("expected errInvalidKeyFormat, but got no error")
+	}
+}
+
+func TestDecodeKey_FailureKeyTooShort(t *testing.T) {
+	keyEncoded := "Osz6osE1fRRirA==:ZnNkZnNmCg=="
 	_, err := DecodeKey(keyEncoded)
 	if err != errInvalidKeyFormat {
 		t.Fatalf("expected errInvalidKeyFormat, but got no error")
@@ -96,6 +114,49 @@ func TestDecodeKey_FailureInvalidBase64(t *testing.T) {
 	_, err := DecodeKey(keyEncoded)
 	if err != errInvalidKeyFormat {
 		t.Fatalf("expected errInvalidKeyFormat, but got no error")
+	}
+}
+
+func TestLoadCertFromFileAndCalculatePublicKeyHash_Success(t *testing.T) {
+	pemCert := `-----BEGIN CERTIFICATE-----
+MIIBMzCB2aADAgECAhED/nPE4UooT9Ru76nApxRWWzAKBggqhkjOPQQDAjAQMQ4w
+DAYDVQQDEwVwY29weTAeFw0yMDEyMzExNzI2NTVaFw0yNDAxMDcxNzI2NTVaMBAx
+DjAMBgNVBAMTBXBjb3B5MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElTj8jvwg
+HVAkTkgZc3PqVIpUVmu60wKcxWU3ht+7ucjOU51p3yWZgsoc2Dk4NiPg5CoIFmZl
+P7sonn6ZVCBzKqMUMBIwEAYDVR0RBAkwB4IFcGNvcHkwCgYIKoZIzj0EAwIDSQAw
+RgIhAMp7oFxtc93HbfkdhtlBBibc0AJw1tnSYOj+nGbPlxX/AiEA64WsMewc29LT
+1FfIV4ULTMxTwgV6M6b6vmPJEHYfkRU=
+-----END CERTIFICATE-----`
+	filename := filepath.Join(t.TempDir(), "cert.crt")
+	ioutil.WriteFile(filename, []byte(pemCert), 0700)
+
+	cert, err := LoadCertFromFile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash, err := CalculatePublicKeyHash(cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "sha256//Z0tCCalbcr2Y9+UXq9p72cwGhodTUaptkHUfuy1fvCs=", EncodeCurlPinnedPublicKeyHash(hash))
+}
+
+func TestLoadCertFromFile_FailureNoCert(t *testing.T) {
+	pemCert := `-----NOT A CERT-----
+MIIBMzCB2aADAgECAhED/nPE4UooT9Ru76nApxRWWzAKBggqhkjOPQQDAjAQMQ4w
+DAYDVQQDEwVwY29weTAeFw0yMDEyMzExNzI2NTVaFw0yNDAxMDcxNzI2NTVaMBAx
+DjAMBgNVBAMTBXBjb3B5MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElTj8jvwg
+HVAkTkgZc3PqVIpUVmu60wKcxWU3ht+7ucjOU51p3yWZgsoc2Dk4NiPg5CoIFmZl
+P7sonn6ZVCBzKqMUMBIwEAYDVR0RBAkwB4IFcGNvcHkwCgYIKoZIzj0EAwIDSQAw
+RgIhAMp7oFxtc93HbfkdhtlBBibc0AJw1tnSYOj+nGbPlxX/AiEA64WsMewc29LT
+1FfIV4ULTMxTwgV6M6b6vmPJEHYfkRU=
+-----NOT A CERT-----`
+	filename := filepath.Join(t.TempDir(), "cert.crt")
+	ioutil.WriteFile(filename, []byte(pemCert), 0700)
+
+	_, err := LoadCertFromFile(filename)
+	if err != errNoCertFound {
+		t.Fatalf("expected errNoCertFound, but got %s", err)
 	}
 }
 

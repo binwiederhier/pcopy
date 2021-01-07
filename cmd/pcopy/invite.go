@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"heckel.io/pcopy"
@@ -30,10 +28,6 @@ func execInvite(args []string) {
 	}
 
 	fmt.Printf("# Instructions for clipboard '%s'\n", clipboard)
-	fmt.Println()
-	fmt.Println("# Install pcopy on other computers (as root):")
-	fmt.Printf("%s | sudo sh\n", curlCommand("install", config, cert, 0)) // TODO use GenerateUrl for this
-
 	fmt.Println()
 	fmt.Println("# Join this clipboard on other computers:")
 	fmt.Printf("%s | sh\n", curlCommand("join", config, cert, ttl))
@@ -74,8 +68,9 @@ func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl t
 	if cert == nil {
 		args = append(args, "-sSL")
 	} else {
-		if hash, err := calculatePublicKeyHash(cert); err == nil {
-			args = append(args, "-sSLk", fmt.Sprintf("--pinnedpubkey %s", hash))
+		if hash, err := pcopy.CalculatePublicKeyHash(cert); err == nil {
+			hashBase64 := pcopy.EncodeCurlPinnedPublicKeyHash(hash)
+			args = append(args, "-sSLk", fmt.Sprintf("--pinnedpubkey %s", hashBase64))
 		} else {
 			args = append(args, "-sSLk")
 		}
@@ -86,16 +81,6 @@ func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl t
 		fail(err)
 	}
 	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url)
-}
-
-func calculatePublicKeyHash(cert *x509.Certificate) (string, error) {
-	der, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
-	if err != nil {
-		return "", err
-	}
-	hash := sha256.New()
-	hash.Write(der)
-	return fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash.Sum(nil))), nil
 }
 
 func showInviteUsage(flags *flag.FlagSet) {

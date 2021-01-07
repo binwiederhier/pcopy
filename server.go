@@ -37,13 +37,11 @@ const (
 )
 
 const (
-	pathRoot     = "/"
-	pathInfo     = "/info"
-	pathVerify   = "/verify"
-	pathInstall  = "/install"
-	pathDownload = "/download"
-	pathJoin     = "/join"
-	pathStatic   = "/static"
+	pathRoot   = "/"
+	pathInfo   = "/info"
+	pathVerify = "/verify"
+	pathJoin   = "/join"
+	pathStatic = "/static"
 )
 
 var (
@@ -53,7 +51,7 @@ var (
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardRegex      = regexp.MustCompile(`^/([-_a-zA-Z0-9]{1,100})$`)
 	clipboardPathFormat = "/%s"
-	reservedPaths       = []string{pathRoot, pathInfo, pathVerify, pathInstall, pathDownload, pathJoin, pathStatic}
+	reservedPaths       = []string{pathRoot, pathInfo, pathVerify, pathJoin, pathStatic}
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
@@ -65,10 +63,6 @@ var (
 	//go:embed "scripts/join.sh.tmpl"
 	joinTemplateSource string
 	joinTemplate       = template.Must(template.New("join").Funcs(templateFnMap).Parse(joinTemplateSource))
-
-	//go:embed "scripts/install.sh.tmpl"
-	installTemplateSource string
-	installTemplate       = template.Must(template.New("install").Funcs(templateFnMap).Parse(installTemplateSource))
 )
 
 // infoResponse is the response returned by the / endpoint
@@ -134,8 +128,6 @@ func (s *server) listenAndServeTLS() error {
 	}
 
 	http.HandleFunc(pathInfo, s.limit(s.onlyGET(s.handleInfo)))
-	http.HandleFunc(pathInstall, s.limit(s.onlyGET(s.handleInstall)))
-	http.HandleFunc(pathDownload, s.limit(s.onlyGET(s.handleDownload)))
 	http.HandleFunc(pathVerify, s.limit(s.onlyGET(s.auth(s.handleVerify))))
 	http.HandleFunc(pathJoin, s.limit(s.onlyGET(s.auth(s.handleJoin))))
 	http.HandleFunc(pathRoot, s.handleDefault) // Auth & rate limiting in handleDefault
@@ -265,36 +257,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file
 	if r.Body.Close() != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
 		os.Remove(file)
-		return
-	}
-}
-
-func (s *server) handleDownload(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-
-	executable, err := getExecutable()
-	if err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	f, err := os.Open(executable)
-	if err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	defer f.Close()
-
-	if _, err = io.Copy(w, f); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-}
-
-func (s *server) handleInstall(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-	if err := installTemplate.Execute(w, s.config); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -564,20 +526,6 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err erro
 	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
 	w.Write([]byte(http.StatusText(code)))
-}
-
-func getExecutable() (string, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-
-	realpath, err := filepath.EvalSymlinks(exe)
-	if err != nil {
-		return "", err
-	}
-
-	return realpath, nil
 }
 
 var errListenAddrMissing = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")

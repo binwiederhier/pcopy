@@ -121,6 +121,22 @@ func LoadCertFromFile(filename string) (*x509.Certificate, error) {
 	return nil, errNoCertFound
 }
 
+// CalculatePublicKeyHash calculates the SHA-256 hash of the DER PKIX representation of the public
+// key contained in the given certificate. This is useful to use with the --pinnedpubkey option in curl.
+func CalculatePublicKeyHash(cert *x509.Certificate) ([]byte, error) {
+	der, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	hash := sha256.New()
+	hash.Write(der)
+	return hash.Sum(nil), nil
+}
+
+func EncodeCurlPinnedPublicKeyHash(hash []byte) string {
+	return fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash))
+}
+
 // GenerateAuthHMAC generates the HMAC auth header used to authorize uthenticate against the server.
 // The result can be used in the HTTP "Authorization" header. If the TTL is non-zero, the authorization
 // header will only be valid for the given duration.
