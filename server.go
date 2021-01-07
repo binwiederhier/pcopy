@@ -1,6 +1,7 @@
 package pcopy
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -36,22 +37,13 @@ const (
 	certCommonName             = "pcopy"
 )
 
-const (
-	pathRoot   = "/"
-	pathInfo   = "/info"
-	pathVerify = "/verify"
-	pathJoin   = "/join"
-	pathStatic = "/static"
-)
-
 var (
 	authOverrideParam   = "a"
 	authHmacFormat      = "HMAC %d %d %s" // timestamp ttl b64-hmac
 	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
-	clipboardRegex      = regexp.MustCompile(`^/([-_a-zA-Z0-9]{1,100})$`)
 	clipboardPathFormat = "/%s"
-	reservedPaths       = []string{pathRoot, pathInfo, pathVerify, pathJoin, pathStatic}
+	reservedFiles       = []string{"info", "verify", "join", "static"}
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
@@ -65,23 +57,35 @@ var (
 	joinTemplate       = template.Must(template.New("join").Funcs(templateFnMap).Parse(joinTemplateSource))
 )
 
-// infoResponse is the response returned by the / endpoint
-type infoResponse struct {
-	ServerAddr string `json:"serverAddr"`
-	Salt       string `json:"salt"`
-}
-
 type server struct {
 	config       *Config
 	countLimiter *limiter
 	sizeLimiter  *limiter
 	rateLimiter  map[string]*visitor
+	routes       []route
 	sync.Mutex
 }
 
 type visitor struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time
+}
+
+// infoResponse is the response returned by the / endpoint
+type infoResponse struct {
+	ServerAddr string `json:"serverAddr"`
+	Salt       string `json:"salt"`
+}
+
+type route struct {
+	method  string
+	regex   *regexp.Regexp
+	handler http.HandlerFunc
+}
+type routeCtx struct{}
+
+func newRoute(method, pattern string, handler http.HandlerFunc) route {
+	return route{method, regexp.MustCompile("^" + pattern + "$"), handler}
 }
 
 // Serve starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
@@ -117,6 +121,7 @@ func newServer(config *Config) (*server, error) {
 		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
 		countLimiter: newLimiter(int64(config.ClipboardCountLimit)),
 		rateLimiter:  make(map[string]*visitor),
+		routes:       nil,
 	}, nil
 }
 
@@ -127,12 +132,44 @@ func (s *server) listenAndServeTLS() error {
 		log.Printf("Listening on %s\n", s.config.ListenAddr)
 	}
 
-	http.HandleFunc(pathInfo, s.limit(s.onlyGET(s.handleInfo)))
-	http.HandleFunc(pathVerify, s.limit(s.onlyGET(s.auth(s.handleVerify))))
-	http.HandleFunc(pathJoin, s.limit(s.onlyGET(s.auth(s.handleJoin))))
-	http.HandleFunc(pathRoot, s.handleDefault) // Auth & rate limiting in handleDefault
-
+	http.HandleFunc("/", s.handle)
 	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
+}
+
+func (s *server) routeList() []route {
+	if s.routes != nil {
+		return s.routes
+	}
+	s.Lock()
+	defer s.Unlock()
+
+	s.routes = []route{
+		newRoute("GET", "/", s.onlyIfWebUI(s.handleWebRoot)),
+		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleWebStatic)),
+		newRoute("GET", "/info", s.limit(s.handleInfo)),
+		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
+		newRoute("GET", "/join", s.limit(s.auth(s.handleJoin))),
+		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
+		newRoute("PUT", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
+		newRoute("POST", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
+	}
+	return s.routes
+}
+
+func (s *server) handle(w http.ResponseWriter, r *http.Request) {
+	for _, route := range s.routeList() {
+		matches := route.regex.FindStringSubmatch(r.URL.Path)
+		if len(matches) > 0 && r.Method == route.method {
+			ctx := context.WithValue(r.Context(), routeCtx{}, matches[1:])
+			route.handler(w, r.WithContext(ctx))
+			return
+		}
+	}
+	if r.Method == http.MethodGet {
+		s.fail(w, r, http.StatusNotFound, errNoMatchingRoute)
+	} else {
+		s.fail(w, r, http.StatusBadRequest, errNoMatchingRoute)
+	}
 }
 
 func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
@@ -159,17 +196,6 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 }
 
-func (s *server) handleDefault(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == pathRoot {
-		s.onlyIfWebUI(s.onlyGET(s.handleWebRoot)).ServeHTTP(w, r)
-	} else if strings.HasPrefix(r.URL.Path, pathStatic+string(os.PathSeparator)) {
-		s.onlyIfWebUI(s.onlyGET(s.handleWebStatic)).ServeHTTP(w, r)
-	} else {
-		allowedMethods := []string{http.MethodGet, http.MethodPut, http.MethodPost}
-		s.limit(s.onlyMethods(s.auth(s.handleClipboard), allowedMethods...)).ServeHTTP(w, r)
-	}
-}
-
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
 	if err := webTemplate.Execute(w, s.config); err != nil {
 		s.fail(w, r, http.StatusInternalServerError, err)
@@ -181,22 +207,14 @@ func (s *server) handleWebStatic(w http.ResponseWriter, r *http.Request) {
 	http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
 }
 
-func (s *server) handleClipboard(w http.ResponseWriter, r *http.Request) {
-	file, err := s.getClipboardFile(r)
+func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) {
+	fields := r.Context().Value(routeCtx{}).([]string)
+	file, err := s.getClipboardFile(fields[0])
 	if err != nil {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-	if r.Method == http.MethodGet {
-		s.handleClipboardGet(w, r, file)
-	} else if r.Method == http.MethodPut || r.Method == http.MethodPost {
-		s.handleClipboardPut(w, r, file)
-	}
-}
-
-func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request, file string) {
 	stat, err := os.Stat(file)
 	if err != nil {
 		s.fail(w, r, http.StatusNotFound, err)
@@ -216,7 +234,14 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request, file
 	}
 }
 
-func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request, file string) {
+func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) {
+	fields := r.Context().Value(routeCtx{}).([]string)
+	file, err := s.getClipboardFile(fields[0])
+	if err != nil {
+		s.fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+
 	// Check total file count limit (only if file didn't exist already)
 	stat, _ := os.Stat(file)
 	if stat == nil {
@@ -269,17 +294,13 @@ func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) getClipboardFile(r *http.Request) (string, error) {
-	for _, path := range reservedPaths {
-		if r.URL.Path == path {
+func (s *server) getClipboardFile(file string) (string, error) {
+	for _, reserved := range reservedFiles {
+		if file == reserved {
 			return "", errInvalidFileID
 		}
 	}
-	matches := clipboardRegex.FindStringSubmatch(r.URL.Path)
-	if matches == nil {
-		return "", errInvalidFileID
-	}
-	return fmt.Sprintf("%s/%s", s.config.ClipboardDir, matches[1]), nil
+	return fmt.Sprintf("%s/%s", s.config.ClipboardDir, file), nil
 }
 
 func (s *server) auth(next http.HandlerFunc) http.HandlerFunc {
@@ -457,23 +478,6 @@ func (s *server) maybeExpire(file os.FileInfo) bool {
 	return true
 }
 
-func (s *server) onlyGET(next http.HandlerFunc) http.HandlerFunc {
-	return s.onlyMethods(next, http.MethodGet)
-}
-
-func (s *server) onlyMethods(next http.HandlerFunc, methods ...string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		for _, m := range methods {
-			if m == r.Method {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-
-		s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-	}
-}
-
 func (s *server) onlyIfWebUI(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !s.config.WebUI {
@@ -491,8 +495,7 @@ func (s *server) limit(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
-			s.fail(w, r, http.StatusInternalServerError, err)
-			return
+			ip = r.RemoteAddr // This should not happen in real life; only in tests.
 		}
 
 		limiter := s.getVisitorLimiter(ip)
@@ -536,3 +539,4 @@ var errInvalidAuth = errors.New("invalid auth")
 var errInvalidMethod = errors.New("invalid method")
 var errInvalidFileID = errors.New("invalid file id")
 var errRateLimitReached = errors.New("rate limit reached")
+var errNoMatchingRoute = errors.New("no matching route")

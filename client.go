@@ -200,7 +200,7 @@ func (c *Client) Verify(cert *x509.Certificate, key *Key) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s%s", c.config.ServerAddr, pathVerify)
+	url := fmt.Sprintf("https://%s/verify", c.config.ServerAddr)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -244,7 +244,7 @@ func (c *Client) withProgressReader(reader io.ReadCloser, total int64) io.ReadCl
 }
 
 func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
-	resp, err := client.Get(fmt.Sprintf("https://%s%s", c.config.ServerAddr, pathInfo))
+	resp, err := client.Get(fmt.Sprintf("https://%s/info", c.config.ServerAddr))
 	if err != nil {
 		return nil, err
 	}

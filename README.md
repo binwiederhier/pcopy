@@ -283,3 +283,4 @@ Code and posts that helped:
 * [Full page centering](https://medium.com/creative-technology-concepts-code/full-page-site-with-vertical-centering-using-css-only-7858ed6764c4)
 * [Human readable file sizes](https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/)
 * [Unzipping files](https://golangcode.com/unzip-files-in-go/)
+* [HTTP server routing](https://benhoyt.com/writings/go-routing/#regex-table)

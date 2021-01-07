@@ -139,7 +139,7 @@ func parseClipboardIDAndFiles(flags *flag.FlagSet, configFileOverride string) (s
 func parseClipboardAndID(clipboardAndID string, configFileOverride string) (string, string) {
 	clipboard := pcopy.DefaultClipboard
 	id := pcopy.DefaultID
-	re := regexp.MustCompile(`^(?:([-_a-zA-Z0-9]*):)?([-_a-zA-Z0-9]*)$`)
+	re := regexp.MustCompile(`^(?i)(?:([-_a-z0-9]*):)?(|[a-z0-9][-_.a-z0-9]*)$`)
 	parts := re.FindStringSubmatch(clipboardAndID)
 	if len(parts) != 3 {
 		fail(errors.New("invalid argument, must be in format [CLIPBOARD:]ID"))
