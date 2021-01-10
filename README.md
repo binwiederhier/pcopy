@@ -194,6 +194,24 @@ pcopy setup
 pcopy serve
 ```
 
+### Bash/ZSH autocompletion
+Tab completion is available for Bash and ZSH. For Bash, when installed via rpm/deb, autocomplete is immediately
+available. ZSH autocomplete installation is manual.
+
+**Bash** (*only if not installed via rpm/deb*):
+```
+sudo wget -O /etc/bash_completion.d/pcopy https://raw.githubusercontent.com/binwiederhier/pcopy/master/scripts/autocomplete_bash
+sudo ln -s /etc/bash_completion.d/pcopy /etc/bash_completion.d/pcp
+sudo ln -s /etc/bash_completion.d/pcopy /etc/bash_completion.d/ppaste
+```
+
+**ZSH**:
+```
+mkdir -p ~/.config/pcopy
+wget -O ~/.config/pcopy/autocomplete_zsh https://raw.githubusercontent.com/binwiederhier/pcopy/master/scripts/autocomplete_zsh
+for p in pcopy pcp ppaste; do echo "PROG=$p source ~/.config/pcopy/autocomplete_zsh" >> ~/.zshrc; done
+```
+
 ## Demo
 I have a **demo clipboard** (password: *demo*) running that you can play with:
 
