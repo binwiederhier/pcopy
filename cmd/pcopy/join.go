@@ -2,8 +2,8 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
+	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
 	"heckel.io/pcopy"
 	"io/ioutil"
@@ -11,36 +11,57 @@ import (
 	"syscall"
 )
 
-func execJoin(args []string) {
-	flags := flag.NewFlagSet("pcopy join", flag.ExitOnError)
-	flags.Usage = func() { showJoinUsage(flags) }
-	force := flags.Bool("force", false, "Overwrite config if it already exists")
-	auto := flags.Bool("auto", false, "Automatically choose clipboard alias")
-	quiet := flags.Bool("quiet", false, "Don't print instructions")
-	if err := flags.Parse(args); err != nil {
-		fail(err)
+var cmdJoin = &cli.Command{
+	Name:      "join",
+	Usage:     "Join a remote clipboard",
+	UsageText: "pcopy join [OPTIONS..] SERVER [CLIPBOARD]",
+	Action:    execJoin,
+	Category:  categoryClient,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{Name: "force", Aliases: []string{"f"}, Usage: "overwrite config if it already exists"},
+		&cli.BoolFlag{Name: "auto", Aliases: []string{"a"}, Usage: "automatically choose clipboard alias"},
+		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not print instructions"},
+	},
+	Description: `Connects to a remote clipboard with the server address SERVER. CLIPBOARD is the local alias
+that can be used to identify it (default is 'default'). This command is interactive and
+will write a config file to ~/.config/pcopy/$CLIPBOARD.conf (or /etc/pcopy/$CLIPBOARD.conf).
+
+The command will ask for a password if the remote clipboard requires one, unless the PCOPY_KEY
+environment variable is passed.
+
+If the remote server's certificate is self-signed, its certificate will be downloaded to
+~/.config/pcopy/$CLIPBOARD.crt (or /etc/pcopy/$CLIPBOARD.crt) and pinned for future connections.
+
+Examples:
+  pcopy join pcopy.example.com     # Joins remote clipboard as local alias 'default'
+  pcopy join pcopy.work.com work   # Joins remote clipboard with local alias 'work'`,
+}
+
+func execJoin(c *cli.Context) error {
+	force := c.Bool("force")
+	auto := c.Bool("auto")
+	quiet := c.Bool("quiet")
+	if c.NArg() < 1 {
+		return errors.New("missing server address, see --help for usage details")
 	}
-	if flags.NArg() < 1 {
-		fail(errors.New("missing server address, see -help for usage details"))
-	}
-	if *force && *auto {
-		fail(errors.New("cannot use -auto and -force"))
+	if force && auto {
+		return errors.New("cannot use both --auto and --force")
 	}
 
 	clipboard := pcopy.DefaultClipboard
-	serverAddr := pcopy.ExpandServerAddr(flags.Arg(0))
-	if flags.NArg() > 1 {
-		clipboard = flags.Arg(1)
+	serverAddr := pcopy.ExpandServerAddr(c.Args().Get(0))
+	if c.NArg() > 1 {
+		clipboard = c.Args().Get(1)
 	}
 
 	// Find config file
 	var configFile string
-	if *auto {
+	if auto {
 		clipboard, configFile = pcopy.FindNewConfigFile(clipboard)
 	} else {
 		configFile = pcopy.FindConfigFile(clipboard)
-		if configFile != "" && !*force {
-			fail(fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use -force to override", configFile))
+		if configFile != "" && !force {
+			return fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use --force to override", configFile)
 		}
 		configFile = pcopy.GetConfigFile(clipboard)
 	}
@@ -104,9 +125,11 @@ func execJoin(args []string) {
 		}
 	}
 
-	if !*quiet {
+	if !quiet {
 		printInstructions(configFile, clipboard, info)
 	}
+
+	return nil
 }
 
 func readPassword() []byte {
@@ -144,27 +167,4 @@ func printInstructions(configFile string, clipboard string, info *pcopy.ServerIn
 		fmt.Printf("You may now use 'pcopy copy%s' and 'pcopy paste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	}
 	fmt.Println("To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.")
-}
-
-func showJoinUsage(flags *flag.FlagSet) {
-	eprintln("Usage: pcopy join [OPTIONS..] SERVER [CLIPBOARD]")
-	eprintln()
-	eprintln("Description:")
-	eprintln("  Connects to a remote clipboard with the server address SERVER. CLIPBOARD is the local alias")
-	eprintln("  that can be used to identify it (default is 'default'). This command is interactive and")
-	eprintln("  will write a config file to ~/.config/pcopy/$CLIPBOARD.conf (or /etc/pcopy/$CLIPBOARD.conf).")
-	eprintln()
-	eprintln("  The command will ask for a password if the remote clipboard requires one, unless the PCOPY_KEY")
-	eprintln("  environment variable is passed.")
-	eprintln()
-	eprintln("  If the remote server's certificate is self-signed, its certificate will be downloaded to ")
-	eprintln("  ~/.config/pcopy/$CLIPBOARD.crt (or /etc/pcopy/$CLIPBOARD.crt) and pinned for future connections.")
-	eprintln()
-	eprintln("Examples:")
-	eprintln("  pcopy join pcopy.example.com     # Joins remote clipboard as local alias 'default'")
-	eprintln("  pcopy join pcopy.work.com work   # Joins remote clipboard with local alias 'work'")
-	eprintln()
-	eprintln("Options:")
-	flags.PrintDefaults()
-	syscall.Exit(1)
 }

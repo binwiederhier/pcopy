@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"errors"
-	"flag"
 	"fmt"
+	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
 	"heckel.io/pcopy"
 	"io/ioutil"
@@ -22,6 +22,20 @@ const (
 	defaultServiceUser = "pcopy"
 )
 
+var cmdSetup = &cli.Command{
+	Name:     "setup",
+	Usage:    "Initial setup wizard for a new pcopy server",
+	Action:   execSetup,
+	Category: categoryServer,
+	Description: `Starts an interactive wizard to generate server config, private key and certificate.
+This command must be run as root, since it (potentially) creates users and installs a
+systemd service.
+
+Examples:
+  sudo pcopy setup   # Install pcopy server to /etc/pcopy with 'pcopy' user
+  pcopy setup        # Install pcopy server to ~/.config/pcopy for current user`,
+}
+
 type wizard struct {
 	config *pcopy.Config
 	reader *bufio.Reader
@@ -35,13 +49,7 @@ type wizard struct {
 	gid            int
 }
 
-func execSetup(args []string) {
-	flags := flag.NewFlagSet("pcopy setup", flag.ExitOnError)
-	flags.Usage = showSetupUsage
-	if err := flags.Parse(args); err != nil {
-		fail(err)
-	}
-
+func execSetup(c *cli.Context) error {
 	setup := &wizard{
 		config: &pcopy.Config{},
 		reader: bufio.NewReader(os.Stdin),
@@ -78,6 +86,7 @@ func execSetup(args []string) {
 	}
 
 	setup.printSuccess()
+	return nil
 }
 
 func (s *wizard) askUser() {
@@ -349,18 +358,4 @@ func (s *wizard) printSuccess() {
 		}
 	}
 	fmt.Println()
-}
-
-func showSetupUsage() {
-	eprintln("Usage: pcopy setup")
-	eprintln()
-	eprintln("Description:")
-	eprintln("  Starts an interactive wizard to generate server config, private key and certificate.")
-	eprintln("  This command must be run as root, since it (potentially) creates users and installs a")
-	eprintln("  systemd service.")
-	eprintln()
-	eprintln("Examples:")
-	eprintln("  sudo pcopy setup   # Install pcopy server to /etc/pcopy with 'pcopy' user")
-	eprintln("  pcopy setup        # Install pcopy server to ~/.config/pcopy for current user")
-	syscall.Exit(1)
 }

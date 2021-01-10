@@ -1,29 +1,51 @@
 package main
 
 import (
-	"flag"
+	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 	"os"
-	"syscall"
 )
 
-func execServe(args []string) {
-	flags := flag.NewFlagSet("pcopy serve", flag.ExitOnError)
-	flags.Usage = func() { showServeUsage(flags) }
-	configFileOverride := flags.String("config", "", "Alternate config file")
-	listenAddr := flags.String("listen", "", "Address and port to use to bind the server")
-	serverAddr := flags.String("addr", "", "Server address to be advertised to clients")
-	keyFile := flags.String("key", "", "Private key file for TLS connections")
-	certFile := flags.String("cert", "", "Certificate file for TLS connections")
-	clipboardDir := flags.String("dir", "", "Clipboard directory")
-	if err := flags.Parse(args); err != nil {
-		fail(err)
-	}
+var cmdServe = &cli.Command{
+	Name:     "serve",
+	Usage:    "Start pcopy server",
+	Action:   execServe,
+	Category: categoryServer,
+	Flags: []cli.Flag{
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file (default is based on clipboard name)"},
+		&cli.StringFlag{Name: "listen", Aliases: []string{"l"}, Usage: "address and port to use to bind the server"},
+		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "server address to be advertised to clients"},
+		&cli.StringFlag{Name: "key", Aliases: []string{"K"}, Usage: "private key file for TLS connections"},
+		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "certificate file for TLS connections"},
+		&cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Usage: "clipboard directory"},
+	},
+	Description: `Start pcopy server and listen for incoming requests.
+
+The command will load a the clipboard config from ~/.config/pcopy/server.conf or
+/etc/pcopy/server.conf. Config options can be overridden using the command line options.
+
+To generate a new config file, you may want to use the 'pcopy setup-server' command.
+
+Examples:
+  pcopy serve                 # Starts server in the foreground
+  pcopy serve -listen :9999   # Starts server with alternate port
+  PCOPY_KEY=.. pcopy serve    # Starts server with alternate key (see 'pcopy keygen')
+
+To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
+}
+
+func execServe(c *cli.Context) error {
+	configFileOverride := c.String("config")
+	listenAddr := c.String("listen")
+	serverAddr := c.String("server")
+	keyFile := c.String("key")
+	certFile := c.String("cert")
+	clipboardDir := c.String("dir")
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig(*configFileOverride, "server")
+	configFile, config, err := pcopy.LoadConfig(configFileOverride, "server")
 	if err != nil {
-		fail(err)
+		return err
 	}
 
 	// Load defaults
@@ -37,53 +59,27 @@ func execServe(args []string) {
 	}
 
 	// Command line overrides
-	if *listenAddr != "" {
-		config.ListenAddr = *listenAddr
+	if listenAddr != "" {
+		config.ListenAddr = listenAddr
 	}
-	if *serverAddr != "" {
-		config.ServerAddr = pcopy.ExpandServerAddr(*serverAddr)
+	if serverAddr != "" {
+		config.ServerAddr = pcopy.ExpandServerAddr(serverAddr)
 	}
-	if *clipboardDir != "" {
-		config.ClipboardDir = *clipboardDir
+	if clipboardDir != "" {
+		config.ClipboardDir = clipboardDir
 	}
-	if *keyFile != "" {
-		config.KeyFile = *keyFile
+	if keyFile != "" {
+		config.KeyFile = keyFile
 	}
-	if *certFile != "" {
-		config.CertFile = *certFile
+	if certFile != "" {
+		config.CertFile = certFile
 	}
 	if os.Getenv("PCOPY_KEY") != "" {
 		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
 		if err != nil {
-			fail(err)
+			return err
 		}
 	}
 
-	// Start server
-	if err := pcopy.Serve(config); err != nil {
-		fail(err)
-	}
-}
-
-func showServeUsage(flags *flag.FlagSet) {
-	eprintln("Usage: pcopy serve [OPTIONS..]")
-	eprintln()
-	eprintln("Description:")
-	eprintln("  Start pcopy server and listen for incoming requests.")
-	eprintln()
-	eprintln("  The command will load a the clipboard config from ~/.config/pcopy/server.conf or")
-	eprintln("  /etc/pcopy/server.conf. Config options can be overridden using the command line options.")
-	eprintln()
-	eprintln("  To generate a new config file, you may want to use the 'pcopy setup-server' command.")
-	eprintln()
-	eprintln("Examples:")
-	eprintln("  pcopy serve                 # Starts server in the foreground")
-	eprintln("  pcopy serve -listen :9999   # Starts server with alternate port")
-	eprintln("  PCOPY_KEY=.. pcopy serve    # Starts server with alternate key (see 'pcopy keygen')")
-	eprintln()
-	eprintln("Options:")
-	flags.PrintDefaults()
-	eprintln()
-	eprintln("To override or specify the remote server key, you may pass the PCOPY_KEY variable.")
-	syscall.Exit(1)
+	return pcopy.Serve(config)
 }

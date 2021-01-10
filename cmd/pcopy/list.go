@@ -1,21 +1,22 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 	"math"
 	"strings"
-	"syscall"
 )
 
-func execList(args []string) {
-	flags := flag.NewFlagSet("pcopy list", flag.ExitOnError)
-	flags.Usage = showListUsage
-	if err := flags.Parse(args); err != nil {
-		fail(err)
-	}
+var cmdList = &cli.Command{
+	Name:        "list",
+	Usage:       "Lists all of the clipboards that have been joined",
+	Action:      execList,
+	Category:    categoryClient,
+	Description: "Lists all of the clipboards that have been joined.",
+}
 
+func execList(c *cli.Context) error {
 	configs := pcopy.ListConfigs()
 	if len(configs) > 0 {
 		clipboardHeader := "Clipboard"
@@ -45,15 +46,5 @@ func execList(args []string) {
 	} else {
 		fmt.Println("No clipboards found. You can use 'pcopy join' to connect to existing clipboards.")
 	}
-}
-
-func showListUsage() {
-	eprintln("Usage: pcopy list")
-	eprintln()
-	eprintln("Description:")
-	eprintln("  Lists all of the clipboards that have been joined.")
-	eprintln()
-	eprintln("Examples:")
-	eprintln("  pcopy list")
-	syscall.Exit(1)
+	return nil
 }

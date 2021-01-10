@@ -1,21 +1,37 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 	"os"
-	"syscall"
 )
 
-func execLeave(args []string) {
-	configFile, clipboard, config := parseLeaveArgs(args)
+var cmdLeave = &cli.Command{
+	Name:      "leave",
+	Usage:     "Leave a remote clipboard",
+	UsageText: "pcopy leave [OPTIONS..] [CLIPBOARD]",
+	Action:    execLeave,
+	Category:  categoryClient,
+	Description: `Removes the clipboard configuration and certificate (if any) from the config folder.
+
+The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or
+/etc/pcopy/$CLIPBOARD.conf. If not config exists, it will fail.
+
+Examples:
+  pcopy leave           # Leaves the default clipboard
+  pcopy leave work      # Leaves the clipboard called 'work'
+`,
+}
+
+func execLeave(c *cli.Context) error {
+	configFile, clipboard, config := parseLeaveArgs(c)
 
 	if configFile == "" {
-		fail(fmt.Errorf("clipboard '%s' does not exist", clipboard))
+		return fmt.Errorf("clipboard '%s' does not exist", clipboard)
 	}
 	if err := os.Remove(configFile); err != nil {
-		fail(err)
+		return err
 	}
 	if config.CertFile != "" {
 		if _, err := os.Stat(config.CertFile); err == nil {
@@ -26,24 +42,20 @@ func execLeave(args []string) {
 	}
 
 	fmt.Printf("Successfully left clipboard '%s'. To rejoin, run 'pcopy join %s'.\n", clipboard, pcopy.CollapseServerAddr(config.ServerAddr))
+	return nil
 }
 
-func parseLeaveArgs(args []string) (string, string, *pcopy.Config) {
-	flags := flag.NewFlagSet("pcopy leave", flag.ExitOnError)
-	configFileOverride := flags.String("config", "", "Alternate config file (default is based on clipboard name)")
-	flags.Usage = func() { showLeaveUsage(flags) }
-	if err := flags.Parse(args); err != nil {
-		fail(err)
-	}
+func parseLeaveArgs(c *cli.Context) (string, string, *pcopy.Config) {
+	configFileOverride := c.String("config")
 
 	// Parse clipboard and file
 	clipboard := pcopy.DefaultClipboard
-	if flags.NArg() > 0 {
-		clipboard = flags.Arg(0)
+	if c.NArg() > 0 {
+		clipboard = c.Args().First()
 	}
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig(*configFileOverride, clipboard)
+	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
 	if err != nil {
 		fail(err)
 	}
@@ -54,22 +66,4 @@ func parseLeaveArgs(args []string) (string, string, *pcopy.Config) {
 	}
 
 	return configFile, clipboard, config
-}
-
-func showLeaveUsage(flags *flag.FlagSet) {
-	eprintln("Usage: pcopy leave [OPTIONS..] [CLIPBOARD]")
-	eprintln()
-	eprintln("Description:")
-	eprintln("  Removes the clipboard configuration and certificate (if any) from the config folder.")
-	eprintln()
-	eprintln("  The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or")
-	eprintln("  /etc/pcopy/$CLIPBOARD.conf. If not config exists, it will fail.")
-	eprintln()
-	eprintln("Examples:")
-	eprintln("  pcopy leave           # Leaves the default clipboard")
-	eprintln("  pcopy leave work      # Leaves the clipboard called 'work'")
-	eprintln()
-	eprintln("Options:")
-	flags.PrintDefaults()
-	syscall.Exit(1)
 }
