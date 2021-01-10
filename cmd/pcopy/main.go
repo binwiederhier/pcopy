@@ -20,7 +20,7 @@ const (
 
 func main() {
 	cli.AppHelpTemplate += fmt.Sprintf(`
-Try 'pcopy COMMAND -help' for more information.
+Try 'pcopy COMMAND --help' for more information.
 
 pcopy %s (%s), runtime %s, built at %s
 Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0

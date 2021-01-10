@@ -255,24 +255,28 @@ I also made a couple [more videos](#videos) to show what else pcopy can do.
 ## Command-line help
 Each command has a detailed help page. Simply type `pcopy -help`, `pcp -help`, etc. Here's the main help page:
 ```bash 
-$ pcopy -help
-Usage: pcopy COMMAND [OPTION..] [ARG..]
+$ pcopy --help
+NAME:
+   pcopy - copy/paste across machines
 
-Client-side commands:
-  copy      Read from STDIN/file(s) and copy to remote clipboard
-  paste     Write remote clipboard contents to STDOUT/file(s)
-  join      Join a remote clipboard
-  leave     Leave a remote clipboard
-  list      Lists all of the clipboards that have been joined
-  invite    Generate commands to invite others to join a clipboard
-  link      Generate direct download link to clipboard content
+USAGE:
+   pcopy COMMAND [OPTION..] [ARG..]
 
-Server-side commands:
-  setup     Initial setup wizard for a new pcopy server
-  serve     Start pcopy server
-  keygen    Generate key for the server config
+COMMANDS:
+   Client-side commands:
+     copy    Read from STDIN/file(s) and copy to remote clipboard
+     paste   Write remote clipboard contents to STDOUT/file(s)
+     join    Join a remote clipboard
+     list    Lists all of the clipboards that have been joined
+     leave   Leave a remote clipboard
+     link    Generate direct download link to clipboard content
+     invite  Generate commands to invite others to join a clipboard
+   Server-side commands:
+     serve   Start pcopy server
+     setup   Initial setup wizard for a new pcopy server
+     keygen  Generate key for the server config
 
-Try 'pcopy COMMAND -help' for more information.
+Try 'pcopy COMMAND --help' for more information.
 ``` 
 
 ## Inspired by
@@ -292,9 +296,10 @@ when you just want to copy a file or folder across to another computer.
 Made with ❤️ by [Philipp C. Heckel](https://heckel.io), distributed under the [Apache License 2.0](LICENSE).
 
 Third party libraries:
-* [GoReleaser](https://goreleaser.com/) (MIT) is used to create releases 
+* [github.com/urfave/cli/v2](https://github.com/urfave/cli/v2) (MIT) is used to drive the CLI
 * [CryptoJS](https://github.com/brix/crypto-js) (MIT) is used for key derivation and such in the Web UI
 * [Lato Font](https://www.latofonts.com/) (OFL) is used as a font in the Web UI
+* [GoReleaser](https://goreleaser.com/) (MIT) is used to create releases 
 
 Code and posts that helped:
 * [Drag & Drop](https://stackoverflow.com/a/33917000/1440785) (CC BY-SA 3.0)
@@ -304,3 +309,4 @@ Code and posts that helped:
 * [Human readable file sizes](https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/)
 * [Unzipping files](https://golangcode.com/unzip-files-in-go/)
 * [HTTP server routing](https://benhoyt.com/writings/go-routing/#regex-table)
+* [Google Webfonts Helper](https://google-webfonts-helper.herokuapp.com/)

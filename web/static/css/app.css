@@ -58,6 +58,18 @@ p {
     visibility: hidden;
 }
 
+/* Lato font (OFL), https://fonts.google.com/specimen/Lato#about,
+   embedded with the help of https://google-webfonts-helper.herokuapp.com/fonts/lato?subsets=latin */
+
+@font-face {
+    font-family: 'Lato';
+    font-style: normal;
+    font-weight: 400;
+    src: local(''),
+    url('../font/lato-v17-latin-ext_latin-regular.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */
+    url('../font/lato-v17-latin-ext_latin-regular.woff') format('woff'); /* Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+ */
+}
+
 /* centering, see https://bit.ly/2WBwODp, https://jsfiddle.net/kmturley/B3nxK/ & https://jsfiddle.net/v74fh3wy/ */
 
 html, body {
