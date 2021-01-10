@@ -106,8 +106,10 @@ release-snapshot:
 # Installing targets
 
 install:
-	sudo rm -f /usr/bin/pcopy
+	sudo rm -f /usr/bin/pcopy /usr/bin/pcp /usr/bin/ppaste
 	sudo cp -a dist/pcopy_linux_amd64/pcopy /usr/bin/pcopy
+	sudo ln -s /usr/bin/pcopy /usr/bin/pcp
+	sudo ln -s /usr/bin/pcopy /usr/bin/ppaste
 
 install-deb:
 	sudo systemctl stop pcopy || true
