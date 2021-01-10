@@ -1,4 +1,6 @@
 #compdef $PROG
+# This script facilitates autocomplete for zsh. It's part of the urfave/cli library (MIT).
+# See https://github.com/urfave/cli/blob/master/docs/v2/manual.md#bash-completion
 
 _cli_zsh_autocomplete() {
 

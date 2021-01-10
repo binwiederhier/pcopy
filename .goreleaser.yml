@@ -17,11 +17,13 @@ nfpms:
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
     homepage: https://heckel.io/pcopy
     maintainer: Philipp C. Heckel <philipp.heckel@gmail.com>
-    description: Cross-machine clipboard application
+    description: Copy/paste across machines
     license: Apache 2.0
     formats:
       - deb
       - rpm
+    suggests:
+      - bash-completion
     bindir: /usr/bin
     empty_folders:
       - /etc/pcopy
@@ -34,6 +36,14 @@ nfpms:
         type: symlink
       - src: /usr/bin/pcopy
         dst: /usr/bin/ppaste
+        type: symlink
+      - src: scripts/autocomplete_bash
+        dst: /etc/bash_completion.d/pcopy
+      - src: /etc/bash_completion.d/pcopy
+        dst: /etc/bash_completion.d/pcp
+        type: symlink
+      - src: /etc/bash_completion.d/pcopy
+        dst: /etc/bash_completion.d/ppaste
         type: symlink
     scripts:
       postinstall: "scripts/postinst.sh"
