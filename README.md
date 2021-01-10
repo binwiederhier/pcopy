@@ -309,4 +309,5 @@ Code and posts that helped:
 * [Human readable file sizes](https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/)
 * [Unzipping files](https://golangcode.com/unzip-files-in-go/)
 * [HTTP server routing](https://benhoyt.com/writings/go-routing/#regex-table)
+* [HTTP server error handling](https://thingsthatkeepmeupatnight.dev/posts/golang-http-handler-errors/)
 * [Google Webfonts Helper](https://google-webfonts-helper.herokuapp.com/)
