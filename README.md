@@ -63,6 +63,8 @@ wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.4/pcopy_0.4.4
 sudo tar -C /usr/bin -zxf pcopy_0.4.4_linux_x86_64.tar.gz pcopy
 ```
 
+After installation, you may want to check out the [Bash/ZSH autocomplete instructions](#bashzsh-autocompletion).
+
 ## Usage
 
 ### Set up a pcopy server
