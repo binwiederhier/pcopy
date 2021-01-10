@@ -77,14 +77,17 @@ type infoResponse struct {
 	Salt       string `json:"salt"`
 }
 
+type handlerFnWithErr func(http.ResponseWriter, *http.Request) error
+
+// route represents a HTTP route (e.g. GET /info), a regex that matches it and its handler
 type route struct {
 	method  string
 	regex   *regexp.Regexp
-	handler http.HandlerFunc
+	handler handlerFnWithErr
 }
 type routeCtx struct{}
 
-func newRoute(method, pattern string, handler http.HandlerFunc) route {
+func newRoute(method, pattern string, handler handlerFnWithErr) route {
 	return route{method, regexp.MustCompile("^" + pattern + "$"), handler}
 }
 
@@ -161,7 +164,13 @@ func (s *server) handle(w http.ResponseWriter, r *http.Request) {
 		matches := route.regex.FindStringSubmatch(r.URL.Path)
 		if len(matches) > 0 && r.Method == route.method {
 			ctx := context.WithValue(r.Context(), routeCtx{}, matches[1:])
-			route.handler(w, r.WithContext(ctx))
+			if err := route.handler(w, r.WithContext(ctx)); err != nil {
+				if e, ok := err.(*errHTTPNotOK); ok {
+					s.fail(w, r, e.code, e)
+				} else {
+					s.fail(w, r, http.StatusInternalServerError, err)
+				}
+			}
 			return
 		}
 	}
@@ -172,7 +181,7 @@ func (s *server) handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	salt := ""
@@ -187,67 +196,63 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
+		return err
 	}
+
+	return nil
 }
 
-func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+	return nil
 }
 
-func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) {
-	if err := webTemplate.Execute(w, s.config); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-	}
+func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
+	return webTemplate.Execute(w, s.config)
 }
 
-func (s *server) handleWebStatic(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleWebStatic(w http.ResponseWriter, r *http.Request) error {
 	r.URL.Path = "/web" + r.URL.Path // This is a hack to get the embedded path
 	http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
+	return nil
 }
 
-func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	file, err := s.getClipboardFile(fields[0])
 	if err != nil {
-		s.fail(w, r, http.StatusBadRequest, err)
-		return
+		return errHTTPBadRequest
 	}
 
 	stat, err := os.Stat(file)
 	if err != nil {
-		s.fail(w, r, http.StatusNotFound, err)
-		return
+		return errHTTPNotFound
 	}
 	w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
 	f, err := os.Open(file)
 	if err != nil {
-		s.fail(w, r, http.StatusNotFound, err)
-		return
+		return errHTTPNotFound
 	}
 	defer f.Close()
 
 	if _, err = io.Copy(w, f); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
+		return err
 	}
+	return nil
 }
 
-func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	file, err := s.getClipboardFile(fields[0])
 	if err != nil {
-		s.fail(w, r, http.StatusBadRequest, err)
-		return
+		return errHTTPBadRequest
 	}
 
 	// Check total file count limit (only if file didn't exist already)
 	stat, _ := os.Stat(file)
 	if stat == nil {
 		if err := s.countLimiter.Add(1); err != nil {
-			s.fail(w, r, http.StatusBadRequest, err)
-			return
+			return errHTTPTooManyRequests
 		}
 	}
 
@@ -255,15 +260,14 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) {
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		s.countLimiter.Sub(1)
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
+		return err
 	}
 	defer f.Close()
 	defer s.updateStatsAndExpire()
 
 	// Handle empty body
 	if r.Body == nil {
-		return
+		return errHTTPBadRequest
 	}
 
 	// Copy file contents (with file limit & total limit)
@@ -271,27 +275,22 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) {
 	limitWriter := newLimitWriter(f, fileSizeLimiter, s.sizeLimiter)
 
 	if _, err := io.Copy(limitWriter, r.Body); err != nil {
+		os.Remove(file)
 		if err == errLimitReached {
-			s.fail(w, r, http.StatusBadRequest, err)
-		} else {
-			s.fail(w, r, http.StatusInternalServerError, err)
+			return errHTTPBadRequest
 		}
-		os.Remove(file)
-		return
+		return err
 	}
-	if r.Body.Close() != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
+	if err := r.Body.Close(); err != nil {
 		os.Remove(file)
-		return
+		return err
 	}
+	return nil
 }
 
-func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-	if err := joinTemplate.Execute(w, s.config); err != nil {
-		s.fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
+	return joinTemplate.Execute(w, s.config)
 }
 
 func (s *server) getClipboardFile(file string) (string, error) {
@@ -303,13 +302,12 @@ func (s *server) getClipboardFile(file string) (string, error) {
 	return fmt.Sprintf("%s/%s", s.config.ClipboardDir, file), nil
 }
 
-func (s *server) auth(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *server) auth(next handlerFnWithErr) handlerFnWithErr {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		if err := s.authorize(r); err != nil {
-			s.fail(w, r, http.StatusUnauthorized, err)
-			return
+			return errHTTPUnauthorized
 		}
-		next.ServeHTTP(w, r)
+		return next(w, r)
 	}
 }
 
@@ -478,21 +476,20 @@ func (s *server) maybeExpire(file os.FileInfo) bool {
 	return true
 }
 
-func (s *server) onlyIfWebUI(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		if !s.config.WebUI {
-			s.fail(w, r, http.StatusBadRequest, errInvalidMethod)
-			return
+			return errHTTPBadRequest
 		}
 
-		next.ServeHTTP(w, r)
+		return next(w, r)
 	}
 }
 
 // limit wraps all HTTP endpoints and limits API use to a certain number of requests per second.
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
-func (s *server) limit(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
 			ip = r.RemoteAddr // This should not happen in real life; only in tests.
@@ -500,11 +497,10 @@ func (s *server) limit(next http.HandlerFunc) http.HandlerFunc {
 
 		limiter := s.getVisitorLimiter(ip)
 		if !limiter.Allow() {
-			s.fail(w, r, http.StatusTooManyRequests, errRateLimitReached)
-			return
+			return errHTTPTooManyRequests
 		}
 
-		next.ServeHTTP(w, r)
+		return next(w, r)
 	}
 }
 
@@ -538,5 +534,18 @@ var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user"
 var errInvalidAuth = errors.New("invalid auth")
 var errInvalidMethod = errors.New("invalid method")
 var errInvalidFileID = errors.New("invalid file id")
-var errRateLimitReached = errors.New("rate limit reached")
 var errNoMatchingRoute = errors.New("no matching route")
+
+type errHTTPNotOK struct {
+	code   int
+	status string
+}
+
+func (e errHTTPNotOK) Error() string {
+	return fmt.Sprintf("http: %s", e.status)
+}
+
+var errHTTPBadRequest = &errHTTPNotOK{http.StatusBadRequest, http.StatusText(http.StatusBadRequest)}
+var errHTTPNotFound = &errHTTPNotOK{http.StatusNotFound, http.StatusText(http.StatusNotFound)}
+var errHTTPTooManyRequests = &errHTTPNotOK{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)}
+var errHTTPUnauthorized = &errHTTPNotOK{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}

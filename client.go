@@ -314,12 +314,3 @@ var errMissingServerAddr = errors.New("server address missing")
 var errResponseBodyEmpty = errors.New("response body was empty")
 var errNoPeerCert = errors.New("no peer cert found")
 var errNoTrustedCertMatch = errors.New("no trusted cert matches")
-
-type errHTTPNotOK struct {
-	code   int
-	status string
-}
-
-func (e errHTTPNotOK) Error() string {
-	return fmt.Sprintf("http: %s", e.status)
-}

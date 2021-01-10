@@ -253,7 +253,7 @@ func TestServer_HandleClipboardPutManySmallFailed(t *testing.T) {
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file3", strings.NewReader("yet another one"))
 	server.handle(rr, req)
-	assertStatus(t, rr, http.StatusBadRequest)
+	assertStatus(t, rr, http.StatusTooManyRequests)
 	assertNotExists(t, config, "file3")
 }
 
