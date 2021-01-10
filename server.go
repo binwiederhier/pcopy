@@ -305,7 +305,7 @@ func (s *server) getClipboardFile(file string) (string, error) {
 func (s *server) auth(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if err := s.authorize(r); err != nil {
-			return errHTTPUnauthorized
+			return err
 		}
 		return next(w, r)
 	}
@@ -321,7 +321,7 @@ func (s *server) authorize(r *http.Request) error {
 		queryAuth, err := base64.StdEncoding.DecodeString(encodedQueryAuth[0])
 		if err != nil {
 			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
-			return errInvalidAuth
+			return errHTTPUnauthorized
 		}
 		auth = string(queryAuth)
 	}
@@ -332,7 +332,7 @@ func (s *server) authorize(r *http.Request) error {
 		return s.authorizeBasic(r, m)
 	} else {
 		log.Printf("%s - %s %s - auth header missing", r.RemoteAddr, r.Method, r.RequestURI)
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 }
 
@@ -340,19 +340,19 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac timestamp conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 
 	ttlSecs, err := strconv.Atoi(matches[2])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac ttl conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 
 	hash, err := base64.StdEncoding.DecodeString(matches[3])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 
 	// Recalculate HMAC
@@ -360,14 +360,14 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
 		log.Printf("%s - %s %s - hmac calculation: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 	rehash := hm.Sum(nil)
 
 	// Compare HMAC in constant time (to prevent timing attacks)
 	if subtle.ConstantTimeCompare(hash, rehash) != 1 {
 		log.Printf("%s - %s %s - hmac invalid", r.RemoteAddr, r.Method, r.RequestURI)
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 
 	// Compare timestamp (to prevent replay attacks)
@@ -379,7 +379,7 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 		age := time.Since(time.Unix(int64(timestamp), 0))
 		if age > maxAge {
 			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
-			return errInvalidAuth
+			return errHTTPUnauthorized
 		}
 	}
 
@@ -390,13 +390,13 @@ func (s *server) authorizeBasic(r *http.Request, matches []string) error {
 	userPassBytes, err := base64.StdEncoding.DecodeString(matches[1])
 	if err != nil {
 		log.Printf("%s - %s %s - basic base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 
 	userPassParts := strings.Split(string(userPassBytes), ":")
 	if len(userPassParts) != 2 {
 		log.Printf("%s - %s %s - basic invalid user/pass format", r.RemoteAddr, r.Method, r.RequestURI)
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 	passwordBytes := []byte(userPassParts[1])
 
@@ -404,7 +404,7 @@ func (s *server) authorizeBasic(r *http.Request, matches []string) error {
 	key := DeriveKey(passwordBytes, s.config.Key.Salt)
 	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
 		log.Printf("%s - %s %s - basic invalid", r.RemoteAddr, r.Method, r.RequestURI)
-		return errInvalidAuth
+		return errHTTPUnauthorized
 	}
 
 	return nil
@@ -527,15 +527,6 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err erro
 	w.Write([]byte(http.StatusText(code)))
 }
 
-var errListenAddrMissing = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
-var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
-var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
-var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
-var errInvalidAuth = errors.New("invalid auth")
-var errInvalidMethod = errors.New("invalid method")
-var errInvalidFileID = errors.New("invalid file id")
-var errNoMatchingRoute = errors.New("no matching route")
-
 type errHTTPNotOK struct {
 	code   int
 	status string
@@ -545,6 +536,12 @@ func (e errHTTPNotOK) Error() string {
 	return fmt.Sprintf("http: %s", e.status)
 }
 
+var errListenAddrMissing = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
+var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
+var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
+var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
+var errInvalidFileID = errors.New("invalid file id")
+var errNoMatchingRoute = errors.New("no matching route")
 var errHTTPBadRequest = &errHTTPNotOK{http.StatusBadRequest, http.StatusText(http.StatusBadRequest)}
 var errHTTPNotFound = &errHTTPNotOK{http.StatusNotFound, http.StatusText(http.StatusNotFound)}
 var errHTTPTooManyRequests = &errHTTPNotOK{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)}
