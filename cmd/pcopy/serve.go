@@ -24,12 +24,12 @@ var cmdServe = &cli.Command{
 The command will load a the clipboard config from ~/.config/pcopy/server.conf or
 /etc/pcopy/server.conf. Config options can be overridden using the command line options.
 
-To generate a new config file, you may want to use the 'pcopy setup-server' command.
+To generate a new config file, you may want to use the 'pcopy setup' command.
 
 Examples:
-  pcopy serve                 # Starts server in the foreground
-  pcopy serve -listen :9999   # Starts server with alternate port
-  PCOPY_KEY=.. pcopy serve    # Starts server with alternate key (see 'pcopy keygen')
+  pcopy serve                  # Starts server in the foreground
+  pcopy serve --listen :9999   # Starts server with alternate port
+  PCOPY_KEY=.. pcopy serve     # Starts server with alternate key (see 'pcopy keygen')
 
 To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
 }

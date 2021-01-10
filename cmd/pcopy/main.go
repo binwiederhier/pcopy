@@ -23,7 +23,7 @@ func main() {
 Try 'pcopy COMMAND -help' for more information.
 
 pcopy %s (%s), runtime %s, built at %s
-Copyright (C) 2020 Philipp C. Heckel, distributed under the Apache License 2.0
+Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0
 `, version, commit[:7], runtime.Version(), date)
 
 	app := &cli.App{
@@ -35,8 +35,6 @@ Copyright (C) 2020 Philipp C. Heckel, distributed under the Apache License 2.0
 		HideVersion:            true,
 		EnableBashCompletion:   true,
 		UseShortOptionHandling: true,
-		//CustomAppHelpTemplate: helpTemplate(),
-		// Compiled: time.Now(),
 		Commands: []*cli.Command{
 			// Client commands
 			cmdCopy,

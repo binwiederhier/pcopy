@@ -71,12 +71,12 @@ func execJoin(c *cli.Context) error {
 		ServerAddr: serverAddr,
 	})
 	if err != nil {
-		fail(err)
+		return err
 	}
 
 	info, err := client.Info()
 	if err != nil {
-		fail(err)
+		return err
 	}
 
 	// Override server address if set (server advertised a specific address)
@@ -92,14 +92,17 @@ func execJoin(c *cli.Context) error {
 		if envKey != "" {
 			key, err = pcopy.DecodeKey(envKey)
 			if err != nil {
-				fail(err)
+				return err
 			}
 		} else {
-			password := readPassword()
+			password, err := readPassword()
+			if err != nil {
+				return err
+			}
 			key = pcopy.DeriveKey(password, info.Salt)
 			err = client.Verify(info.Cert, key)
 			if err != nil {
-				fail(fmt.Errorf("failed to join clipboard: %s", err.Error()))
+				return fmt.Errorf("failed to join clipboard: %s", err.Error())
 			}
 		}
 	}
@@ -110,7 +113,7 @@ func execJoin(c *cli.Context) error {
 		Key:        key, // May be nil, but that's ok
 	}
 	if err := config.WriteFile(configFile); err != nil {
-		fail(err)
+		return err
 	}
 
 	// Write self-signed cert (only if Verify didn't work with secure client)
@@ -118,10 +121,10 @@ func execJoin(c *cli.Context) error {
 		certFile := pcopy.DefaultCertFile(configFile, false)
 		certsEncoded, err := pcopy.EncodeCert(info.Cert)
 		if err != nil {
-			fail(err)
+			return err
 		}
 		if err := ioutil.WriteFile(certFile, certsEncoded, 0644); err != nil {
-			fail(err)
+			return err
 		}
 	}
 
@@ -132,14 +135,14 @@ func execJoin(c *cli.Context) error {
 	return nil
 }
 
-func readPassword() []byte {
+func readPassword() ([]byte, error) {
 	fmt.Print("Enter password to join clipboard: ")
 	password, err := term.ReadPassword(syscall.Stdin)
 	if err != nil {
-		fail(err)
+		return nil, err
 	}
 	fmt.Print("\r")
-	return password
+	return password, nil
 }
 
 func printInstructions(configFile string, clipboard string, info *pcopy.ServerInfo) {

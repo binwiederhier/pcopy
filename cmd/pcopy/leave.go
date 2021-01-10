@@ -20,13 +20,14 @@ The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.con
 
 Examples:
   pcopy leave           # Leaves the default clipboard
-  pcopy leave work      # Leaves the clipboard called 'work'
-`,
+  pcopy leave work      # Leaves the clipboard called 'work'`,
 }
 
 func execLeave(c *cli.Context) error {
-	configFile, clipboard, config := parseLeaveArgs(c)
-
+	configFile, clipboard, config, err := parseLeaveArgs(c)
+	if err != nil {
+		return err
+	}
 	if configFile == "" {
 		return fmt.Errorf("clipboard '%s' does not exist", clipboard)
 	}
@@ -36,7 +37,7 @@ func execLeave(c *cli.Context) error {
 	if config.CertFile != "" {
 		if _, err := os.Stat(config.CertFile); err == nil {
 			if err := os.Remove(config.CertFile); err != nil {
-				fail(err)
+				return err
 			}
 		}
 	}
@@ -45,7 +46,7 @@ func execLeave(c *cli.Context) error {
 	return nil
 }
 
-func parseLeaveArgs(c *cli.Context) (string, string, *pcopy.Config) {
+func parseLeaveArgs(c *cli.Context) (string, string, *pcopy.Config, error) {
 	configFileOverride := c.String("config")
 
 	// Parse clipboard and file
@@ -57,7 +58,7 @@ func parseLeaveArgs(c *cli.Context) (string, string, *pcopy.Config) {
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
 	if err != nil {
-		fail(err)
+		return "", "", nil, err
 	}
 
 	// Load defaults
@@ -65,5 +66,5 @@ func parseLeaveArgs(c *cli.Context) (string, string, *pcopy.Config) {
 		config.CertFile = pcopy.DefaultCertFile(configFile, true)
 	}
 
-	return configFile, clipboard, config
+	return configFile, clipboard, config, nil
 }

@@ -14,37 +14,74 @@ import (
 )
 
 var cmdCopy = &cli.Command{
-	Name:        "copy",
-	Usage:       "Read from STDIN/file(s) and copy to remote clipboard",
-	UsageText:   "pcp [OPTIONS..] [[CLIPBOARD]:[ID]] [FILE..]",
-	Action:      execCopy,
-	Description: descriptionCopy,
-	Category:    categoryClient,
+	Name:  "copy",
+	Usage: "Read from STDIN/file(s) and copy to remote clipboard",
+	UsageText: `pcopy copy [OPTIONS..] [[CLIPBOARD]:[ID]] [FILE..]
+   pcp [OPTIONS..] [[CLIPBOARD]:[ID]] [FILE..]`,
+	Action:   execCopy,
+	Category: categoryClient,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file (default is based on clipboard name)"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file"},
 		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "server address"},
 		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "certificate file to use for cert pinning"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
 	},
+	Description: `Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is
+the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
+
+If FILE arguments are passed, the command creates a ZIP archive of the passed files and copies
+it to the remote clipboard.
+
+The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or
+/etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.
+
+Examples:
+  pcp < foo.txt            # Copies contents of foo.txt to the default clipboard
+  pcp bar < bar.txt        # Copies contents of bar.txt to the default clipboard as 'bar'
+  echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
+  echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
+  pcp : img1/ img2/        # Creates ZIP from two folders and copies it to the default clipboard
+
+To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
 }
 
 var cmdPaste = &cli.Command{
-	Name:        "paste",
-	Usage:       "Write remote clipboard contents to STDOUT/file(s)",
-	UsageText:   "ppaste [OPTIONS..] [[CLIPBOARD]:[ID]] [DIR]",
-	Action:      execPaste,
-	Description: descriptionPaste,
-	Category:    categoryClient,
+	Name:  "paste",
+	Usage: "Write remote clipboard contents to STDOUT/file(s)",
+	UsageText: `pcopy paste [OPTIONS..] [[CLIPBOARD]:[ID]] [DIR]
+   ppaste [OPTIONS..] [[CLIPBOARD]:[ID]] [DIR]`,
+	Action:   execPaste,
+	Category: categoryClient,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file (default is based on clipboard name)"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file"},
 		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "server address"},
 		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "certificate file to use for cert pinning"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
 	},
+	Description: `Without DIR argument, this command write the remote clipboard contents to STDOUT. ID is the
+remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
+
+If a DIR argument are passed, the command will assume the clipboard contents are a ZIP archive
+and will extract its contents for DIR. If DIR does not exist, it will be created.
+
+The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or
+/etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.
+
+Examples:
+  ppaste                   # Reads from the default clipboard and prints its contents
+  ppaste bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'
+  ppaste work:             # Reads from the 'work' clipboard and prints its contents
+  ppaste work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'
+  ppaste : images/         # Extracts ZIP from default clipboard to folder images/
+
+To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
 }
 
 func execCopy(c *cli.Context) error {
-	config, id, files := parseClientArgs(c)
+	config, id, files, err := parseClientArgs(c)
+	if err != nil {
+		return err
+	}
 	client, err := pcopy.NewClient(config)
 	if err != nil {
 		return err
@@ -91,7 +128,10 @@ func createInteractiveReader() io.ReadCloser {
 }
 
 func execPaste(c *cli.Context) error {
-	config, id, files := parseClientArgs(c)
+	config, id, files, err := parseClientArgs(c)
+	if err != nil {
+		return err
+	}
 	client, err := pcopy.NewClient(config)
 	if err != nil {
 		return err
@@ -108,19 +148,22 @@ func execPaste(c *cli.Context) error {
 	return nil
 }
 
-func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string) {
+func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string, error) {
 	configFileOverride := c.String("config")
 	certFile := c.String("cert")
 	serverAddr := c.String("server")
 	quiet := c.Bool("quiet")
 
 	// Parse clipboard, id and files
-	clipboard, id, files := parseClipboardIDAndFiles(c.Args(), configFileOverride)
+	clipboard, id, files, err := parseClipboardIDAndFiles(c.Args(), configFileOverride)
+	if err != nil {
+		return nil, "", nil, err
+	}
 
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
 	if err != nil {
-		fail(err)
+		return nil, "", nil, err
 	}
 
 	// Load defaults
@@ -141,44 +184,48 @@ func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string) {
 	if os.Getenv("PCOPY_KEY") != "" {
 		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
 		if err != nil {
-			fail(err)
+			return nil, "", nil, err
 		}
 	}
 
-	return config, id, files
+	return config, id, files, nil
 }
 
-func parseClipboardIDAndFiles(args cli.Args, configFileOverride string) (string, string, []string) {
+func parseClipboardIDAndFiles(args cli.Args, configFileOverride string) (string, string, []string, error) {
 	clipboard := pcopy.DefaultClipboard
 	id := pcopy.DefaultID
 	files := make([]string, 0)
 	if args.Len() > 0 {
-		clipboard, id = parseClipboardAndID(args.Get(0), configFileOverride)
+		var err error
+		clipboard, id, err = parseClipboardAndID(args.Get(0), configFileOverride)
+		if err != nil {
+			return "", "", nil, err
+		}
 	}
 	if args.Len() > 1 {
 		files = args.Slice()[1:]
 	}
-	return clipboard, id, files
+	return clipboard, id, files, nil
 }
 
-func parseClipboardAndID(clipboardAndID string, configFileOverride string) (string, string) {
+func parseClipboardAndID(clipboardAndID string, configFileOverride string) (string, string, error) {
 	clipboard := pcopy.DefaultClipboard
 	id := pcopy.DefaultID
 	re := regexp.MustCompile(`^(?i)(?:([-_a-z0-9]*):)?(|[a-z0-9][-_.a-z0-9]*)$`)
 	parts := re.FindStringSubmatch(clipboardAndID)
 	if len(parts) != 3 {
-		fail(errors.New("invalid argument, must be in format [CLIPBOARD:]ID"))
+		return "", "", errors.New("invalid argument, must be in format [CLIPBOARD:]ID")
 	}
 	if parts[1] != "" {
 		if configFileOverride != "" {
-			fail(errors.New("invalid argument, -config cannot be set when clipboard is given"))
+			return "", "", errors.New("invalid argument, -config cannot be set when clipboard is given")
 		}
 		clipboard = parts[1]
 	}
 	if parts[2] != "" {
 		id = parts[2]
 	}
-	return clipboard, id
+	return clipboard, id, nil
 }
 
 var previousProgressLen int
@@ -209,41 +256,3 @@ func progressOutput(processed int64, total int64, done bool) {
 		previousProgressLen = len(progress)
 	}
 }
-
-var descriptionCopy = `Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is
-the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
-
-If FILE arguments are passed, the command creates a ZIP archive of the passed files and copies
-it to the remote clipboard.
-
-The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or
-/etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.
-
-Examples:
-  pcp < foo.txt            # Copies contents of foo.txt to the default clipboard
-  pcp bar < bar.txt        # Copies contents of bar.txt to the default clipboard as 'bar'
-  echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
-  echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
-  pcp : img1/ img2/        # Creates ZIP from two folders and copies it to the default clipboard
-
-To override or specify the remote server key, you may pass the PCOPY_KEY variable.
-`
-
-var descriptionPaste = `Without DIR argument, this command write the remote clipboard contents to STDOUT. ID is the
-remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
-
-If a DIR argument are passed, the command will assume the clipboard contents are a ZIP archive
-and will extract its contents for DIR. If DIR does not exist, it will be created.
-
-The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or
-/etc/pcopy/$CLIPBOARD.conf. Config options can be overridden using the command line options.
-
-Examples:
-  ppaste                   # Reads from the default clipboard and prints its contents
-  ppaste bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'
-  ppaste work:             # Reads from the 'work' clipboard and prints its contents
-  ppaste work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'
-  ppaste : images/         # Extracts ZIP from default clipboard to folder images/
-
-To override or specify the remote server key, you may pass the PCOPY_KEY variable.
-`

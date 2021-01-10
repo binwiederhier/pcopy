@@ -19,8 +19,7 @@ The output of the command can be pasted into the 'server.conf' file to secure a 
 passed via the PCOPY_KEY environment variables to commands that support it.
 
 Examples:
-  pcopy keygen    # Asks for password and generates key
-`,
+  pcopy keygen    # Asks for password and generates key`,
 }
 
 func execKeygen(c *cli.Context) error {

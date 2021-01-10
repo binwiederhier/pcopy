@@ -2,13 +2,11 @@ package main
 
 import (
 	"crypto/x509"
-	"flag"
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -36,31 +34,38 @@ Examples:")
 }
 
 func execInvite(c *cli.Context) error {
-	configFile, config, clipboard, ttl := parseInviteArgs(c)
+	configFile, config, clipboard, ttl, err := parseInviteArgs(c)
+	if err != nil {
+		return err
+	}
 
 	if configFile == "" {
-		fail(fmt.Errorf("clipboard '%s' does not exist", clipboard))
+		return fmt.Errorf("clipboard '%s' does not exist", clipboard)
 	}
 	var cert *x509.Certificate
 	if config.CertFile != "" {
 		if _, err := os.Stat(config.CertFile); err == nil {
 			cert, err = pcopy.LoadCertFromFile(config.CertFile)
 			if err != nil {
-				fail(err)
+				return err
 			}
 		}
 	}
 
-	fmt.Printf("# Instructions for clipboard '%s'\n", clipboard)
+	curl, err := curlCommand("join", config, cert, ttl)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("# Join clipboard %s (%s) on other computers\n", clipboard, config.ServerAddr)
 	fmt.Println()
-	fmt.Println("# Join this clipboard on other computers:")
-	fmt.Printf("%s | sh\n", curlCommand("join", config, cert, ttl))
+	fmt.Printf("%s | sh\n", curl)
 	fmt.Println()
 
 	return nil
 }
 
-func parseInviteArgs(c *cli.Context) (string, *pcopy.Config, string, time.Duration) {
+func parseInviteArgs(c *cli.Context) (string, *pcopy.Config, string, time.Duration, error) {
 	configFileOverride := c.String("config")
 	ttl := c.Duration("ttl")
 
@@ -73,7 +78,7 @@ func parseInviteArgs(c *cli.Context) (string, *pcopy.Config, string, time.Durati
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
 	if err != nil {
-		fail(err)
+		return "", nil, "", 0, err
 	}
 
 	// Load defaults
@@ -81,10 +86,10 @@ func parseInviteArgs(c *cli.Context) (string, *pcopy.Config, string, time.Durati
 		config.CertFile = pcopy.DefaultCertFile(configFile, true)
 	}
 
-	return configFile, config, clipboard, ttl
+	return configFile, config, clipboard, ttl, nil
 }
 
-func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl time.Duration) string {
+func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl time.Duration) (string, error) {
 	args := make([]string, 0)
 	if cert == nil {
 		args = append(args, "-sSL")
@@ -99,28 +104,7 @@ func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl t
 	path := fmt.Sprintf("/%s", cmd)
 	url, err := pcopy.GenerateURL(config, path, ttl)
 	if err != nil {
-		fail(err)
+		return "", err
 	}
-	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url)
-}
-
-func showInviteUsage(flags *flag.FlagSet) {
-	eprintln("Usage: pcopy invite [OPTIONS..] [CLIPBOARD]")
-	eprintln()
-	eprintln("Description:")
-	eprintln("  Generates commands that can be shared with others so they can easily install")
-	eprintln("  pcopy, and/or join this clipboard. CLIPBOARD is the name of the clipboard for")
-	eprintln("  which to generates the commands (default is 'default').")
-	eprintln()
-	eprintln("  The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or")
-	eprintln("  /etc/pcopy/$CLIPBOARD.conf. If not config exists, it will fail.")
-	eprintln()
-	eprintln("Examples:")
-	eprintln("  pcopy invite          # Generates commands for the default clipboard")
-	eprintln("  pcopy invite -ttl 1h  # Generates commands for the default clipboard, valid for only 1h")
-	eprintln("  pcopy invite work     # Generates commands for the clipboard called 'work'")
-	eprintln()
-	eprintln("Options:")
-	flags.PrintDefaults()
-	syscall.Exit(1)
+	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url), nil
 }
