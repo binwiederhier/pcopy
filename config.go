@@ -3,9 +3,11 @@ package pcopy
 import (
 	"bufio"
 	_ "embed" // Required for go:embed instructions
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -137,6 +139,27 @@ func (c *Config) WriteFile(filename string) error {
 	}
 
 	return nil
+}
+
+// GenerateURL generates a URL for the given path. If the clipboard is password-protected, an auth parameter is
+// added and the URL will only be valid for the given TTL.
+func (c *Config) GenerateURL(path string, ttl time.Duration) (string, error) {
+	url := fmt.Sprintf("https://%s%s", ExpandServerAddr(c.ServerAddr), path)
+	if c.Key != nil {
+		auth, err := GenerateAuthHMAC(c.Key.Bytes, http.MethodGet, path, ttl)
+		if err != nil {
+			return "", err
+		}
+		url = fmt.Sprintf("%s?%s=%s", url, authOverrideParam, base64.StdEncoding.EncodeToString([]byte(auth)))
+	}
+	return url, nil
+}
+
+// GenerateClipURL generates a URL for the clipboard entry with the given ID. If the clipboard is password-protected,
+// an auth parameter is added and the URL will only be valid for the given TTL.
+func (c *Config) GenerateClipURL(id string, ttl time.Duration) (string, error) {
+	path := fmt.Sprintf(clipboardPathFormat, id)
+	return c.GenerateURL(path, ttl)
 }
 
 // FindConfigFile returns the path to the config file for the clipboard with the given name.

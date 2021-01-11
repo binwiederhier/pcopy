@@ -13,6 +13,27 @@ func TestExpandHome_NoTilde(t *testing.T) {
 	assertStrEquals(t, "/this/is/an/absolute/path", ExpandHome("/this/is/an/absolute/path"))
 }
 
+func TestCollapseHome_HasHomePrefix(t *testing.T) {
+	assertStrEquals(t, "~/this/is/a/path", CollapseHome(os.Getenv("HOME")+"/this/is/a/path"))
+}
+
+func TestCollapseHome_NoHomePrefix(t *testing.T) {
+	assertStrEquals(t, "/this/is/an/absolute/path", CollapseHome("/this/is/an/absolute/path"))
+}
+
+func TestBytesToHuman_Small(t *testing.T) {
+	assertStrEquals(t, "10 B", BytesToHuman(10))
+}
+
+func TestBytesToHuman_Large(t *testing.T) {
+	assertStrEquals(t, "10.1 MB", BytesToHuman(10590617))
+}
+
+func TestCommonPrefix_Empty(t *testing.T) {
+	var paths []string
+	assertStrEquals(t, "", commonPrefix(paths))
+}
+
 func TestCommonPrefix_1(t *testing.T) {
 	paths := []string{
 		"/home/phil/code/pcopy/go.mod",
@@ -42,6 +63,16 @@ func TestCommonPrefix_SingleFile(t *testing.T) {
 		"/home/phil/code/pcopy",
 	}
 	assertStrEquals(t, "/home/phil/code/pcopy", commonPrefix(paths))
+}
+
+func TestRelativizePaths_Empty(t *testing.T) {
+	var files []string
+	baseDir, relativeFiles, err := relativizeFiles(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "", baseDir)
+	assertInt64Equals(t, 0, int64(len(relativeFiles)))
 }
 
 func TestRelativizePaths_AbsFilesOnly(t *testing.T) {

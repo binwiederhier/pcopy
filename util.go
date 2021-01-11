@@ -3,13 +3,11 @@ package pcopy
 import (
 	"encoding/base64"
 	"fmt"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 )
 
 var templateFnMap = template.FuncMap{
@@ -30,27 +28,6 @@ func CollapseHome(path string) string {
 		return fmt.Sprintf("~%s", strings.TrimPrefix(path, home))
 	}
 	return path
-}
-
-// GenerateURL generates a URL for the given path. If the clipboard is password-protected, an auth parameter is
-// added and the URL will only be valid for the given TTL.
-func GenerateURL(config *Config, path string, ttl time.Duration) (string, error) {
-	url := fmt.Sprintf("https://%s%s", config.ServerAddr, path)
-	if config.Key != nil {
-		auth, err := GenerateAuthHMAC(config.Key.Bytes, http.MethodGet, path, ttl)
-		if err != nil {
-			return "", err
-		}
-		url = fmt.Sprintf("%s?%s=%s", url, authOverrideParam, base64.StdEncoding.EncodeToString([]byte(auth)))
-	}
-	return url, nil
-}
-
-// GenerateClipURL generates a URL for the clipboard entry with the given ID. If the clipboard is password-protected,
-// an auth parameter is added and the URL will only be valid for the given TTL.
-func GenerateClipURL(config *Config, id string, ttl time.Duration) (string, error) {
-	path := fmt.Sprintf(clipboardPathFormat, id)
-	return GenerateURL(config, path, ttl)
 }
 
 // BytesToHuman converts bytes to human readable format, e.g. 10 KB or 10.8 MB

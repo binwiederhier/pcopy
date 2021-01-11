@@ -34,7 +34,7 @@ func execLink(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	url, err := pcopy.GenerateClipURL(config, id, ttl)
+	url, err := config.GenerateClipURL(id, ttl)
 	if err != nil {
 		return err
 	}

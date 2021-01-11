@@ -142,6 +142,43 @@ func TestCollapseServerAddr_NoCollapse(t *testing.T) {
 	}
 }
 
+func TestConfig_GenerateURLUnprotected(t *testing.T) {
+	config := newConfig()
+	config.ServerAddr = "some-host.com"
+
+	url, err := config.GenerateURL("/some-path", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "https://some-host.com:2586/some-path", url)
+}
+
+func TestConfig_GenerateURLProtected(t *testing.T) {
+	config := newConfig()
+	config.ServerAddr = "some-host.com"
+	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
+
+	url, err := config.GenerateURL("/some-path", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(url, "https://some-host.com:2586/some-path?a=SE1BQyA") {
+		t.Fatalf("expected URL mismatched, got %s", url)
+	}
+	// TODO This should actually validate the HMAC, but the authorize() method is in server.go
+}
+
+func TestConfig_GenerateClipURLUnprotected(t *testing.T) {
+	config := newConfig()
+	config.ServerAddr = "some-host.com"
+
+	url, err := config.GenerateClipURL("some-id", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "https://some-host.com:2586/some-id", url)
+}
+
 func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config := newConfig()
 	config.ServerAddr = "some-host.com"

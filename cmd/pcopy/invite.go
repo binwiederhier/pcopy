@@ -102,7 +102,7 @@ func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl t
 		}
 	}
 	path := fmt.Sprintf("/%s", cmd)
-	url, err := pcopy.GenerateURL(config, path, ttl)
+	url, err := config.GenerateURL(path, ttl)
 	if err != nil {
 		return "", err
 	}
