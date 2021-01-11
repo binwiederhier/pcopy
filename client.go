@@ -41,7 +41,7 @@ func NewClient(config *Config) (*Client, error) {
 
 // Copy streams the data from reader to the server via a HTTP PUT request. The id parameter
 // is the file identifier that can be used to paste the data later using Paste.
-func (c *Client) Copy(reader io.ReadCloser, id string) error {
+func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
 	client, err := c.newHTTPClient(nil)
 	if err != nil {
 		return err
@@ -56,6 +56,9 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 	if err := c.addAuthHeader(req, nil); err != nil {
 		return err
 	}
+	if stream {
+		req.Header.Set("Content-Type", "inode/fifo")
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -69,12 +72,12 @@ func (c *Client) Copy(reader io.ReadCloser, id string) error {
 
 // CopyFiles creates a ZIP archive of the given files and streams it to the server using the Copy
 // method. No temporary ZIP archive is created on disk. It's all streamed.
-func (c *Client) CopyFiles(files []string, id string) error {
+func (c *Client) CopyFiles(files []string, id string, stream bool) error {
 	zipReader, err := createZipReader(files)
 	if err != nil {
 		return err
 	}
-	return c.Copy(zipReader, id)
+	return c.Copy(zipReader, id, stream)
 }
 
 // Paste reads the file with the given id from the server and writes it to writer.

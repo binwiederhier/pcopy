@@ -12,12 +12,12 @@ var cmdServe = &cli.Command{
 	Action:   execServe,
 	Category: categoryServer,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file (default is based on clipboard name)"},
-		&cli.StringFlag{Name: "listen", Aliases: []string{"l"}, Usage: "address and port to use to bind the server"},
-		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "server address to be advertised to clients"},
-		&cli.StringFlag{Name: "key", Aliases: []string{"K"}, Usage: "private key file for TLS connections"},
-		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "certificate file for TLS connections"},
-		&cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Usage: "clipboard directory"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
+		&cli.StringFlag{Name: "listen", Aliases: []string{"l"}, Usage: "set bind address to `[ADDR]:PORT`"},
+		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "set server address to be advertised to clients to `ADDR[:PORT]` (default port: 2586)"},
+		&cli.StringFlag{Name: "key", Aliases: []string{"K"}, Usage: "set private key file for TLS connections to `KEY`"},
+		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "set certificate file for TLS connections to `CERT`"},
+		&cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Usage: "set clipboard directory to keep clipboard contents to `DIR`"},
 	},
 	Description: `Start pcopy server and listen for incoming requests.
 

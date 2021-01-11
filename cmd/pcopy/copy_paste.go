@@ -21,10 +21,11 @@ var cmdCopy = &cli.Command{
 	Action:   execCopy,
 	Category: categoryClient,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file"},
-		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "server address"},
-		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "certificate file to use for cert pinning"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
+		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "load certificate file `CERT` to use for cert pinning"},
+		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
+		&cli.BoolFlag{Name: "stream", Aliases: []string{"S"}, Usage: "stream data to other client via fifo device"},
 	},
 	Description: `Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is
 the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
@@ -41,6 +42,7 @@ Examples:
   echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
   echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
   pcp : img1/ img2/        # Creates ZIP from two folders and copies it to the default clipboard
+  yes | pcp --stream       # Stream contents to the other end via FIFO device
 
 To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
 }
@@ -53,9 +55,9 @@ var cmdPaste = &cli.Command{
 	Action:   execPaste,
 	Category: categoryClient,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file"},
-		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "server address"},
-		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "certificate file to use for cert pinning"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
+		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "load certificate file `CERT` to use for cert pinning"},
+		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
 	},
 	Description: `Without DIR argument, this command write the remote clipboard contents to STDOUT. ID is the
@@ -86,9 +88,10 @@ func execCopy(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	stream := c.Bool("stream")
 
 	if len(files) > 0 {
-		if err := client.CopyFiles(files, id); err != nil {
+		if err := client.CopyFiles(files, id, stream); err != nil {
 			return err
 		}
 	} else {
@@ -104,7 +107,7 @@ func execCopy(c *cli.Context) error {
 			reader = createInteractiveReader()
 		}
 
-		if err := client.Copy(reader, id); err != nil {
+		if err := client.Copy(reader, id, stream); err != nil {
 			return err
 		}
 	}

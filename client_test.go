@@ -28,7 +28,7 @@ func TestClient_CopyNoAuthSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := client.Copy(ioutil.NopCloser(strings.NewReader("something")), "default"); err != nil {
+	if err := client.Copy(ioutil.NopCloser(strings.NewReader("something")), "default", false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -48,7 +48,7 @@ func TestClient_CopyWithHMACAuthSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := client.Copy(ioutil.NopCloser(strings.NewReader("blabla")), "hi-there"); err != nil {
+	if err := client.Copy(ioutil.NopCloser(strings.NewReader("blabla")), "hi-there", false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -87,7 +87,7 @@ func TestClient_CopyFilesSuccess(t *testing.T) {
 	ioutil.WriteFile(file2, []byte("file content 2"), 0700)
 
 	files := []string{file1, dir1}
-	if err := client.CopyFiles(files, "a-few-files"); err != nil {
+	if err := client.CopyFiles(files, "a-few-files", false); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -14,8 +14,8 @@ var cmdLink = &cli.Command{
 	Action:    execLink,
 	Category:  categoryClient,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "alternate config file (default is based on clipboard name)"},
-		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Usage: "duration the link is valid for, only protected clipboards"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
+		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Usage: "set duration the link is valid for to `TTL` (only protected)"},
 	},
 	Description: `Generates a link for the given clipboard file that can be used to share
 with others.

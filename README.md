@@ -151,6 +151,19 @@ curl -u:demo -T germany.jpg https://heckel.io:2586/germany
 curl -u:demo https://heckel.io:2586/hi-there
 ```
 
+### Streaming contents (without storing them on server)
+If you have particularly large files to send across, and you know you only want to send them to exactly one server,
+you can use ` pcp --stream`. It creates a FIFO device (`mkfifo`) on the server side, and will wait until a reading
+client (`ppaste` or `curl ..`) is connected before sending.
+
+```bash
+# On machine 1
+yes | pcp --stream    # Will block until 'machine 2' is connected
+
+# On machine 2
+ppaste | pv > /dev/null
+``` 
+
 ### Direct temporary links to clipboard content (with TTL/expiration)
 You can generate temporary links to clipboard entries with `pcopy link`. You can send this link to someone and they
 can download the clipboard content without downloading the client or using any command line tools:

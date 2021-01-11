@@ -238,6 +238,9 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 	if _, err = io.Copy(w, f); err != nil {
 		return err
 	}
+	if stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
+		os.Remove(file)
+	}
 	return nil
 }
 
@@ -253,6 +256,15 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if stat == nil {
 		if err := s.countLimiter.Add(1); err != nil {
 			return errHTTPTooManyRequests
+		}
+	}
+
+	// Make fifo device instead of file if type is set to "fifo"
+	if r.Header.Get("Content-Type") == "inode/fifo" || r.URL.Query().Get("t") == "fifo" {
+		os.Remove(file)
+		if err := unix.Mkfifo(file, 0600); err != nil {
+			s.countLimiter.Sub(1)
+			return err
 		}
 	}
 
