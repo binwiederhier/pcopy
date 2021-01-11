@@ -1,4 +1,4 @@
-{{- /*gotype: heckel.io/pcopy.Config*/ -}}
+{{- /*gotype: heckel.io/pcopy.webTemplateConfig*/ -}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -104,11 +104,13 @@
         KeySalt: "{{.Key.Salt | encodeBase64}}",
         KeyDerivIter: {{.KeyDerivIter}},
         KeyLenBytes: {{.KeyLenBytes}},
-        FileExpireAfter: {{.FileExpireAfter.Seconds}}
+        FileExpireAfter: {{.FileExpireAfter.Seconds}},
+        CurlPinnedPubKey: "{{.CurlPinnedPubKey}}"
     }
     {{else}}
     let config = {
-        FileExpireAfter: {{.FileExpireAfter.Seconds}}
+        FileExpireAfter: {{.FileExpireAfter.Seconds}},
+        CurlPinnedPubKey: "{{.CurlPinnedPubKey}}"
     }
     {{end}}
 </script>

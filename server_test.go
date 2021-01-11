@@ -410,7 +410,7 @@ func TestServer_AuthorizeHmacFailureWrongKeyProtected(t *testing.T) {
 	server := newTestServer(t, config)
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	hmac, _ := GenerateAuthHMAC(make([]byte, config.KeyLenBytes), "GET", "/", time.Minute)
+	hmac, _ := GenerateAuthHMAC(make([]byte, 32), "GET", "/", time.Minute)
 	req.Header.Set("Authorization", hmac)
 	if err := server.authorize(req); err != errHTTPUnauthorized {
 		t.Fatalf("expected invalid auth, got %#v", err)

@@ -217,12 +217,13 @@ function showInfoUploadFinished(fileId, url, path, key) {
     infoCommandPpaste.value = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
     if (key) {
         let authParam = generateAuthHMACParam(key, 'GET', path)
-        let directLink = `${url}?a=${authParam}`
-        infoDirectLink.href = directLink
-        infoCommandCurl.value = `curl -k "${directLink}"`
+        url = `${url}?a=${authParam}`
+    }
+    infoDirectLink.href = url
+    if (config.CurlPinnedPubKey !== "") {
+        infoCommandCurl.value = `curl -k --pinnedpubkey ${config.CurlPinnedPubKey} "${url}"`
     } else {
-        infoDirectLink.href = url
-        infoCommandCurl.value = `curl "${url}`
+        infoCommandCurl.value = `curl "${url}"`
     }
     infoBoxUploading.classList.add("hidden")
     infoBoxFinished.classList.remove("hidden")

@@ -1,6 +1,7 @@
 package pcopy
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -57,6 +58,7 @@ var (
 	joinTemplate       = template.Must(template.New("join").Funcs(templateFnMap).Parse(joinTemplateSource))
 )
 
+// server is the main HTTP server struct. It's the one with all the good stuff.
 type server struct {
 	config       *Config
 	countLimiter *limiter
@@ -66,6 +68,7 @@ type server struct {
 	sync.Mutex
 }
 
+// visitor represents an API user, and its associated rate.Limiter used for rate limiting
 type visitor struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time
@@ -77,6 +80,7 @@ type infoResponse struct {
 	Salt       string `json:"salt"`
 }
 
+// handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
 type handlerFnWithErr func(http.ResponseWriter, *http.Request) error
 
 // route represents a HTTP route (e.g. GET /info), a regex that matches it and its handler
@@ -85,10 +89,21 @@ type route struct {
 	regex   *regexp.Regexp
 	handler handlerFnWithErr
 }
-type routeCtx struct{}
 
 func newRoute(method, pattern string, handler handlerFnWithErr) route {
 	return route{method, regexp.MustCompile("^" + pattern + "$"), handler}
+}
+
+// routeCtx is a marker struct used to find fields in route matches
+type routeCtx struct{}
+
+// webTemplateConfig is a struct defining all the things required to render the web root
+type webTemplateConfig struct {
+	Key              *Key
+	KeyDerivIter     int
+	KeyLenBytes      int
+	FileExpireAfter  time.Duration
+	CurlPinnedPubKey string
 }
 
 // Serve starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
@@ -195,11 +210,7 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		return err
-	}
-
-	return nil
+	return json.NewEncoder(w).Encode(response)
 }
 
 func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) error {
@@ -208,7 +219,23 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
-	return webTemplate.Execute(w, s.config)
+	cert, err := LoadCertFromFile(s.config.CertFile)
+	if err != nil {
+		return err
+	}
+	curlPinnedPubKey := ""
+	if bytes.Equal(cert.RawIssuer, cert.RawSubject) {
+		if hash, err := CalculatePublicKeyHash(cert); err == nil {
+			curlPinnedPubKey = EncodeCurlPinnedPublicKeyHash(hash)
+		}
+	}
+	return webTemplate.Execute(w, &webTemplateConfig{
+		Key:              s.config.Key,
+		KeyDerivIter:     keyDerivIter,
+		KeyLenBytes:      keyLenBytes,
+		FileExpireAfter:  s.config.FileExpireAfter,
+		CurlPinnedPubKey: curlPinnedPubKey,
+	})
 }
 
 func (s *server) handleWebStatic(w http.ResponseWriter, r *http.Request) error {

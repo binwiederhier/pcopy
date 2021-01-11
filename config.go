@@ -79,8 +79,6 @@ type Config struct {
 	ListenAddr          string
 	ServerAddr          string
 	Key                 *Key
-	KeyDerivIter        int
-	KeyLenBytes         int
 	KeyFile             string
 	CertFile            string
 	ClipboardDir        string
@@ -107,8 +105,6 @@ func newConfig() *Config {
 		ListenAddr:          fmt.Sprintf(":%d", DefaultPort),
 		ServerAddr:          "",
 		Key:                 nil,
-		KeyDerivIter:        keyDerivIter,
-		KeyLenBytes:         keyLenBytes,
 		KeyFile:             "",
 		CertFile:            "",
 		ClipboardDir:        DefaultClipboardDir,
