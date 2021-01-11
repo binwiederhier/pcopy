@@ -228,7 +228,9 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return errHTTPNotFound
 	}
-	w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
+	if stat.Mode()&os.ModeNamedPipe == 0 {
+		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
+	}
 	f, err := os.Open(file)
 	if err != nil {
 		return errHTTPNotFound
