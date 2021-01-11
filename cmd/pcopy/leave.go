@@ -9,6 +9,7 @@ import (
 
 var cmdLeave = &cli.Command{
 	Name:      "leave",
+	Aliases:   []string{"rm"},
 	Usage:     "Leave a remote clipboard",
 	UsageText: "pcopy leave [OPTIONS..] [CLIPBOARD]",
 	Action:    execLeave,

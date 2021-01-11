@@ -12,6 +12,7 @@ import (
 
 var cmdInvite = &cli.Command{
 	Name:      "invite",
+	Aliases:   []string{"i"},
 	Usage:     "Generate commands to invite others to join a clipboard",
 	UsageText: "pcopy invite [OPTIONS..] [CLIPBOARD]",
 	Action:    execInvite,

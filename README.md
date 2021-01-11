@@ -277,13 +277,13 @@ USAGE:
 
 COMMANDS:
    Client-side commands:
-     copy    Read from STDIN/file(s) and copy to remote clipboard
-     paste   Write remote clipboard contents to STDOUT/file(s)
-     join    Join a remote clipboard
-     list    Lists all of the clipboards that have been joined
-     leave   Leave a remote clipboard
-     link    Generate direct download link to clipboard content
-     invite  Generate commands to invite others to join a clipboard
+     copy, c    Read from STDIN/file(s) and copy to remote clipboard
+     paste, p   Write remote clipboard contents to STDOUT/file(s)
+     join, add  Join a remote clipboard
+     leave, rm  Leave a remote clipboard
+     list, l    Lists all of the clipboards that have been joined
+     link, n    Generate direct download link to clipboard content
+     invite, i  Generate commands to invite others to join a clipboard
    Server-side commands:
      serve   Start pcopy server
      setup   Initial setup wizard for a new pcopy server

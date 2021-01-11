@@ -40,8 +40,8 @@ Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0
 			cmdCopy,
 			cmdPaste,
 			cmdJoin,
-			cmdList,
 			cmdLeave,
+			cmdList,
 			cmdLink,
 			cmdInvite,
 

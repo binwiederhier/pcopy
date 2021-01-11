@@ -14,8 +14,9 @@ import (
 )
 
 var cmdCopy = &cli.Command{
-	Name:  "copy",
-	Usage: "Read from STDIN/file(s) and copy to remote clipboard",
+	Name:    "copy",
+	Aliases: []string{"c"},
+	Usage:   "Read from STDIN/file(s) and copy to remote clipboard",
 	UsageText: `pcopy copy [OPTIONS..] [[CLIPBOARD]:[ID]] [FILE..]
    pcp [OPTIONS..] [[CLIPBOARD]:[ID]] [FILE..]`,
 	Action:   execCopy,
@@ -48,8 +49,9 @@ To override or specify the remote server key, you may pass the PCOPY_KEY variabl
 }
 
 var cmdPaste = &cli.Command{
-	Name:  "paste",
-	Usage: "Write remote clipboard contents to STDOUT/file(s)",
+	Name:    "paste",
+	Aliases: []string{"p"},
+	Usage:   "Write remote clipboard contents to STDOUT/file(s)",
 	UsageText: `pcopy paste [OPTIONS..] [[CLIPBOARD]:[ID]] [DIR]
    ppaste [OPTIONS..] [[CLIPBOARD]:[ID]] [DIR]`,
 	Action:   execPaste,

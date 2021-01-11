@@ -10,6 +10,7 @@ import (
 
 var cmdList = &cli.Command{
 	Name:        "list",
+	Aliases:     []string{"l"},
 	Usage:       "Lists all of the clipboards that have been joined",
 	Action:      execList,
 	Category:    categoryClient,

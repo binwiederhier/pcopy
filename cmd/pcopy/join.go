@@ -13,6 +13,7 @@ import (
 
 var cmdJoin = &cli.Command{
 	Name:      "join",
+	Aliases:   []string{"add"},
 	Usage:     "Join a remote clipboard",
 	UsageText: "pcopy join [OPTIONS..] SERVER [CLIPBOARD]",
 	Action:    execJoin,

@@ -9,6 +9,7 @@ import (
 
 var cmdLink = &cli.Command{
 	Name:      "link",
+	Aliases:   []string{"n"},
 	Usage:     "Generate direct download link to clipboard content",
 	UsageText: "pcopy link [OPTIONS..] [[CLIPBOARD]:[ID]]",
 	Action:    execLink,
@@ -34,11 +35,14 @@ func execLink(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	if config.ServerAddr == "" {
+		return fmt.Errorf("clipboard %s does not exist", clipboard)
+	}
+
 	url, err := config.GenerateClipURL(id, ttl)
 	if err != nil {
 		return err
 	}
-
 	fmt.Printf("# Temporary download link for file '%s:%s'\n", clipboard, id)
 	if config.CertFile != "" {
 		fmt.Println("# Warning: This clipboard uses a self-signed TLS certificate. Browsers will show a warning.")
