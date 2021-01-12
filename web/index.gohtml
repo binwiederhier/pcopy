@@ -64,24 +64,34 @@
     <div class="section fit">
         <div class="t">
             <div class="tc">
-                <div id="info-box-finished" class="info-box hidden">
-                    <div id="info-uploaded-header">
+                <div class="info-box">
+                    <div id="info-header-upload-active" class="info-header">
+                        <h1 id="info-title-upload-active">Uploading ...</h1>
+                        <p>
+                            Your file is being uploaded. Depending on the file size, this may take a while.
+                            Please be patient. As long as it's moving along, things are fine.
+                        </p>
+                    </div>
+                    <div id="info-header-upload-finished" class="info-header">
                         <h1>Your clipboard entry has been copied.</h1>
                         <p>
                             You may now use <tt>pcopy</tt> or <tt>curl</tt> to download it on any connected computer,
                             or simply download it via the <a href="" id="info-direct-link-download">direct link</a>.
                         </p>
                     </div>
-                    <div id="info-stream-header">
-                        <h1 id="info-box-stream-title"></h1>
-                        <p id="info-box-stream-active">
+                    <div id="info-header-stream-active" class="info-header">
+                        <h1 id="info-title-stream-active"></h1>
+                        <p>
                             <b>Your upload will hold until you start the download.</b> You may now use <tt>pcopy</tt> or
                             <tt>curl</tt> to download it on any connected computer, or simply download it via the
                             <a href="" id="info-direct-link-stream">direct link</a>.
                         </p>
-                        <p id="info-box-stream-finished">
-                            Your stream has been fully consumed. You may start a new stream by dragging a new file here
-                            or by saving text from the textbox.
+                    </div>
+                    <div id="info-header-stream-finished" class="info-header">
+                        <h1>Your stream has been downloaded.</h1>
+                        <p>
+                            The stream has been downloaded by a client. Each stream can only be consumed once.
+                            You may start a new stream by dragging a new file here or by saving text from the textbox.
                         </p>
                     </div>
                     <div id="info-links">
@@ -106,10 +116,6 @@
                             </button>
                         </div>
                     </div>
-                </div>
-                <div id="info-box-uploading" class="info-box">
-                    <h1 id="info-uploading-title"></h1>
-                    <h2 id="info-uploading-status"></h2>
                 </div>
             </div>
         </div>

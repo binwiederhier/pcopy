@@ -28,18 +28,20 @@ let loginPasswordField = document.getElementById("password")
 let loginPasswordInvalid = document.getElementById("password-status")
 
 let infoArea = document.getElementById("info-area")
-let infoBoxUploading = document.getElementById("info-box-uploading")
-let infoUploadProgressTitle = document.getElementById("info-uploading-title")
-let infoUploadProgressStatus = document.getElementById("info-uploading-status")
-let infoBoxFinished = document.getElementById("info-box-finished")
-let infoBoxUploadHeader = document.getElementById("info-uploaded-header")
-let infoBoxStreamHeader = document.getElementById("info-stream-header")
-let infoStreamTextActive = document.getElementById("info-box-stream-active")
-let infoStreamTextFinished = document.getElementById("info-box-stream-finished")
-let infoStreamTitle = document.getElementById("info-box-stream-title")
+
+
+let infoHeaderUploadActive = document.getElementById("info-header-upload-active")
+let infoHeaderUploadFinished = document.getElementById("info-header-upload-finished")
+let infoTitleUploadActive = document.getElementById("info-title-upload-active")
+
+
+let infoHeaderStreamActive = document.getElementById("info-header-stream-active")
+let infoHeaderStreamFinished = document.getElementById("info-header-stream-finished")
+let infoTitleStreamActive = document.getElementById("info-title-stream-active")
+
+let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
 let infoDirectLinkDownload = document.getElementById("info-direct-link-download")
-let infoLinks = document.getElementById("info-links")
 let infoCommandPpaste = document.getElementById("info-command-ppaste")
 let infoCommandPpasteCopy = document.getElementById("info-command-ppaste-copy")
 let infoCommandCurl = document.getElementById("info-command-curl")
@@ -176,7 +178,7 @@ function keyHandler(e) {
         text.selectionStart = text.selectionEnd = start + 1;
 
         e.preventDefault()
-    } else if (e.ctrlKey && e.keyCode == 13) { // <ctrl>+<return>
+    } else if (e.ctrlKey && e.keyCode === 13) { // <ctrl>+<return>
         e.preventDefault()
         text.blur()
         save()
@@ -232,20 +234,18 @@ function startProgress(fileId, url, path, key) {
     infoDirectLinkDownload.href = url
     infoCommandCurl.value = generateCurlCommand(url)
 
+    Array
+        .from(document.getElementsByClassName("info-header"))
+        .forEach((el) => el.classList.add('hidden'))
+
     if (streamEnabled()) {
-        infoStreamTitle.innerHTML = 'Streaming ...'
+        infoTitleStreamActive.innerHTML = 'Streaming ...'
         infoLinks.classList.remove('hidden')
-        infoBoxUploading.classList.add("hidden")
-        infoBoxUploadHeader.classList.add('hidden')
-        infoBoxFinished.classList.remove("hidden")
-        infoStreamTextFinished.classList.add('hidden')
-        infoStreamTextActive.classList.remove('hidden')
-        infoBoxStreamHeader.classList.remove('hidden')
+        infoHeaderStreamActive.classList.remove('hidden')
     } else {
-        infoUploadProgressTitle.innerHTML = 'Uploading ...'
-        infoUploadProgressStatus.innerHTML = '0%'
-        infoBoxUploading.classList.remove("hidden")
-        infoBoxFinished.classList.add("hidden")
+        infoTitleUploadActive.innerHTML = 'Uploading ...'
+        infoLinks.classList.add('hidden')
+        infoHeaderUploadActive.classList.remove('hidden')
     }
 
     infoArea.classList.remove("hidden")
@@ -253,24 +253,21 @@ function startProgress(fileId, url, path, key) {
 
 function updateProgress(progress) {
     if (streamEnabled()) {
-        infoStreamTitle.innerHTML = `Streaming ... ${progress}%`
+        infoTitleStreamActive.innerHTML = `Streaming ... ${progress}%`
     } else {
-        infoUploadProgressStatus.innerHTML = `${progress}%`
+        infoTitleUploadActive.innerHTML = `Uploading ... ${progress}%`
     }
 }
 
 function finishProgress() {
     if (streamEnabled()) {
-        infoStreamTitle.innerHTML = 'Stream finished'
         infoLinks.classList.add('hidden')
-        infoStreamTextActive.classList.add('hidden')
-        infoStreamTextFinished.classList.remove('hidden')
+        infoHeaderStreamActive.classList.add('hidden')
+        infoHeaderStreamFinished.classList.remove('hidden')
     } else {
         infoLinks.classList.remove('hidden')
-        infoBoxUploading.classList.add("hidden")
-        infoBoxStreamHeader.classList.add('hidden')
-        infoBoxUploadHeader.classList.remove('hidden')
-        infoBoxFinished.classList.remove("hidden")
+        infoHeaderUploadActive.classList.add('hidden')
+        infoHeaderUploadFinished.classList.remove('hidden')
     }
 }
 
