@@ -29,18 +29,17 @@ let loginPasswordInvalid = document.getElementById("password-status")
 
 let infoArea = document.getElementById("info-area")
 
-let infoUploadHeaderActive = document.getElementById("info-header-upload-active")
-let infoUploadHeaderFinished = document.getElementById("info-header-upload-finished")
-let infoUploadTitleActive = document.getElementById("info-title-upload-active")
+let infoUploadHeaderActive = document.getElementById("info-upload-header-active")
+let infoUploadHeaderFinished = document.getElementById("info-upload-header-finished")
+let infoUploadTitleActive = document.getElementById("info-upload-title-active")
 
-let infoStreamHeaderActive = document.getElementById("info-header-stream-active")
-let infoStreamHeaderFinished = document.getElementById("info-header-stream-finished")
-let infoStreamTitleActive = document.getElementById("info-title-stream-active")
+let infoStreamHeaderActive = document.getElementById("info-stream-header-active")
+let infoStreamHeaderFinished = document.getElementById("info-stream-header-finished")
+let infoStreamTitleActive = document.getElementById("info-stream-title-active")
 
 let infoErrorHeader = document.getElementById("info-error-header")
 let infoErrorCode = document.getElementById("info-error-code")
 let infoErrorTextBadRequest = document.getElementById("info-error-text-400")
-
 
 let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")

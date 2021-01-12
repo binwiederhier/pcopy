@@ -149,10 +149,6 @@ html, body {
     margin: 30px 0 20px 0;
 }
 
-#info-area .info-box h2 {
-    font-size: 1.5em;
-}
-
 #info-area .info-box p {
     font-size: 1em;
     margin: 20px 0 15px 0;
@@ -195,15 +191,6 @@ html, body {
 #info-area .code-area button svg {
     vertical-align: bottom;
 }
-
-#info-area #info-box-uploading {
-    text-align: center;
-}
-
-#info-area #info-box-uploading h1 {
-    margin-top: 150px;
-}
-
 
 /* drag & drop area, see https://stackoverflow.com/a/33917000/1440785 (CC BY-SA 3.0) */
 
