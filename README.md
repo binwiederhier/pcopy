@@ -4,6 +4,7 @@
 [![Tests](https://github.com/binwiederhier/pcopy/workflows/test/badge.svg)](https://github.com/binwiederhier/pcopy/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/binwiederhier/pcopy)](https://goreportcard.com/report/github.com/binwiederhier/pcopy)
 [![codecov](https://codecov.io/gh/binwiederhier/pcopy/branch/master/graph/badge.svg?token=bdrFZttMsk)](https://codecov.io/gh/binwiederhier/pcopy)
+[![Slack channel](https://img.shields.io/badge/slack-@gophers/pcopy-success.svg?logo=slack)](https://gophers.slack.com/archives/C01JMTPGF2Q)
 
 pcopy is an across-the-network clipboard that allows copying (`pcp < file.txt`) and pasting (`ppaste > file.txt`)
 across different computers. Other users can be invited to join (`pcopy invite`), or simply join by specifying 
