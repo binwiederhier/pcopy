@@ -288,7 +288,7 @@ html, body {
     width: 150px;
 }
 
-#header-area #random-file-id {
+#header-area #random-file-id, #header-area #stream {
     margin: 0 2px 0 10px;
     height: 40px;
 }

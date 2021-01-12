@@ -1,3 +1,4 @@
+
 /**
  * Hello, dear curious visitor. I am not a web-guy, so please don't judge my horrible JS code.
  * In fact, please do tell me about all the things I did wrong and that I could improve. I've been trying
@@ -16,6 +17,7 @@ let headerSaveButton = document.getElementById("save-button")
 let headerLogoutButton = document.getElementById("logout-button")
 let headerFileId = document.getElementById("file-id")
 let headerRandomFileId = document.getElementById("random-file-id")
+let headerStream = document.getElementById("stream")
 let headerUploadButton = document.getElementById("upload-button")
 let headerFileUpload = document.getElementById("file-upload")
 
@@ -30,7 +32,14 @@ let infoBoxUploading = document.getElementById("info-box-uploading")
 let infoUploadProgressTitle = document.getElementById("info-uploading-title")
 let infoUploadProgressStatus = document.getElementById("info-uploading-status")
 let infoBoxFinished = document.getElementById("info-box-finished")
-let infoDirectLink = document.getElementById("info-direct-link")
+let infoBoxUploadHeader = document.getElementById("info-uploaded-header")
+let infoBoxStreamHeader = document.getElementById("info-stream-header")
+let infoStreamTextActive = document.getElementById("info-box-stream-active")
+let infoStreamTextFinished = document.getElementById("info-box-stream-finished")
+let infoStreamTitle = document.getElementById("info-box-stream-title")
+let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
+let infoDirectLinkDownload = document.getElementById("info-direct-link-download")
+let infoLinks = document.getElementById("info-links")
 let infoCommandPpaste = document.getElementById("info-command-ppaste")
 let infoCommandPpasteCopy = document.getElementById("info-command-ppaste-copy")
 let infoCommandCurl = document.getElementById("info-command-curl")
@@ -146,6 +155,11 @@ function changeRandomFileIdEnabled(enabled) {
     }
 }
 
+/* Stream */
+
+headerStream.checked = streamEnabled()
+headerStream.addEventListener('change', (e) => { storeStreamEnabled(e.target.checked) })
+
 /* Text field & saving text */
 
 headerSaveButton.addEventListener('click', save)
@@ -170,13 +184,14 @@ function keyHandler(e) {
 }
 
 function save() {
-    showUploadProgress('Saving', '')
-
+    let streaming = streamEnabled()
     let fileId = getFileId()
     let method = 'PUT'
     let path = '/' + fileId
     let url = 'https://' + location.host + path
     let key = loadKey()
+
+    startProgress(fileId, url, path, key)
 
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
@@ -186,11 +201,15 @@ function save() {
         xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
     }
 
+    if (streaming) {
+        xhr.setRequestHeader('Content-Type', 'inode/fifo')
+    }
+
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            showInfoUploadFinished(fileId, url, path, key)
+            finishProgress()
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
-            updateUploadProgress('Error ' + xhr.status)
+            updateProgress(-1) // FIXME
         }
     })
 
@@ -205,42 +224,65 @@ function handleFile(file) {
     uploadFile(file)
 }
 
-function showUploadProgress(title, status) {
-    infoUploadProgressTitle.innerHTML = title
-    infoUploadProgressStatus.innerHTML = status
-    infoBoxUploading.classList.remove("hidden")
-    infoBoxFinished.classList.add("hidden")
+function startProgress(fileId, url, path, key) {
+    url = maybeAddAuthParam(url, path, key)
+
+    infoCommandPpaste.value = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
+    infoDirectLinkStream.href = url
+    infoDirectLinkDownload.href = url
+    infoCommandCurl.value = generateCurlCommand(url)
+
+    if (streamEnabled()) {
+        infoStreamTitle.innerHTML = 'Streaming ...'
+        infoLinks.classList.remove('hidden')
+        infoBoxUploading.classList.add("hidden")
+        infoBoxUploadHeader.classList.add('hidden')
+        infoBoxFinished.classList.remove("hidden")
+        infoStreamTextFinished.classList.add('hidden')
+        infoStreamTextActive.classList.remove('hidden')
+        infoBoxStreamHeader.classList.remove('hidden')
+    } else {
+        infoUploadProgressTitle.innerHTML = 'Uploading ...'
+        infoUploadProgressStatus.innerHTML = '0%'
+        infoBoxUploading.classList.remove("hidden")
+        infoBoxFinished.classList.add("hidden")
+    }
+
     infoArea.classList.remove("hidden")
 }
 
-function showInfoUploadFinished(fileId, url, path, key) {
-    infoCommandPpaste.value = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
-    if (key) {
-        let authParam = generateAuthHMACParam(key, 'GET', path)
-        url = `${url}?a=${authParam}`
-    }
-    infoDirectLink.href = url
-    if (config.CurlPinnedPubKey !== "") {
-        infoCommandCurl.value = `curl -k --pinnedpubkey ${config.CurlPinnedPubKey} "${url}"`
+function updateProgress(progress) {
+    if (streamEnabled()) {
+        infoStreamTitle.innerHTML = `Streaming ... ${progress}%`
     } else {
-        infoCommandCurl.value = `curl "${url}"`
+        infoUploadProgressStatus.innerHTML = `${progress}%`
     }
-    infoBoxUploading.classList.add("hidden")
-    infoBoxFinished.classList.remove("hidden")
 }
 
-function updateUploadProgress(status) {
-    infoUploadProgressStatus.innerHTML = status
+function finishProgress() {
+    if (streamEnabled()) {
+        infoStreamTitle.innerHTML = 'Stream finished'
+        infoLinks.classList.add('hidden')
+        infoStreamTextActive.classList.add('hidden')
+        infoStreamTextFinished.classList.remove('hidden')
+    } else {
+        infoLinks.classList.remove('hidden')
+        infoBoxUploading.classList.add("hidden")
+        infoBoxStreamHeader.classList.add('hidden')
+        infoBoxUploadHeader.classList.remove('hidden')
+        infoBoxFinished.classList.remove("hidden")
+    }
 }
 
 function uploadFile(file) {
-    showUploadProgress('Uploading', '0%')
-
+    let streaming = streamEnabled()
     let fileId = getFileId()
     let method = 'PUT'
     let path = '/' + fileId
     let url = 'https://' + location.host + path
     let key = loadKey()
+
+    startProgress(fileId, url, path, key)
 
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
@@ -250,16 +292,21 @@ function uploadFile(file) {
         xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
     }
 
+    if (streaming) {
+        xhr.setRequestHeader('Content-Type', 'inode/fifo')
+    }
+
     xhr.overrideMimeType(file.type);
     xhr.upload.addEventListener("progress", function (e) {
-        updateUploadProgress(Math.round((e.loaded * 100.0 / e.total) || 100) + '%')
+        let progress = Math.round((e.loaded * 100.0 / e.total) || 100)
+        updateProgress(progress)
     })
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            showInfoUploadFinished(fileId, url, path, key)
+            finishProgress()
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
-            updateUploadProgress('Error ' + xhr.status)
+            updateProgress(-1) // FIXME
         }
     })
 
@@ -387,5 +434,34 @@ function randomFileIdEnabled() {
         return localStorage.getItem('randomName') === 'true'
     } else {
         return false
+    }
+}
+
+function storeStreamEnabled(streamEnabled) {
+    localStorage.setItem('streamEnabled', streamEnabled)
+}
+
+function streamEnabled() {
+    if (localStorage.getItem('streamEnabled') !== null) {
+        return localStorage.getItem('streamEnabled') === 'true'
+    } else {
+        return false
+    }
+}
+
+function generateCurlCommand(url) {
+    if (config.CurlPinnedPubKey !== "") {
+        return `curl -k --pinnedpubkey ${config.CurlPinnedPubKey} "${url}"`
+    } else {
+        return `curl "${url}"`
+    }
+}
+
+function maybeAddAuthParam(url, path, key) {
+    if (key) {
+        let authParam = generateAuthHMACParam(key, 'GET', path)
+        return `${url}?a=${authParam}`
+    } else {
+        return url
     }
 }
