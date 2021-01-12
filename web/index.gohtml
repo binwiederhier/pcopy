@@ -94,6 +94,17 @@
                             You may start a new stream by dragging a new file here or by saving text from the textbox.
                         </p>
                     </div>
+                    <div id="info-error-header" class="info-header">
+                        <h1>Something went wrong.</h1>
+                        <p>
+                            An error occurred when trying to upload your file. The server responded with
+                            <b>HTTP <span id="info-error-code"></span></b>.
+                        </p>
+                        <p id="info-error-text-400">
+                            The server returns this error typically only if you are <b>trying to upload a file
+                            that is too large</b>. Make sure that there are no server-side limits in place.
+                        </p>
+                    </div>
                     <div id="info-links">
                         <p>Paste using <tt>pcopy</tt> (<em>you may need a <a href="https://github.com/binwiederhier/pcopy#support-for-multiple-clipboards">clipboard prefix</a></em>):</p>
                         <div class="code-area">

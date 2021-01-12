@@ -125,7 +125,7 @@ html, body {
 }
 
 #info-area.error {
-    background: red;
+    background: rgba(255, 0, 0, 0.5);
 }
 
 #info-area.fade-out {

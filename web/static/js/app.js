@@ -29,15 +29,18 @@ let loginPasswordInvalid = document.getElementById("password-status")
 
 let infoArea = document.getElementById("info-area")
 
+let infoUploadHeaderActive = document.getElementById("info-header-upload-active")
+let infoUploadHeaderFinished = document.getElementById("info-header-upload-finished")
+let infoUploadTitleActive = document.getElementById("info-title-upload-active")
 
-let infoHeaderUploadActive = document.getElementById("info-header-upload-active")
-let infoHeaderUploadFinished = document.getElementById("info-header-upload-finished")
-let infoTitleUploadActive = document.getElementById("info-title-upload-active")
+let infoStreamHeaderActive = document.getElementById("info-header-stream-active")
+let infoStreamHeaderFinished = document.getElementById("info-header-stream-finished")
+let infoStreamTitleActive = document.getElementById("info-title-stream-active")
 
+let infoErrorHeader = document.getElementById("info-error-header")
+let infoErrorCode = document.getElementById("info-error-code")
+let infoErrorTextBadRequest = document.getElementById("info-error-text-400")
 
-let infoHeaderStreamActive = document.getElementById("info-header-stream-active")
-let infoHeaderStreamFinished = document.getElementById("info-header-stream-finished")
-let infoTitleStreamActive = document.getElementById("info-title-stream-active")
 
 let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
@@ -193,7 +196,7 @@ function save() {
     let url = 'https://' + location.host + path
     let key = loadKey()
 
-    startProgress(fileId, url, path, key)
+    progressStart(fileId, url, path, key)
 
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
@@ -209,9 +212,9 @@ function save() {
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            finishProgress()
+            progressFinish()
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
-            updateProgress(-1) // FIXME
+            progressFailed(xhr.status)
         }
     })
 
@@ -226,7 +229,7 @@ function handleFile(file) {
     uploadFile(file)
 }
 
-function startProgress(fileId, url, path, key) {
+function progressStart(fileId, url, path, key) {
     url = maybeAddAuthParam(url, path, key)
 
     infoCommandPpaste.value = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
@@ -234,41 +237,60 @@ function startProgress(fileId, url, path, key) {
     infoDirectLinkDownload.href = url
     infoCommandCurl.value = generateCurlCommand(url)
 
-    Array
-        .from(document.getElementsByClassName("info-header"))
-        .forEach((el) => el.classList.add('hidden'))
+    progressHideHeaders()
 
     if (streamEnabled()) {
-        infoTitleStreamActive.innerHTML = 'Streaming ...'
+        infoStreamTitleActive.innerHTML = 'Streaming ...'
         infoLinks.classList.remove('hidden')
-        infoHeaderStreamActive.classList.remove('hidden')
+        infoStreamHeaderActive.classList.remove('hidden')
     } else {
-        infoTitleUploadActive.innerHTML = 'Uploading ...'
+        infoUploadTitleActive.innerHTML = 'Uploading ...'
         infoLinks.classList.add('hidden')
-        infoHeaderUploadActive.classList.remove('hidden')
+        infoUploadHeaderActive.classList.remove('hidden')
     }
 
+    infoArea.classList.remove('error')
     infoArea.classList.remove("hidden")
 }
 
-function updateProgress(progress) {
+function progressUpdate(progress) {
     if (streamEnabled()) {
-        infoTitleStreamActive.innerHTML = `Streaming ... ${progress}%`
+        infoStreamTitleActive.innerHTML = `Streaming ... ${progress}%`
     } else {
-        infoTitleUploadActive.innerHTML = `Uploading ... ${progress}%`
+        infoUploadTitleActive.innerHTML = `Uploading ... ${progress}%`
     }
 }
 
-function finishProgress() {
+function progressFinish() {
+    progressHideHeaders()
+
     if (streamEnabled()) {
         infoLinks.classList.add('hidden')
-        infoHeaderStreamActive.classList.add('hidden')
-        infoHeaderStreamFinished.classList.remove('hidden')
+        infoStreamHeaderFinished.classList.remove('hidden')
     } else {
         infoLinks.classList.remove('hidden')
-        infoHeaderUploadActive.classList.add('hidden')
-        infoHeaderUploadFinished.classList.remove('hidden')
+        infoUploadHeaderFinished.classList.remove('hidden')
     }
+}
+
+function progressFailed(code) {
+    progressHideHeaders()
+
+    infoArea.classList.add('error')
+    infoLinks.classList.add('hidden')
+    infoErrorCode.innerHTML = code
+    if (code === 400) {
+        infoErrorTextBadRequest.classList.remove('hidden')
+    } else {
+        infoErrorTextBadRequest.classList.add('hidden')
+    }
+    infoErrorHeader.classList.remove('hidden')
+}
+
+function progressHideHeaders() {
+    Array
+        .from(document.getElementsByClassName("info-header"))
+        .forEach((el) => el.classList.add('hidden'))
 }
 
 function uploadFile(file) {
@@ -279,7 +301,7 @@ function uploadFile(file) {
     let url = 'https://' + location.host + path
     let key = loadKey()
 
-    startProgress(fileId, url, path, key)
+    progressStart(fileId, url, path, key)
 
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
@@ -296,14 +318,14 @@ function uploadFile(file) {
     xhr.overrideMimeType(file.type);
     xhr.upload.addEventListener("progress", function (e) {
         let progress = Math.round((e.loaded * 100.0 / e.total) || 100)
-        updateProgress(progress)
+        progressUpdate(progress)
     })
 
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && xhr.status === 200) {
-            finishProgress()
+            progressFinish()
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
-            updateProgress(-1) // FIXME
+            progressFailed(xhr.status)
         }
     })
 
