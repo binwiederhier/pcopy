@@ -46,8 +46,10 @@ let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
 let infoDirectLinkDownload = document.getElementById("info-direct-link-download")
 let infoCommandPpaste = document.getElementById("info-command-ppaste")
 let infoCommandPpasteCopy = document.getElementById("info-command-ppaste-copy")
+let infoCommandPpasteTooltip = document.getElementById("info-command-ppaste-tooltip")
 let infoCommandCurl = document.getElementById("info-command-curl")
 let infoCommandCurlCopy = document.getElementById("info-command-curl-copy")
+let infoCommandCurlTooltip = document.getElementById("info-command-curl-tooltip")
 
 /* Login */
 
@@ -365,6 +367,13 @@ infoCommandPpasteCopy.addEventListener('click', function() {
     document.execCommand("copy");
     infoCommandPpaste.setSelectionRange(0, 0);
     infoCommandPpaste.blur()
+    infoCommandPpasteTooltip.innerHTML = 'Copied'
+    infoCommandPpasteTooltip.classList.add('copied')
+})
+
+infoCommandPpasteCopy.addEventListener('mouseout', function() {
+    infoCommandPpasteTooltip.innerHTML = 'Copy to clipboard'
+    infoCommandPpasteTooltip.classList.remove('copied')
 })
 
 infoCommandCurlCopy.addEventListener('click', function() {
@@ -373,6 +382,14 @@ infoCommandCurlCopy.addEventListener('click', function() {
     document.execCommand("copy");
     infoCommandCurl.setSelectionRange(0, 0);
     infoCommandCurl.blur()
+    infoCommandCurlTooltip.innerHTML = 'Copied'
+    infoCommandCurlTooltip.classList.add('copied')
+
+})
+
+infoCommandCurlCopy.addEventListener('mouseout', function() {
+    infoCommandCurlTooltip.innerHTML = 'Copy to clipboard'
+    infoCommandPpasteTooltip.classList.remove('copied')
 })
 
 /* Show/hide password area */
@@ -469,7 +486,7 @@ function streamEnabled() {
 
 function generateCurlCommand(url) {
     if (config.CurlPinnedPubKey !== "") {
-        return `curl -k --pinnedpubkey ${config.CurlPinnedPubKey} "${url}"`
+        return `curl --pinnedpubkey ${config.CurlPinnedPubKey} -k "${url}"`
     } else {
         return `curl "${url}"`
     }
