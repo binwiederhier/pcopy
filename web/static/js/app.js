@@ -39,7 +39,7 @@ let infoStreamTitleActive = document.getElementById("info-stream-title-active")
 
 let infoErrorHeader = document.getElementById("info-error-header")
 let infoErrorCode = document.getElementById("info-error-code")
-let infoErrorTextBadRequest = document.getElementById("info-error-text-400")
+let infoErrorTextLimitReached = document.getElementById("info-error-text-limit-reached")
 
 let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
@@ -206,7 +206,7 @@ function save() {
     }
 
     if (streaming) {
-        xhr.setRequestHeader('Content-Type', 'inode/fifo')
+        xhr.setRequestHeader('X-Stream', 'yes')
     }
 
     xhr.addEventListener('readystatechange', function (e) {
@@ -278,10 +278,10 @@ function progressFailed(code) {
     infoArea.classList.add('error')
     infoLinks.classList.add('hidden')
     infoErrorCode.innerHTML = code
-    if (code === 400) {
-        infoErrorTextBadRequest.classList.remove('hidden')
+    if (code === 429) {
+        infoErrorTextLimitReached.classList.remove('hidden')
     } else {
-        infoErrorTextBadRequest.classList.add('hidden')
+        infoErrorTextLimitReached.classList.add('hidden')
     }
     infoErrorHeader.classList.remove('hidden')
 }
@@ -311,7 +311,7 @@ function uploadFile(file) {
     }
 
     if (streaming) {
-        xhr.setRequestHeader('Content-Type', 'inode/fifo')
+        xhr.setRequestHeader('X-Stream', 'yes')
     }
 
     xhr.overrideMimeType(file.type);

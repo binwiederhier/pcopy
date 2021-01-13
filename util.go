@@ -14,6 +14,7 @@ var templateFnMap = template.FuncMap{
 	"encodeKey":        EncodeKey,
 	"expandServerAddr": ExpandServerAddr,
 	"encodeBase64":     base64.StdEncoding.EncodeToString,
+	"bytesToHuman":     BytesToHuman,
 }
 
 // ExpandHome replaces "~" with the user's home directory

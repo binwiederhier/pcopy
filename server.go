@@ -99,11 +99,10 @@ type routeCtx struct{}
 
 // webTemplateConfig is a struct defining all the things required to render the web root
 type webTemplateConfig struct {
-	Key              *Key
 	KeyDerivIter     int
 	KeyLenBytes      int
-	FileExpireAfter  time.Duration
 	CurlPinnedPubKey string
+	Config           *Config
 }
 
 // Serve starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
@@ -230,11 +229,10 @@ func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	return webTemplate.Execute(w, &webTemplateConfig{
-		Key:              s.config.Key,
 		KeyDerivIter:     keyDerivIter,
 		KeyLenBytes:      keyLenBytes,
-		FileExpireAfter:  s.config.FileExpireAfter,
 		CurlPinnedPubKey: curlPinnedPubKey,
+		Config:           s.config,
 	})
 }
 
@@ -289,7 +287,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Make fifo device instead of file if type is set to "fifo"
-	if r.Header.Get("Content-Type") == "inode/fifo" || r.URL.Query().Get("t") == "fifo" {
+	if r.Header.Get("X-Stream") == "yes" || r.URL.Query().Get("s") == "1" {
 		os.Remove(file)
 		if err := unix.Mkfifo(file, 0600); err != nil {
 			s.countLimiter.Sub(1)
@@ -318,7 +316,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if _, err := io.Copy(limitWriter, r.Body); err != nil {
 		os.Remove(file)
 		if err == errLimitReached {
-			return errHTTPBadRequest
+			return errHTTPTooManyRequests // "Quota exceeded"
 		}
 		return err
 	}

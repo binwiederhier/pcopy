@@ -100,10 +100,18 @@
                             An error occurred when trying to upload your file. The server responded with
                             <b>HTTP <span id="info-error-code"></span></b>.
                         </p>
-                        <p id="info-error-text-400">
-                            The server returns this error typically only if you are <b>trying to upload a file
-                            that is too large</b>. Make sure that there are no server-side limits in place.
-                        </p>
+                        <div id="info-error-text-limit-reached">
+                            <p>
+                                The server returns this error typically only if you are <b>trying to upload a file
+                                that is too large</b> or there have been uploaded <b>too many files</b> already.
+                                Make sure that there are no server-side limits in place.
+                            </p>
+                            <p>
+                                <b>Total clipboard size limit:</b> {{if .Config.ClipboardSizeLimit}}{{.Config.ClipboardSizeLimit | bytesToHuman }}{{else}}<em>no limit</em>{{end}}<br/>
+                                <b>Total number of files:</b> {{if .Config.ClipboardCountLimit}} max. {{.Config.ClipboardCountLimit }} files{{else}}<em>no limit</em>{{end}}<br/>
+                                <b>Per-file size limit:</b> {{if .Config.FileSizeLimit}}{{.Config.FileSizeLimit | bytesToHuman }}{{else}}<em>no limit</em>{{end}}
+                            </p>
+                        </div>
                     </div>
                     <div id="info-links">
                         <p>Paste using <tt>pcopy</tt> (<em>you may need a <a href="https://github.com/binwiederhier/pcopy#support-for-multiple-clipboards">clipboard prefix</a></em>):</p>
@@ -134,20 +142,13 @@
 </div>
 
 <script>
-    {{if .Key}}
     let config = {
-        KeySalt: "{{.Key.Salt | encodeBase64}}",
+        KeySalt: "{{if .Config.Key}}{{.Config.Key.Salt | encodeBase64}}{{end}}",
         KeyDerivIter: {{.KeyDerivIter}},
         KeyLenBytes: {{.KeyLenBytes}},
-        FileExpireAfter: {{.FileExpireAfter.Seconds}},
+        FileExpireAfter: {{.Config.FileExpireAfter.Seconds}},
         CurlPinnedPubKey: "{{.CurlPinnedPubKey}}"
     }
-    {{else}}
-    let config = {
-        FileExpireAfter: {{.FileExpireAfter.Seconds}},
-        CurlPinnedPubKey: "{{.CurlPinnedPubKey}}"
-    }
-    {{end}}
 </script>
 <script src="static/vendor/crypto-js.min.js"></script>
 <script src="static/js/app.js"></script>

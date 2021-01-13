@@ -57,7 +57,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
 		return err
 	}
 	if stream {
-		req.Header.Set("Content-Type", "inode/fifo")
+		req.Header.Set("X-Stream", "yes")
 	}
 
 	resp, err := client.Do(req)
