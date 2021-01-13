@@ -312,8 +312,17 @@ html, body {
     margin: 4px 5px 0 0;
 }
 
+#header-area button:disabled {
+    background: #54656f;
+    cursor: not-allowed;
+}
+
 #header-area input {
     margin: 4px 5px;
+}
+
+#header-area input.error {
+    background: #ffd6d6;
 }
 
 #header-area #file-id {

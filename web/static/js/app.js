@@ -103,8 +103,10 @@ function logout() {
 /* Drag & drop */
 
 function showDropZone() {
-    dropArea.style.visibility = "visible";
-    hideInfoArea()
+    if (allowSubmit) {
+        dropArea.style.visibility = "visible";
+        hideInfoArea()
+    }
 }
 
 function hideDropZone() {
@@ -112,8 +114,10 @@ function hideDropZone() {
 }
 
 function allowDrag(e) {
-    e.dataTransfer.dropEffect = 'copy';
-    e.preventDefault();
+    if (allowSubmit) {
+        e.dataTransfer.dropEffect = 'copy';
+        e.preventDefault();
+    }
 }
 
 function handleDrop(e) {
@@ -142,6 +146,30 @@ function removeDropListeners() {
 
 let previousFileId = ''
 headerFileId.value = ''
+
+/* File ID: input validation */
+
+let allowSubmit = true
+headerFileId.addEventListener('keyup', fileIdChanged)
+headerFileId.addEventListener('paste', fileIdChanged)
+
+function fileIdChanged(e) {
+    let textValid = headerFileId.value === "" || /^[0-9a-z][-_.0-9a-z]*$/i.test(headerFileId.value)
+    if (textValid) {
+        allowSubmit = true
+        headerFileId.classList.remove('error')
+        headerSaveButton.disabled = false
+        headerUploadButton.disabled = false
+    } else {
+        allowSubmit = false
+        headerFileId.classList.add('error')
+        headerSaveButton.disabled = true
+        headerUploadButton.disabled = true
+    }
+}
+
+/* File ID: random name checkbox */
+
 headerRandomFileId.checked = randomFileIdEnabled()
 changeRandomFileIdEnabled(randomFileIdEnabled())
 
@@ -161,7 +189,7 @@ function changeRandomFileIdEnabled(enabled) {
     }
 }
 
-/* Stream */
+/* Stream checkbox */
 
 headerStream.checked = streamEnabled()
 headerStream.addEventListener('change', (e) => { storeStreamEnabled(e.target.checked) })
@@ -190,6 +218,10 @@ function keyHandler(e) {
 }
 
 function save() {
+    if (!allowSubmit) {
+        return
+    }
+
     let streaming = streamEnabled()
     let fileId = getFileId()
     let method = 'PUT'
@@ -295,6 +327,10 @@ function progressHideHeaders() {
 }
 
 function uploadFile(file) {
+    if (!allowSubmit) {
+        return
+    }
+
     let streaming = streamEnabled()
     let fileId = getFileId()
     let method = 'PUT'
