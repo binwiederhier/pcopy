@@ -334,7 +334,7 @@ html, body {
     height: 40px;
 }
 
-#save-button, #upload-button, #upload-status, #logout-button {
+#header-area .right-button {
     float: right;
 }
 

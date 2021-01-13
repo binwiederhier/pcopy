@@ -3,6 +3,7 @@ package pcopy
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestExpandHome_WithTilde(t *testing.T) {
@@ -159,4 +160,14 @@ func TestRelativizePaths_SingleRelFile(t *testing.T) {
 	}
 	assertStrEquals(t, tmpDir+"/dir", baseDir)
 	assertStrEquals(t, "file.txt", relativeFiles[0])
+}
+
+func TestDurationToHuman_MoreThanOneDay(t *testing.T) {
+	d := 49 * time.Hour
+	assertStrEquals(t, "2d1h", DurationToHuman(d))
+}
+
+func TestDurationToHuman_LessThanOneDay(t *testing.T) {
+	d := 17*time.Hour + 15*time.Minute
+	assertStrEquals(t, "17h15m", DurationToHuman(d))
 }

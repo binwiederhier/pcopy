@@ -13,6 +13,7 @@ let mainArea = document.getElementById("main-area")
 let dropArea = document.getElementById('drop-area');
 
 let text = document.getElementById("text")
+let headerInfoButton = document.getElementById("info-button")
 let headerSaveButton = document.getElementById("save-button")
 let headerLogoutButton = document.getElementById("logout-button")
 let headerFileId = document.getElementById("file-id")
@@ -28,6 +29,11 @@ let loginPasswordField = document.getElementById("password")
 let loginPasswordInvalid = document.getElementById("password-status")
 
 let infoArea = document.getElementById("info-area")
+
+let infoHelpHeader = document.getElementById("info-help-header")
+let infoHelpJoinCommand = document.getElementById("info-command-join")
+let infoHelpJoinCommandCopy = document.getElementById("info-command-join-copy")
+let infoHelpJoinCommandTooltip = document.getElementById("info-command-join-tooltip")
 
 let infoUploadHeaderActive = document.getElementById("info-upload-header-active")
 let infoUploadHeaderFinished = document.getElementById("info-upload-header-finished")
@@ -253,6 +259,29 @@ function save() {
 
     xhr.send(text.value)
 }
+
+/* Info help */
+
+headerInfoButton.addEventListener('click', function() {
+    let serverAddr = location.host.replace(':' + config.DefaultPort, '')
+    infoHelpJoinCommand.value = `pcopy join ${serverAddr}`
+
+    progressHideHeaders()
+    infoLinks.classList.add('hidden')
+    infoArea.classList.remove('error')
+    infoArea.classList.remove("hidden")
+    infoHelpHeader.classList.remove('hidden')
+})
+
+infoHelpJoinCommandCopy.addEventListener('click', function() {
+    infoHelpJoinCommand.select();
+    infoHelpJoinCommand.setSelectionRange(0, 99999); /* For mobile devices */
+    document.execCommand("copy");
+    infoHelpJoinCommand.setSelectionRange(0, 0);
+    infoHelpJoinCommand.blur()
+    infoHelpJoinCommandTooltip.innerHTML = 'Copied'
+    infoHelpJoinCommandTooltip.classList.add('copied')
+})
 
 /* Uploading */
 
@@ -522,9 +551,9 @@ function streamEnabled() {
 
 function generateCurlCommand(url) {
     if (config.CurlPinnedPubKey !== "") {
-        return `curl --pinnedpubkey ${config.CurlPinnedPubKey} -k "${url}"`
+        return `curl --pinnedpubkey ${config.CurlPinnedPubKey} -sSLk "${url}"`
     } else {
-        return `curl "${url}"`
+        return `curl -sSL "${url}"`
     }
 }
 

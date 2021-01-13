@@ -3,11 +3,14 @@ package pcopy
 import (
 	"encoding/base64"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var templateFnMap = template.FuncMap{
@@ -15,6 +18,7 @@ var templateFnMap = template.FuncMap{
 	"expandServerAddr": ExpandServerAddr,
 	"encodeBase64":     base64.StdEncoding.EncodeToString,
 	"bytesToHuman":     BytesToHuman,
+	"durationToHuman":  DurationToHuman,
 }
 
 // ExpandHome replaces "~" with the user's home directory
@@ -45,6 +49,20 @@ func BytesToHuman(b int64) string {
 	}
 	return fmt.Sprintf("%.1f %cB",
 		float64(b)/float64(div), "kMGTPE"[exp])
+}
+
+// DurationToHuman converts a duration to a human readable format
+func DurationToHuman(d time.Duration) string {
+	days := 0
+	if d.Hours() > 24 {
+		days = int(math.Floor(d.Hours() / float64(24)))
+		d -= time.Hour * 24 * time.Duration(days)
+	}
+	s := regexp.MustCompile(`0[hms]`).ReplaceAllString(d.String(), "")
+	if days > 0 {
+		s = fmt.Sprintf("%dd%s", days, s)
+	}
+	return s
 }
 
 // commonPrefix determines the longest common prefix across a list of paths.

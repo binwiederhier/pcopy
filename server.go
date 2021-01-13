@@ -102,6 +102,7 @@ type webTemplateConfig struct {
 	KeyDerivIter     int
 	KeyLenBytes      int
 	CurlPinnedPubKey string
+	DefaultPort      int
 	Config           *Config
 }
 
@@ -232,6 +233,7 @@ func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 		KeyDerivIter:     keyDerivIter,
 		KeyLenBytes:      keyLenBytes,
 		CurlPinnedPubKey: curlPinnedPubKey,
+		DefaultPort:      DefaultPort,
 		Config:           s.config,
 	})
 }
