@@ -3,11 +3,9 @@ package pcopy
 import (
 	"encoding/base64"
 	"fmt"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -52,17 +50,31 @@ func BytesToHuman(b int64) string {
 }
 
 // DurationToHuman converts a duration to a human readable format
-func DurationToHuman(d time.Duration) string {
-	days := 0
-	if d.Hours() > 24 {
-		days = int(math.Floor(d.Hours() / float64(24)))
-		d -= time.Hour * 24 * time.Duration(days)
-	}
-	s := regexp.MustCompile(`0[hms]`).ReplaceAllString(d.String(), "")
+func DurationToHuman(d time.Duration) (str string) {
+	d = d.Round(time.Second)
+	days := d / time.Hour / 24
 	if days > 0 {
-		s = fmt.Sprintf("%dd%s", days, s)
+		str += fmt.Sprintf("%dd", days)
 	}
-	return s
+	d -= days * time.Hour * 24
+
+	hours := d / time.Hour
+	if hours > 0 {
+		str += fmt.Sprintf("%dh", hours)
+	}
+	d -= hours * time.Hour
+
+	minutes := d / time.Minute
+	if minutes > 0 {
+		str += fmt.Sprintf("%dm", minutes)
+	}
+	d -= minutes * time.Minute
+
+	seconds := d / time.Second
+	if seconds > 0 {
+		str += fmt.Sprintf("%ds", seconds)
+	}
+	return
 }
 
 // commonPrefix determines the longest common prefix across a list of paths.

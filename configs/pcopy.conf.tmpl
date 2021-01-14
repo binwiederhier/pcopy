@@ -99,7 +99,7 @@
 # Format:  <number>(dhms)
 # Default: 7d
 #
-{{if .FileExpireAfter}}FileExpireAfter {{.FileExpireAfter}}{{else}}# FileExpireAfter 7d{{end}}
+{{if .FileExpireAfter}}FileExpireAfter {{.FileExpireAfter | durationToHuman}}{{else}}# FileExpireAfter 7d{{end}}
 
 # If set to true, a simple web UI is served that allows uploading files and text snippets.
 #

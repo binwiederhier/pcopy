@@ -212,7 +212,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	assertStrContains(t, contents, "ClipboardCountLimit 1234")
 	assertStrContains(t, contents, "ClipboardSizeLimit 9876")
 	assertStrContains(t, contents, "FileSizeLimit 777")
-	assertStrContains(t, contents, "FileExpireAfter 1h0m0s")
+	assertStrContains(t, contents, "FileExpireAfter 1h")
 	assertStrContains(t, contents, "WebUI false")
 }
 
@@ -238,7 +238,7 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 	assertStrContains(t, contents, "# ClipboardCountLimit")
 	assertStrContains(t, contents, "# ClipboardSizeLimit")
 	assertStrContains(t, contents, "# FileSizeLimit")
-	assertStrContains(t, contents, "FileExpireAfter 168h0m0s") // This is ugly but not really relevant
+	assertStrContains(t, contents, "FileExpireAfter 7d")
 	assertStrContains(t, contents, "# WebUI")
 }
 

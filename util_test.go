@@ -162,6 +162,11 @@ func TestRelativizePaths_SingleRelFile(t *testing.T) {
 	assertStrEquals(t, "file.txt", relativeFiles[0])
 }
 
+func TestDurationToHuman_SevenDays(t *testing.T) {
+	d := 7 * 24 * time.Hour
+	assertStrEquals(t, "7d", DurationToHuman(d))
+}
+
 func TestDurationToHuman_MoreThanOneDay(t *testing.T) {
 	d := 49 * time.Hour
 	assertStrEquals(t, "2d1h", DurationToHuman(d))
@@ -170,4 +175,9 @@ func TestDurationToHuman_MoreThanOneDay(t *testing.T) {
 func TestDurationToHuman_LessThanOneDay(t *testing.T) {
 	d := 17*time.Hour + 15*time.Minute
 	assertStrEquals(t, "17h15m", DurationToHuman(d))
+}
+
+func TestDurationToHuman_TenOfThings(t *testing.T) {
+	d := 10*time.Hour + 10*time.Minute + 10*time.Second
+	assertStrEquals(t, "10h10m10s", DurationToHuman(d))
 }
