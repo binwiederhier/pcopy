@@ -55,7 +55,7 @@ docker run --rm -it binwiederhier/pcopy
 ```bash
 go get golang.org/dl/go1.16beta1
 go1.16beta1 download
-go1.16beta1 get heckel.io/pcopy/cmd/pcopy
+go1.16beta1 get -u heckel.io/pcopy/cmd/pcopy
 ```
 
 **Manual install** (*any x86_64-based Linux*)**:**

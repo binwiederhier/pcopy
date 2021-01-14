@@ -110,6 +110,10 @@ func execCopy(c *cli.Context) error {
 		}
 
 		if err := client.Copy(reader, id, stream); err != nil {
+			if err == pcopy.ErrStreamInterrupted {
+				eprintln(" (interrupted by client)")
+				return nil
+			}
 			return err
 		}
 	}

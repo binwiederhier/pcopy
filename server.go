@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"net"
@@ -24,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"text/template"
 	"time"
 )
@@ -317,8 +319,17 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	if _, err := io.Copy(limitWriter, r.Body); err != nil {
 		os.Remove(file)
+		if pe, ok := err.(*fs.PathError); ok {
+			err = pe.Err
+		}
+		if se, ok := err.(*os.SyscallError); ok {
+			err = se.Err
+		}
+		if err == syscall.EPIPE { // "broken pipe", happens when interrupting on receiver-side while streaming
+			return errHTTPPartialContent
+		}
 		if err == errLimitReached {
-			return errHTTPTooManyRequests // "Quota exceeded"
+			return errHTTPPayloadTooLarge
 		}
 		return err
 	}
@@ -583,7 +594,9 @@ var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidFileID = errors.New("invalid file id")
 var errNoMatchingRoute = errors.New("no matching route")
+var errHTTPPartialContent = &errHTTPNotOK{http.StatusPartialContent, http.StatusText(http.StatusPartialContent)}
 var errHTTPBadRequest = &errHTTPNotOK{http.StatusBadRequest, http.StatusText(http.StatusBadRequest)}
 var errHTTPNotFound = &errHTTPNotOK{http.StatusNotFound, http.StatusText(http.StatusNotFound)}
 var errHTTPTooManyRequests = &errHTTPNotOK{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)}
+var errHTTPPayloadTooLarge = &errHTTPNotOK{http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge)}
 var errHTTPUnauthorized = &errHTTPNotOK{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}

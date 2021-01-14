@@ -41,6 +41,7 @@ let infoUploadTitleActive = document.getElementById("info-upload-title-active")
 
 let infoStreamHeaderActive = document.getElementById("info-stream-header-active")
 let infoStreamHeaderFinished = document.getElementById("info-stream-header-finished")
+let infoStreamHeaderInterrupted = document.getElementById("info-stream-header-interrupted")
 let infoStreamTitleActive = document.getElementById("info-stream-title-active")
 
 let infoErrorHeader = document.getElementById("info-error-header")
@@ -250,8 +251,8 @@ function save() {
     }
 
     xhr.addEventListener('readystatechange', function (e) {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            progressFinish()
+        if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
+            progressFinish(xhr.status)
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
             progressFailed(xhr.status)
         }
@@ -323,12 +324,16 @@ function progressUpdate(progress) {
     }
 }
 
-function progressFinish() {
+function progressFinish(code) {
     progressHideHeaders()
 
     if (streamEnabled()) {
         infoLinks.classList.add('hidden')
-        infoStreamHeaderFinished.classList.remove('hidden')
+        if (code === 206) {
+            infoStreamHeaderInterrupted.classList.remove('hidden')
+        } else {
+            infoStreamHeaderFinished.classList.remove('hidden')
+        }
     } else {
         infoLinks.classList.remove('hidden')
         infoUploadHeaderFinished.classList.remove('hidden')
@@ -341,7 +346,7 @@ function progressFailed(code) {
     infoArea.classList.add('error')
     infoLinks.classList.add('hidden')
     infoErrorCode.innerHTML = code
-    if (code === 429) {
+    if (code === 429 || code === 413) { // 429 Too Many Request, or 413 Payload Too Large
         infoErrorTextLimitReached.classList.remove('hidden')
     } else {
         infoErrorTextLimitReached.classList.add('hidden')
@@ -388,8 +393,8 @@ function uploadFile(file) {
     })
 
     xhr.addEventListener('readystatechange', function (e) {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            progressFinish()
+        if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
+            progressFinish(xhr.status)
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
             progressFailed(xhr.status)
         }

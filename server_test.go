@@ -224,7 +224,7 @@ func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/too-large", strings.NewReader("more than 10 bytes"))
 	server.handle(rr, req)
-	assertStatus(t, rr, http.StatusTooManyRequests)
+	assertStatus(t, rr, http.StatusRequestEntityTooLarge)
 	assertNotExists(t, config, "too-large")
 
 	rr = httptest.NewRecorder()
@@ -296,7 +296,7 @@ func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("4 bytes"))
 	server.handle(rr, req)
-	assertStatus(t, rr, http.StatusTooManyRequests)
+	assertStatus(t, rr, http.StatusRequestEntityTooLarge)
 	assertNotExists(t, config, "file2")
 }
 

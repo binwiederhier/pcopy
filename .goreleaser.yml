@@ -64,7 +64,7 @@ changelog:
       - '^test:'
 dockers:
   - dockerfile: Dockerfile
-    binaries:
+    ids:
       - pcopy
     image_templates:
       - "binwiederhier/pcopy:latest"
