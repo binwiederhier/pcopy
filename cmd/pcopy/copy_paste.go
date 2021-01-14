@@ -7,7 +7,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 	"io"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -149,19 +148,16 @@ func handleCopyError(err error) error {
 }
 
 func createInteractiveReader() io.ReadCloser {
-	eprintln("(Reading from STDIN, two empty lines will send)")
+	eprintln("(Reading from STDIN, use Ctrl-D will send)")
 	eprintln()
 
 	lines := make([]string, 0)
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-		if len(lines) >= 2 && lines[len(lines)-1] == "" && lines[len(lines)-2] == "" {
-			break
-		}
+		lines = append(lines, scanner.Text()+"\n")
 	}
-	content := strings.Join(lines[:len(lines)-1], "\n")
-	return ioutil.NopCloser(strings.NewReader(content))
+	content := strings.Join(lines, "")
+	return io.NopCloser(strings.NewReader(content))
 }
 
 func execPaste(c *cli.Context) error {
