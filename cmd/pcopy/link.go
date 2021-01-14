@@ -1,9 +1,11 @@
 package main
 
 import (
+	"crypto/x509"
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
+	"os"
 	"time"
 )
 
@@ -16,7 +18,7 @@ var cmdLink = &cli.Command{
 	Category:  categoryClient,
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
-		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Usage: "set duration the link is valid for to `TTL` (only protected)"},
+		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Value: 6 * time.Hour, Usage: "set duration the link is valid for to `TTL` (only protected)"},
 	},
 	Description: `Generates a link for the given clipboard file that can be used to share
 with others.
@@ -31,31 +33,56 @@ Examples:
 }
 
 func execLink(c *cli.Context) error {
-	config, clipboard, id, ttl, err := parseLinkArgs(c)
+	config, id, ttl, err := parseLinkArgs(c)
 	if err != nil {
 		return err
 	}
 	if config.ServerAddr == "" {
-		return fmt.Errorf("clipboard %s does not exist", clipboard)
+		return fmt.Errorf("clipboard does not exist")
 	}
+	return printLinks(config, id, ttl)
+}
 
+func printLinks(config *pcopy.Config, id string, ttl time.Duration) error {
 	url, err := config.GenerateClipURL(id, ttl)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("# Temporary download link for file '%s:%s'\n", clipboard, id)
+	var cert *x509.Certificate
 	if config.CertFile != "" {
-		fmt.Println("# Warning: This clipboard uses a self-signed TLS certificate. Browsers will show a warning.")
+		if _, err := os.Stat(config.CertFile); err == nil {
+			cert, err = pcopy.LoadCertFromFile(config.CertFile)
+			if err != nil {
+				return err
+			}
+		}
+		eprintf("# Direct link (valid for %s, warning: browsers will show a warning!)\n", pcopy.DurationToHuman(ttl))
 		// TODO print cert fingerprint!
+	} else {
+		eprintf("# Direct link (valid for %s)\n", pcopy.DurationToHuman(ttl))
 	}
-	fmt.Println()
-	fmt.Println(url)
-	fmt.Println()
+	eprintln(url)
+
+	eprintln()
+	eprintln("# Paste via pcopy (you may need a prefix)")
+	if id == pcopy.DefaultID {
+		eprintln("ppaste")
+	} else {
+		eprintf("ppaste %s", id)
+	}
+
+	eprintln()
+	eprintln("# Paste via curl")
+	cmd, err := curlCommand(id, config, cert, ttl)
+	if err != nil {
+		return err
+	}
+	eprintln(cmd)
 
 	return nil
 }
 
-func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, string, time.Duration, error) {
+func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, time.Duration, error) {
 	configFileOverride := c.String("config")
 	ttl := c.Duration("ttl")
 
@@ -65,14 +92,14 @@ func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, string, time.Duration
 		var err error
 		clipboard, id, err = parseClipboardAndID(c.Args().First(), configFileOverride)
 		if err != nil {
-			return nil, "", "", 0, err
+			return nil, "", 0, err
 		}
 	}
 
 	// Load config
 	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
 	if err != nil {
-		return nil, "", "", 0, err
+		return nil, "", 0, err
 	}
 
 	// Load defaults
@@ -80,5 +107,5 @@ func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, string, time.Duration
 		config.CertFile = pcopy.DefaultCertFile(configFile, true)
 	}
 
-	return config, clipboard, id, ttl, nil
+	return config, id, ttl, nil
 }

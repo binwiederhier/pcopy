@@ -336,7 +336,7 @@ func TestServer_AuthorizeFailureMissingProtected(t *testing.T) {
 	server := newTestServer(t, config)
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	if err := server.authorize(req); err != errHTTPUnauthorized {
+	if err := server.authorize(req); err != ErrHTTPUnauthorized {
 		t.Fatalf("expected invalid auth, got %#v", err)
 	}
 }
@@ -360,7 +360,7 @@ func TestServer_AuthorizeBasicFailureProtected(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("x:incorrect password")))
-	if err := server.authorize(req); err != errHTTPUnauthorized {
+	if err := server.authorize(req); err != ErrHTTPUnauthorized {
 		t.Fatalf("expected invalid auth, got %#v", err)
 	}
 }
@@ -386,7 +386,7 @@ func TestServer_AuthorizeHmacFailureWrongPathProtected(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	hmac, _ := GenerateAuthHMAC(config.Key.Bytes, "GET", "/wrong-path", time.Minute)
 	req.Header.Set("Authorization", hmac)
-	if err := server.authorize(req); err != errHTTPUnauthorized {
+	if err := server.authorize(req); err != ErrHTTPUnauthorized {
 		t.Fatalf("expected invalid auth, got %#v", err)
 	}
 }
@@ -399,7 +399,7 @@ func TestServer_AuthorizeHmacFailureWrongMethodProtected(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	hmac, _ := GenerateAuthHMAC(config.Key.Bytes, "PUT", "/", time.Minute)
 	req.Header.Set("Authorization", hmac)
-	if err := server.authorize(req); err != errHTTPUnauthorized {
+	if err := server.authorize(req); err != ErrHTTPUnauthorized {
 		t.Fatalf("expected invalid auth, got %#v", err)
 	}
 }
@@ -412,7 +412,7 @@ func TestServer_AuthorizeHmacFailureWrongKeyProtected(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	hmac, _ := GenerateAuthHMAC(make([]byte, 32), "GET", "/", time.Minute)
 	req.Header.Set("Authorization", hmac)
-	if err := server.authorize(req); err != errHTTPUnauthorized {
+	if err := server.authorize(req); err != ErrHTTPUnauthorized {
 		t.Fatalf("expected invalid auth, got %#v", err)
 	}
 }

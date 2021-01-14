@@ -64,7 +64,9 @@ func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
 	if err != nil {
 		return err
 	} else if resp.StatusCode == http.StatusPartialContent {
-		return ErrStreamInterrupted
+		return ErrHTTPPartialContent
+	} else if resp.StatusCode == http.StatusRequestEntityTooLarge {
+		return ErrHTTPPayloadTooLarge
 	} else if resp.StatusCode != http.StatusOK {
 		return &errHTTPNotOK{resp.StatusCode, resp.Status}
 	}
@@ -314,9 +316,6 @@ func (c *Client) newHTTPClientWithPinnedCert(pinned *x509.Certificate) (*http.Cl
 		},
 	}, nil
 }
-
-// ErrStreamInterrupted is returned when the client interrupts a stream
-var ErrStreamInterrupted = fmt.Errorf("stream interrupted: %w", errHTTPPartialContent)
 
 var errMissingServerAddr = errors.New("server address missing")
 var errResponseBodyEmpty = errors.New("response body was empty")

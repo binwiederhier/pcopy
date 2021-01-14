@@ -250,19 +250,19 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 	fields := r.Context().Value(routeCtx{}).([]string)
 	file, err := s.getClipboardFile(fields[0])
 	if err != nil {
-		return errHTTPBadRequest
+		return ErrHTTPBadRequest
 	}
 
 	stat, err := os.Stat(file)
 	if err != nil {
-		return errHTTPNotFound
+		return ErrHTTPNotFound
 	}
 	if stat.Mode()&os.ModeNamedPipe == 0 {
 		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
 	}
 	f, err := os.Open(file)
 	if err != nil {
-		return errHTTPNotFound
+		return ErrHTTPNotFound
 	}
 	defer f.Close()
 
@@ -279,14 +279,14 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	fields := r.Context().Value(routeCtx{}).([]string)
 	file, err := s.getClipboardFile(fields[0])
 	if err != nil {
-		return errHTTPBadRequest
+		return ErrHTTPBadRequest
 	}
 
 	// Check total file count limit (only if file didn't exist already)
 	stat, _ := os.Stat(file)
 	if stat == nil {
 		if err := s.countLimiter.Add(1); err != nil {
-			return errHTTPTooManyRequests
+			return ErrHTTPTooManyRequests
 		}
 	}
 
@@ -310,7 +310,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Handle empty body
 	if r.Body == nil {
-		return errHTTPBadRequest
+		return ErrHTTPBadRequest
 	}
 
 	// Copy file contents (with file limit & total limit)
@@ -326,10 +326,10 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			err = se.Err
 		}
 		if err == syscall.EPIPE { // "broken pipe", happens when interrupting on receiver-side while streaming
-			return errHTTPPartialContent
+			return ErrHTTPPartialContent
 		}
 		if err == errLimitReached {
-			return errHTTPPayloadTooLarge
+			return ErrHTTPPayloadTooLarge
 		}
 		return err
 	}
@@ -373,7 +373,7 @@ func (s *server) authorize(r *http.Request) error {
 		queryAuth, err := base64.StdEncoding.DecodeString(encodedQueryAuth[0])
 		if err != nil {
 			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
-			return errHTTPUnauthorized
+			return ErrHTTPUnauthorized
 		}
 		auth = string(queryAuth)
 	}
@@ -384,7 +384,7 @@ func (s *server) authorize(r *http.Request) error {
 		return s.authorizeBasic(r, m)
 	} else {
 		log.Printf("%s - %s %s - auth header missing", r.RemoteAddr, r.Method, r.RequestURI)
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 }
 
@@ -392,19 +392,19 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac timestamp conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 
 	ttlSecs, err := strconv.Atoi(matches[2])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac ttl conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 
 	hash, err := base64.StdEncoding.DecodeString(matches[3])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 
 	// Recalculate HMAC
@@ -412,14 +412,14 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
 		log.Printf("%s - %s %s - hmac calculation: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 	rehash := hm.Sum(nil)
 
 	// Compare HMAC in constant time (to prevent timing attacks)
 	if subtle.ConstantTimeCompare(hash, rehash) != 1 {
 		log.Printf("%s - %s %s - hmac invalid", r.RemoteAddr, r.Method, r.RequestURI)
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 
 	// Compare timestamp (to prevent replay attacks)
@@ -431,7 +431,7 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 		age := time.Since(time.Unix(int64(timestamp), 0))
 		if age > maxAge {
 			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
-			return errHTTPUnauthorized
+			return ErrHTTPUnauthorized
 		}
 	}
 
@@ -442,13 +442,13 @@ func (s *server) authorizeBasic(r *http.Request, matches []string) error {
 	userPassBytes, err := base64.StdEncoding.DecodeString(matches[1])
 	if err != nil {
 		log.Printf("%s - %s %s - basic base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 
 	userPassParts := strings.Split(string(userPassBytes), ":")
 	if len(userPassParts) != 2 {
 		log.Printf("%s - %s %s - basic invalid user/pass format", r.RemoteAddr, r.Method, r.RequestURI)
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 	passwordBytes := []byte(userPassParts[1])
 
@@ -456,7 +456,7 @@ func (s *server) authorizeBasic(r *http.Request, matches []string) error {
 	key := DeriveKey(passwordBytes, s.config.Key.Salt)
 	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
 		log.Printf("%s - %s %s - basic invalid", r.RemoteAddr, r.Method, r.RequestURI)
-		return errHTTPUnauthorized
+		return ErrHTTPUnauthorized
 	}
 
 	return nil
@@ -531,7 +531,7 @@ func (s *server) maybeExpire(file os.FileInfo) bool {
 func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if !s.config.WebUI {
-			return errHTTPBadRequest
+			return ErrHTTPBadRequest
 		}
 
 		return next(w, r)
@@ -549,7 +549,7 @@ func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
 
 		limiter := s.getVisitorLimiter(ip)
 		if !limiter.Allow() {
-			return errHTTPTooManyRequests
+			return ErrHTTPTooManyRequests
 		}
 
 		return next(w, r)
@@ -588,15 +588,27 @@ func (e errHTTPNotOK) Error() string {
 	return fmt.Sprintf("http: %s", e.status)
 }
 
+// ErrHTTPPartialContent is returned when the client interrupts a stream and only partial content was sent
+var ErrHTTPPartialContent = &errHTTPNotOK{http.StatusPartialContent, http.StatusText(http.StatusPartialContent)}
+
+// ErrHTTPBadRequest is returned when the request sent by the client was invalid, e.g. invalid file name
+var ErrHTTPBadRequest = &errHTTPNotOK{http.StatusBadRequest, http.StatusText(http.StatusBadRequest)}
+
+// ErrHTTPNotFound is returned when a resource is not found on the server
+var ErrHTTPNotFound = &errHTTPNotOK{http.StatusNotFound, http.StatusText(http.StatusNotFound)}
+
+// ErrHTTPTooManyRequests is returned when a server-side rate limit has been reached
+var ErrHTTPTooManyRequests = &errHTTPNotOK{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)}
+
+// ErrHTTPPayloadTooLarge is returned when the clipboard/file-size limit has been reached
+var ErrHTTPPayloadTooLarge = &errHTTPNotOK{http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge)}
+
+// ErrHTTPUnauthorized is returned when the client has not sent proper credentials
+var ErrHTTPUnauthorized = &errHTTPNotOK{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
+
 var errListenAddrMissing = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
 var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
 var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidFileID = errors.New("invalid file id")
 var errNoMatchingRoute = errors.New("no matching route")
-var errHTTPPartialContent = &errHTTPNotOK{http.StatusPartialContent, http.StatusText(http.StatusPartialContent)}
-var errHTTPBadRequest = &errHTTPNotOK{http.StatusBadRequest, http.StatusText(http.StatusBadRequest)}
-var errHTTPNotFound = &errHTTPNotOK{http.StatusNotFound, http.StatusText(http.StatusNotFound)}
-var errHTTPTooManyRequests = &errHTTPNotOK{http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests)}
-var errHTTPPayloadTooLarge = &errHTTPNotOK{http.StatusRequestEntityTooLarge, http.StatusText(http.StatusRequestEntityTooLarge)}
-var errHTTPUnauthorized = &errHTTPNotOK{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}

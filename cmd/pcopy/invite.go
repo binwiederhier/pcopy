@@ -19,7 +19,7 @@ var cmdInvite = &cli.Command{
 	Category:  categoryClient,
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
-		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "24h", Usage: "set how long the invite is valid for to `TTL` (only protected)"},
+		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "24h", Value: 24 * time.Hour, Usage: "set how long the invite is valid for to `TTL` (only protected)"},
 	},
 	Description: `Generates commands that can be shared with others so they can easily join 
 this clipboard. CLIPBOARD is the name of the clipboard for which to 

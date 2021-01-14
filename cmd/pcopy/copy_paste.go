@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var cmdCopy = &cli.Command{
@@ -26,7 +27,9 @@ var cmdCopy = &cli.Command{
 		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "load certificate file `CERT` to use for cert pinning"},
 		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
+		&cli.BoolFlag{Name: "link", Aliases: []string{"l"}, Usage: "show link and curl command after copying, same as 'pcopy link'"},
 		&cli.BoolFlag{Name: "stream", Aliases: []string{"S"}, Usage: "stream data to other client via fifo device"},
+		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Value: 6 * time.Hour, Usage: "set duration the link is valid for to `TTL` (only protected)"},
 	},
 	Description: `Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is
 the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
@@ -40,7 +43,7 @@ The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.con
 Examples:
   pcp < foo.txt            # Copies contents of foo.txt to the default clipboard
   pcp bar < bar.txt        # Copies contents of bar.txt to the default clipboard as 'bar'
-  echo hi | pcp work:      # Copies 'hi' to the 'work' clipboard
+  echo hi | pcp -l work:   # Copies 'hi' to the 'work' clipboard and print links
   echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
   pcp : img1/ img2/        # Creates ZIP from two folders and copies it to the default clipboard
   yes | pcp --stream       # Stream contents to the other end via FIFO device
@@ -91,10 +94,20 @@ func execCopy(c *cli.Context) error {
 		return err
 	}
 	stream := c.Bool("stream")
+	link := c.Bool("link")
+	ttl := c.Duration("ttl")
+
+	if link && stream {
+		if err := printLinks(config, id, ttl); err != nil {
+			return err
+		}
+		eprintln()
+		eprintln("# Streaming contents: upload will hold until you start downloading using any of the commands above.")
+	}
 
 	if len(files) > 0 {
 		if err := client.CopyFiles(files, id, stream); err != nil {
-			return err
+			return handleCopyError(err)
 		}
 	} else {
 		stat, err := os.Stdin.Stat()
@@ -110,14 +123,29 @@ func execCopy(c *cli.Context) error {
 		}
 
 		if err := client.Copy(reader, id, stream); err != nil {
-			if err == pcopy.ErrStreamInterrupted {
-				eprintln(" (interrupted by client)")
-				return nil
-			}
-			return err
+			return handleCopyError(err)
 		}
 	}
+	if link && !stream {
+		return printLinks(config, id, ttl)
+	}
 	return nil
+}
+
+func handleCopyError(err error) error {
+	if err == pcopy.ErrHTTPPartialContent {
+		eprintln(" (interrupted by client)")
+		return nil // This is not really an error!
+	}
+	if err == pcopy.ErrHTTPPayloadTooLarge {
+		eprint("\r")
+		return cli.Exit("error: file too large, or clipboard full", 1)
+	}
+	if err == pcopy.ErrHTTPTooManyRequests {
+		eprint("\r")
+		return cli.Exit("error: too many files in clipboard, or rate limit reached", 1)
+	}
+	return err
 }
 
 func createInteractiveReader() io.ReadCloser {
