@@ -106,6 +106,10 @@ html, body {
 
 /* login area */
 
+#login-box {
+    padding: 20px;
+}
+
 #password-status {
     color: #a00;
     font-style: italic;
