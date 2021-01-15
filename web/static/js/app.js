@@ -52,12 +52,14 @@ let infoErrorTextLimitReached = document.getElementById("info-error-text-limit-r
 let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
 let infoDirectLinkDownload = document.getElementById("info-direct-link-download")
-let infoCommandPpaste = document.getElementById("info-command-ppaste")
-let infoCommandPpasteCopy = document.getElementById("info-command-ppaste-copy")
-let infoCommandPpasteTooltip = document.getElementById("info-command-ppaste-tooltip")
-let infoCommandCurl = document.getElementById("info-command-curl")
-let infoCommandCurlCopy = document.getElementById("info-command-curl-copy")
-let infoCommandCurlTooltip = document.getElementById("info-command-curl-tooltip")
+let infoTabLinkPcopy = document.getElementById("info-tab-link-pcopy")
+let infoTabLinkCurl = document.getElementById("info-tab-link-curl")
+let infoCommandDirectLink = document.getElementById("info-command-link")
+let infoCommandDirectLinkCopy = document.getElementById("info-command-link-copy")
+let infoCommandDirectLinkTooltip = document.getElementById("info-command-link-tooltip")
+let infoCommandLine = document.getElementById("info-command-line")
+let infoCommandLineCopy = document.getElementById("info-command-line-copy")
+let infoCommandLineTooltip = document.getElementById("info-command-line-tooltip")
 
 /* Login */
 
@@ -296,10 +298,15 @@ function handleFile(file) {
 function progressStart(fileId, url, path, key) {
     url = maybeAddAuthParam(url, path, key)
 
-    infoCommandPpaste.value = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
     infoDirectLinkStream.href = url
     infoDirectLinkDownload.href = url
-    infoCommandCurl.value = generateCurlCommand(url)
+    infoCommandDirectLink.value = url
+
+    infoTabLinkPcopy.classList.add('tab-active')
+    infoTabLinkCurl.classList.remove('tab-active')
+    infoCommandLine.dataset.pcopy = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
+    infoCommandLine.dataset.curl = generateCurlCommand(url)
+    infoCommandLine.value = infoCommandLine.dataset.pcopy
 
     progressHideHeaders()
 
@@ -438,35 +445,49 @@ function fadeOutInfoArea(e) {
     })
 }
 
-infoCommandPpasteCopy.addEventListener('click', function() {
-    infoCommandPpaste.select();
-    infoCommandPpaste.setSelectionRange(0, 99999); /* For mobile devices */
+infoTabLinkPcopy.addEventListener('click', function(e) {
+    e.preventDefault()
+    infoTabLinkPcopy.classList.add('tab-active')
+    infoTabLinkCurl.classList.remove('tab-active')
+    infoCommandLine.value = infoCommandLine.dataset.pcopy
+})
+
+infoTabLinkCurl.addEventListener('click', function(e) {
+    e.preventDefault()
+    infoTabLinkPcopy.classList.remove('tab-active')
+    infoTabLinkCurl.classList.add('tab-active')
+    infoCommandLine.value = infoCommandLine.dataset.curl
+})
+
+infoCommandDirectLinkCopy.addEventListener('click', function() {
+    infoCommandDirectLink.select();
+    infoCommandDirectLink.setSelectionRange(0, 99999); /* For mobile devices */
     document.execCommand("copy");
-    infoCommandPpaste.setSelectionRange(0, 0);
-    infoCommandPpaste.blur()
-    infoCommandPpasteTooltip.innerHTML = 'Copied'
-    infoCommandPpasteTooltip.classList.add('copied')
+    infoCommandDirectLink.setSelectionRange(0, 0);
+    infoCommandDirectLink.blur()
+    infoCommandDirectLinkTooltip.innerHTML = 'Copied'
+    infoCommandDirectLinkTooltip.classList.add('copied')
 })
 
-infoCommandPpasteCopy.addEventListener('mouseout', function() {
-    infoCommandPpasteTooltip.innerHTML = 'Copy to clipboard'
-    infoCommandPpasteTooltip.classList.remove('copied')
+infoCommandDirectLinkCopy.addEventListener('mouseout', function() {
+    infoCommandDirectLinkTooltip.innerHTML = 'Copy to clipboard'
+    infoCommandDirectLinkTooltip.classList.remove('copied')
 })
 
-infoCommandCurlCopy.addEventListener('click', function() {
-    infoCommandCurl.select();
-    infoCommandCurl.setSelectionRange(0, 99999); /* For mobile devices */
+infoCommandLineCopy.addEventListener('click', function() {
+    infoCommandLine.select();
+    infoCommandLine.setSelectionRange(0, 99999); /* For mobile devices */
     document.execCommand("copy");
-    infoCommandCurl.setSelectionRange(0, 0);
-    infoCommandCurl.blur()
-    infoCommandCurlTooltip.innerHTML = 'Copied'
-    infoCommandCurlTooltip.classList.add('copied')
+    infoCommandLine.setSelectionRange(0, 0);
+    infoCommandLine.blur()
+    infoCommandLineTooltip.innerHTML = 'Copied'
+    infoCommandLineTooltip.classList.add('copied')
 
 })
 
-infoCommandCurlCopy.addEventListener('mouseout', function() {
-    infoCommandCurlTooltip.innerHTML = 'Copy to clipboard'
-    infoCommandPpasteTooltip.classList.remove('copied')
+infoCommandLineCopy.addEventListener('mouseout', function() {
+    infoCommandLineTooltip.innerHTML = 'Copy to clipboard'
+    infoCommandLineTooltip.classList.remove('copied')
 })
 
 /* Show/hide password area */

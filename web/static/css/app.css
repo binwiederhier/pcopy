@@ -156,7 +156,7 @@ html, body {
 
 #info-box p {
     font-size: 1em;
-    margin: 20px 0 15px 0;
+    margin: 20px 0 10px 0;
 }
 
 #info-box .code-area {
@@ -187,12 +187,43 @@ html, body {
         border-radius: 0;
         font-size: 1.2em;
         padding: 15px 30px;
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: auto;
     }
     #info-close-button {
         right: 0;
         top: 0;
     }
+}
+
+#info-area .tab {
+    display: block;
+    float: left;
+    text-align: left;
+    text-decoration: none;
+    color: #4d4d4d;
+    background: #eee;
+    font-size: 0.7em;
+    padding: 3px 10px;
+    font-weight: bold;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+#info-area .tab:hover {
+    background: #bbb;
+}
+
+#info-area .tab.tab-active {
+    background: #ccc;
+}
+
+#info-area .tab.tab-left {
+    border-top-left-radius: 3px;
+}
+
+#info-area .tab.right {
+    border-top-right-radius: 3px;
 }
 
 #info-area .code-area input.code-box {
@@ -204,6 +235,10 @@ html, body {
     border: none;
     border-radius: 3px 0 0 3px;
     width: 100%;
+}
+
+#info-area .code-area input.code-box-with-tabs {
+    border-top-left-radius: 0;
 }
 
 #info-area .code-area button {
