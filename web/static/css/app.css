@@ -132,7 +132,8 @@ html, body {
     opacity: 0;
 }
 
-#info-area .info-box {
+#info-box {
+    position: relative;
     margin: auto;
     padding: 25px 45px;
     width: 800px;
@@ -144,19 +145,50 @@ html, body {
     border-radius: 5px;
 }
 
-#info-area .info-box h1 {
+#info-box h1 {
     font-size: 1.8em;
     margin: 30px 0 20px 0;
 }
 
-#info-area .info-box p {
+#info-box p {
     font-size: 1em;
     margin: 20px 0 15px 0;
 }
 
-#info-area .info-box .code-area {
+#info-box .code-area {
     display: inline-flex;
     width: 100%;
+}
+
+#info-close-button {
+    display: block;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    height: 20px;
+    width: 20px;
+    padding: 20px;
+}
+
+@media (max-width: 900px) {
+    #info-box {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        margin: 0;
+        width: auto;
+        height: auto;
+        border-radius: 0;
+        font-size: 1.2em;
+        padding: 15px 30px;
+        overflow: hidden;
+    }
+    #info-close-button {
+        right: 0;
+        top: 0;
+    }
 }
 
 #info-area .code-area input.code-box {
@@ -374,7 +406,6 @@ html, body {
         margin: 0 50px; /* we want this on a line alone */
     }
 }
-
 
 #upload-status {
     margin-right: 5px;

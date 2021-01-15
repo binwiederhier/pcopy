@@ -29,6 +29,7 @@ let loginPasswordField = document.getElementById("password")
 let loginPasswordInvalid = document.getElementById("password-status")
 
 let infoArea = document.getElementById("info-area")
+let infoCloseButton = document.getElementById("info-close-button")
 
 let infoHelpHeader = document.getElementById("info-help-header")
 let infoHelpJoinCommand = document.getElementById("info-command-join")
@@ -414,7 +415,15 @@ let hasClickClass = (el) => {
     return false
 }
 
-infoArea.addEventListener('click', fadeOutInfoArea)
+infoCloseButton.addEventListener('click', function (e) {
+    e.preventDefault()
+    fadeOutInfoArea()
+})
+
+infoArea.addEventListener('click', function (e) {
+    if (!hasClickClass(e.target)) return;
+    fadeOutInfoArea(e)
+})
 
 function hideInfoArea() {
     infoArea.classList.add("hidden")
@@ -422,8 +431,6 @@ function hideInfoArea() {
 }
 
 function fadeOutInfoArea(e) {
-    if (!hasClickClass(e.target)) return;
-
     infoArea.classList.add("fade-out")
     infoArea.addEventListener('transitionend', function handler() {
         hideInfoArea()
