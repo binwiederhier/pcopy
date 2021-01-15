@@ -281,7 +281,7 @@ html, body {
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    padding-bottom: 3px;
+    padding-bottom: 1px;
 }
 
 #header-area .col-auto {
