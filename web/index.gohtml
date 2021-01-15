@@ -40,21 +40,29 @@
 
 <div id="main-area" class="hidden">
     <div id="header-area">
-        <a href="https://heckel.io/pcopy"><h1>pcopy</h1></a>
-
-        <label for="file-id">File name:</label>
-        <input id="file-id" type="text" class="textfield" placeholder="default (optional)"/>
-        <input id="random-file-id" type="checkbox"/>
-        <label for="random-file-id">Random name</label>
-        <input id="stream" type="checkbox"/>
-        <label for="stream">Stream</label>
-
-        <button id="logout-button" class="button right-button hidden">Logout</button>
-        <button id="upload-button" class="button right-button">Upload file</button>
-        <button id="save-button" class="button right-button">Save text</button>
-        <button id="info-button" class="button right-button">Info</button>
-
-        <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
+        <div id="header-flex-box">
+            <div class="col-auto">
+                <a href="https://heckel.io/pcopy"><h1>pcopy</h1></a>
+            </div>
+            <div class="col-auto">
+                <label for="file-id">File name:</label>
+                <input id="file-id" type="text" class="textfield" placeholder="default (optional)"/>
+            </div>
+            <div class="col-auto">
+                <input id="random-file-id" type="checkbox"/>
+                <label for="random-file-id">Random name</label>
+                <input id="stream" type="checkbox"/>
+                <label for="stream">Stream</label>
+            </div>
+            <div class="col"></div>
+            <div class="col-auto">
+                <button id="info-button" class="button right-button">Info</button>
+                <button id="save-button" class="button right-button">Save</button>
+                <button id="upload-button" class="button right-button">Upload</button>
+                <button id="logout-button" class="button right-button">Logout</button>
+                <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
+            </div>
+        </div>
     </div>
     <div id="text-area">
         <textarea id="text" wrap="off" spellcheck="false" placeholder="Paste your content here or drag & drop a file"></textarea>
@@ -133,7 +141,7 @@
                         <div id="info-error-text-limit-reached">
                             <p>
                                 The server returns this error typically only if you are <b>trying to upload a file
-                                that is too large</b> or there have been uploaded <b>too many files</b> already.
+                                    that is too large</b> or there have been uploaded <b>too many files</b> already.
                                 Make sure that there are no server-side limits in place.
                             </p>
                             <p>
