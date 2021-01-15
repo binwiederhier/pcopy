@@ -237,57 +237,6 @@ html, body {
     opacity: 1;
 }
 
-
-.flex-root {
-    display: flex;
-    flex-flow: column;
-}
-
-.flex-container {
-    display: flex;
-    flex-flow: column;
-    width: 100%;
-    margin-right: auto;
-    margin-left: auto;
-}
-
-.align-items-center {
-    align-items: center !important;
-}
-
-.justify-content-end {
-    justify-content: flex-end !important;
-}
-
-.row {
-    display: flex;
-    flex-wrap: wrap;
-    margin-right: -15px;
-    margin-left: -15px;
-}
-
-.col-auto {
-    flex: 0 0 auto;
-    width: auto;
-    max-width: 100%;
-}
-
-.col, .col-auto {
-    position: relative;
-}
-
-.col {
-    flex-basis: 0;
-    flex-grow: 1;
-    max-width: 100%;
-    width: 100%;
-}
-
-
-
-
-
-
 /* drag & drop area, see https://stackoverflow.com/a/33917000/1440785 (CC BY-SA 3.0) */
 
 #drop-area {
@@ -307,10 +256,17 @@ html, body {
 /* main area */
 
 #main-area {
+    display: flex;
+    flex-flow: column;
     height: 100%;
 }
 
 #header-area {
+    display: flex;
+    flex-flow: column;
+    width: 100%;
+    margin-right: auto;
+    margin-left: auto;
     background-color: #004c79;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     z-index: 2;
@@ -320,9 +276,32 @@ html, body {
     margin: 0;
 }
 
-#header-area h1, #header-area img, #header-area button {
+#header-flex-box {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+}
+
+#header-area .col-auto {
+    position: relative;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: 100%;
+    padding-left: 10px;
+    padding-right: 4px;
+}
+
+#header-area  .col {
+    position: relative;
+    flex-basis: 0;
+    flex-grow: 1;
+    max-width: 100%;
+    width: 100%;
+}
+
+#header-area button {
     height: 32px;
-    line-height: 32px;
 }
 
 #header-area img {
@@ -330,8 +309,9 @@ html, body {
 }
 
 #header-area h1 {
-    margin: -5px 25px 0 10px;
-    font-size: 1.3em;
+    line-height: 40px;
+    margin: -7px 25px 0 0;
+    font-size: 1.4em;
     color: white;
 }
 
@@ -341,20 +321,13 @@ html, body {
 
 #header-area label {
     color: white;
-    padding: 0 5px;
-    height: 40px;
     line-height: 40px;
-}
-
-#header-area span {
-    color: white;
-    height: 40px;
-    line-height: 40px;
+    padding-right: 10px;
+    padding-left: 2px;
 }
 
 #header-area button {
     padding: 0 10px;
-    margin: 0 5px 0 0;
 }
 
 #header-area button:disabled {
@@ -363,7 +336,7 @@ html, body {
 }
 
 #header-area input {
-    margin: 4px 5px;
+    margin: 4px 0;
 }
 
 #header-area input.error {
@@ -374,8 +347,19 @@ html, body {
     width: 150px;
 }
 
-#header-area #random-file-id, #header-area #stream {
-    margin: 0 2px 0 10px;
+@media (max-width: 700px) {
+    #header-area h1 {
+        margin: 0 50px; /* we want this on a line alone */
+
+    }
+
+    #header-area .col {
+        display: none;
+    }
+
+    #header-area button {
+        margin-bottom: 10px;
+    }
 }
 
 #upload-status {

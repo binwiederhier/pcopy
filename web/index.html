@@ -37,15 +37,17 @@
     </div>
 </div>
 
-<div id="main-area" class="flex-root hidden">
-    <div id="header-area" class="flex-container">
-        <div class="row align-items-center justify-content-end my-1">
-            <div class="col-auto mb-1">
+<div id="main-area" class="hidden">
+    <div id="header-area">
+        <div id="header-flex-box">
+            <div class="col-auto">
                 <a href="https://heckel.io/pcopy"><h1>pcopy</h1></a>
             </div>
             <div class="col-auto">
                 <label for="file-id">File name:</label>
                 <input id="file-id" type="text" class="textfield" placeholder="default (optional)"/>
+            </div>
+            <div class="col-auto">
                 <input id="random-file-id" type="checkbox"/>
                 <label for="random-file-id">Random name</label>
                 <input id="stream" type="checkbox"/>
@@ -53,10 +55,10 @@
             </div>
             <div class="col"></div>
             <div class="col-auto">
-                <button id="logout-button" class="button right-button hidden">Logout</button>
-                <button id="upload-button" class="button right-button">Upload file</button>
-                <button id="save-button" class="button right-button">Save text</button>
                 <button id="info-button" class="button right-button">Info</button>
+                <button id="save-button" class="button right-button">Save</button>
+                <button id="upload-button" class="button right-button">Upload</button>
+                <button id="logout-button" class="button right-button">Logout</button>
                 <input type="file" id="file-upload" class="hidden" onchange="handleFile(this.files[0])">
             </div>
         </div>
