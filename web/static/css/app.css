@@ -281,6 +281,7 @@ html, body {
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
+    padding-bottom: 3px;
 }
 
 #header-area .col-auto {
@@ -335,10 +336,6 @@ html, body {
     cursor: not-allowed;
 }
 
-#header-area input {
-    margin: 4px 0;
-}
-
 #header-area input.error {
     background: #ffd6d6;
 }
@@ -347,20 +344,37 @@ html, body {
     width: 150px;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
     #header-area h1 {
-        margin: 0 50px; /* we want this on a line alone */
-
+        margin: 0 300px; /* we want this on a line alone */
     }
-
     #header-area .col {
         display: none;
     }
+}
 
+@media (max-width: 700px) {
+    #header-area h1 {
+        margin: 0 200px; /* we want this on a line alone */
+    }
     #header-area button {
-        margin-bottom: 10px;
+        margin-bottom: 5px;
+        margin-top: 5px;
     }
 }
+
+@media (max-width: 500px) {
+    #header-area h1 {
+        margin: 0 100px; /* we want this on a line alone */
+    }
+}
+
+@media (max-width: 400px) {
+    #header-area h1 {
+        margin: 0 50px; /* we want this on a line alone */
+    }
+}
+
 
 #upload-status {
     margin-right: 5px;
