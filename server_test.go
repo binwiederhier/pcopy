@@ -300,26 +300,6 @@ func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
 	assertNotExists(t, config, "file2")
 }
 
-func TestServer_HandleJoinWithKeySuccess(t *testing.T) {
-	config := newTestServerConfig(t)
-	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
-	server := newTestServer(t, config)
-
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/join", nil)
-	hmac, _ := GenerateAuthHMAC(config.Key.Bytes, "GET", "/join", time.Minute)
-	req.Header.Set("Authorization", hmac)
-	server.handle(rr, req)
-
-	assertStatus(t, rr, http.StatusOK)
-	if !strings.Contains(rr.Body.String(), "#!/bin/sh") {
-		t.Fatalf("expected shell code, got: %s", rr.Body.String())
-	}
-	if !strings.Contains(rr.Body.String(), "PCOPY_KEY=") {
-		t.Fatalf("expected PCOPY_KEY env, got: %s", rr.Body.String())
-	}
-}
-
 func TestServer_AuthorizeSuccessUnprotected(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)

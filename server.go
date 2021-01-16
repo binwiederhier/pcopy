@@ -46,7 +46,7 @@ var (
 	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardPathFormat = "/%s"
-	reservedFiles       = []string{"info", "verify", "join", "static"}
+	reservedFiles       = []string{"info", "verify", "static"}
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
@@ -54,10 +54,6 @@ var (
 
 	//go:embed web/static
 	webStaticFs embed.FS
-
-	//go:embed "scripts/join.sh.tmpl"
-	joinTemplateSource string
-	joinTemplate       = template.Must(template.New("join").Funcs(templateFnMap).Parse(joinTemplateSource))
 )
 
 // server is the main HTTP server struct. It's the one with all the good stuff.
@@ -168,7 +164,6 @@ func (s *server) routeList() []route {
 		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleWebStatic)),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
-		newRoute("GET", "/join", s.limit(s.auth(s.handleJoin))),
 		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
 		newRoute("PUT", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
 		newRoute("POST", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
@@ -338,11 +333,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 	return nil
-}
-
-func (s *server) handleJoin(w http.ResponseWriter, r *http.Request) error {
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
-	return joinTemplate.Execute(w, s.config)
 }
 
 func (s *server) getClipboardFile(file string) (string, error) {

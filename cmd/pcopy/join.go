@@ -56,16 +56,11 @@ func execJoin(c *cli.Context) error {
 	}
 
 	// Find config file
-	var configFile string
-	if auto {
-		clipboard, configFile = pcopy.FindNewConfigFile(clipboard)
-	} else {
-		configFile = pcopy.FindConfigFile(clipboard)
-		if configFile != "" && !force {
-			return fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use --force to override", configFile)
-		}
-		configFile = pcopy.GetConfigFile(clipboard)
+	configFile := pcopy.FindConfigFile(clipboard)
+	if configFile != "" && !force {
+		return fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use --force to override", configFile)
 	}
+	configFile = pcopy.GetConfigFile(clipboard)
 
 	// Read basic info from server
 	client, err := pcopy.NewClient(&pcopy.Config{
@@ -170,5 +165,4 @@ func printInstructions(configFile string, clipboard string, info *pcopy.ServerIn
 	} else {
 		fmt.Printf("You may now use 'pcopy copy%s' and 'pcopy paste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	}
-	fmt.Println("To install pcopy on other computers, or join this clipboard, use 'pcopy invite' command.")
 }

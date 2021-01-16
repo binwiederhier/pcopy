@@ -6,9 +6,15 @@
 [![codecov](https://codecov.io/gh/binwiederhier/pcopy/branch/master/graph/badge.svg?token=bdrFZttMsk)](https://codecov.io/gh/binwiederhier/pcopy)
 [![Slack channel](https://img.shields.io/badge/slack-@gophers/pcopy-success.svg?logo=slack)](https://gophers.slack.com/archives/C01JMTPGF2Q)
 
-pcopy is an across-the-network clipboard that allows copying (`pcp < file.txt`) and pasting (`ppaste > file.txt`)
-across different computers. Other users can be invited to join (`pcopy invite`), or simply join by specifying 
-the hostname (`pcopy join`). 
+pcopy is a tool to copy/paste across machines. It can be used from the [web UI](#web-ui-for-uploading-text-snippets-or-large-files),
+via a CLI or without a client by using curl. It can also be used as a self-hosted NoPaste or as a temporary file hosting service.
+
+After installing the pcopy server, you can use the `pcopy` command line tool to copy from STDIN (`pcp < file.txt`) and 
+paste on any connected machine to STDOUT (`ppaste > file.txt`). If you don't have pcopy installed, you can also use its
+super simple REST API to copy/paste, e.g. via `curl`.
+
+The optional web UI allows you to paste text or upload files (even if they are gigabytes in size), and generates 
+temporary links you can share with others. 
 
 **Features:**
 * 📋 Copy/paste across computers (via STDIN/STDOUT)
@@ -284,7 +290,6 @@ COMMANDS:
      leave, rm  Leave a remote clipboard
      list, l    Lists all of the clipboards that have been joined
      link, n    Generate direct download link to clipboard content
-     invite, i  Generate commands to invite others to join a clipboard
    Server-side commands:
      serve   Start pcopy server
      setup   Initial setup wizard for a new pcopy server

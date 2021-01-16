@@ -173,36 +173,6 @@ func FindConfigFile(clipboard string) string {
 	return ""
 }
 
-// FindNewConfigFile finds a new config file for the given clipboard name, and returns both clipboard name
-// and the config file path. If the config file with the clipboard name already exists, a new clipboard name is
-// picked.
-func FindNewConfigFile(clipboard string) (string, string) {
-	// Try the given clipboard first
-	configFile := FindConfigFile(clipboard)
-	if configFile == "" {
-		return clipboard, GetConfigFile(clipboard)
-	}
-
-	// If that is taken, try single letter clipboard
-	alphabet := "abcdefghijklmnopqrstuvwxyz"
-	for _, c := range alphabet {
-		clipboard = string(c)
-		configFile = FindConfigFile(clipboard)
-		if configFile == "" {
-			return clipboard, GetConfigFile(clipboard)
-		}
-	}
-
-	// If all of those are taken (really?), just count up
-	for i := 1; ; i++ {
-		clipboard = fmt.Sprintf("a%d", i)
-		configFile = FindConfigFile(clipboard)
-		if configFile == "" {
-			return clipboard, GetConfigFile(clipboard)
-		}
-	}
-}
-
 // GetConfigFile returns the config file path for the given clipboard name.
 func GetConfigFile(clipboard string) string {
 	u, _ := user.Current()

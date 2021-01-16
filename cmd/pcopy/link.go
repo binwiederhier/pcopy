@@ -6,6 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -108,4 +109,24 @@ func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, time.Duration, error)
 	}
 
 	return config, id, ttl, nil
+}
+
+func curlCommand(cmd string, config *pcopy.Config, cert *x509.Certificate, ttl time.Duration) (string, error) {
+	args := make([]string, 0)
+	if cert == nil {
+		args = append(args, "-sSL")
+	} else {
+		if hash, err := pcopy.CalculatePublicKeyHash(cert); err == nil {
+			hashBase64 := pcopy.EncodeCurlPinnedPublicKeyHash(hash)
+			args = append(args, "-sSLk", fmt.Sprintf("--pinnedpubkey %s", hashBase64))
+		} else {
+			args = append(args, "-sSLk")
+		}
+	}
+	path := fmt.Sprintf("/%s", cmd)
+	url, err := config.GenerateURL(path, ttl)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url), nil
 }
