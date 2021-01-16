@@ -158,49 +158,25 @@ func (c *Config) GenerateClipURL(id string, ttl time.Duration) (string, error) {
 	return c.GenerateURL(path, ttl)
 }
 
-// FindConfigFile returns the path to the config file for the clipboard with the given name.
-// This looks in both the system and the user config directory.
-func FindConfigFile(clipboard string) string {
-	userConfigFile := filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
-	systemConfigFile := filepath.Join(systemConfigDir, clipboard+suffixConf)
-
-	if _, err := os.Stat(userConfigFile); err == nil {
-		return userConfigFile
-	} else if _, err := os.Stat(systemConfigFile); err == nil {
-		return systemConfigFile
-	}
-
-	return ""
-}
-
 // GetConfigFile returns the config file path for the given clipboard name.
 func GetConfigFile(clipboard string) string {
-	u, _ := user.Current()
-	if u.Uid == "0" {
-		return filepath.Join(systemConfigDir, clipboard+suffixConf)
-	}
-	return filepath.Join(ExpandHome(userConfigDir), clipboard+suffixConf)
+	return filepath.Join(getConfigDir(), clipboard+suffixConf)
 }
 
 // ListConfigs reads the config folder and returns a map of config files and their Config structs
 func ListConfigs() map[string]*Config {
 	configs := make(map[string]*Config)
-	dirs := []string{
-		systemConfigDir,
-		ExpandHome(userConfigDir),
+	dir := getConfigDir()
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return configs
 	}
-	for _, dir := range dirs {
-		files, err := ioutil.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, f := range files {
-			if strings.HasSuffix(f.Name(), suffixConf) {
-				filename := filepath.Join(dir, f.Name())
-				config, err := loadConfigFromFile(filename)
-				if err == nil {
-					configs[filename] = config
-				}
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), suffixConf) {
+			filename := filepath.Join(dir, f.Name())
+			config, err := loadConfigFromFile(filename)
+			if err == nil {
+				configs[filename] = config
 			}
 		}
 	}
@@ -264,10 +240,17 @@ func defaultFileWithNewExt(newExtension string, configFile string, mustExist boo
 	return file
 }
 
-func loadConfigFromClipboardIfExists(clipboard string) (string, *Config, error) {
-	configFile := FindConfigFile(clipboard)
+func getConfigDir() string {
+	u, _ := user.Current()
+	if u.Uid == "0" {
+		return systemConfigDir
+	}
+	return ExpandHome(userConfigDir)
+}
 
-	if configFile != "" {
+func loadConfigFromClipboardIfExists(clipboard string) (string, *Config, error) {
+	configFile := GetConfigFile(clipboard)
+	if _, err := os.Stat(configFile); err == nil {
 		config, err := loadConfigFromFile(configFile)
 		if err != nil {
 			return "", nil, err
