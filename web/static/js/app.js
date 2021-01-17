@@ -267,7 +267,8 @@ function save() {
 /* Info help */
 
 headerInfoButton.addEventListener('click', function() {
-    let serverAddr = location.host.replace(':' + config.DefaultPort, '')
+    let port = location.port ? location.port : 443
+    let serverAddr = `${location.hostname}:${port}`.replace(':' + config.DefaultPort, '')
     infoHelpJoinCommand.value = `pcopy join ${serverAddr}`
 
     progressHideHeaders()
