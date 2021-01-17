@@ -194,7 +194,7 @@ func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string, error) {
 	}
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
+	configFile, config, err := parseAndLoadConfig(configFileOverride, clipboard)
 	if err != nil {
 		return nil, "", nil, err
 	}

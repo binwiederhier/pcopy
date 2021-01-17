@@ -100,7 +100,8 @@ type Key struct {
 	Salt  []byte
 }
 
-func newConfig() *Config {
+// NewConfig returns the default config
+func NewConfig() *Config {
 	return &Config{
 		ListenAddr:          fmt.Sprintf(":%d", DefaultPort),
 		ServerAddr:          "",
@@ -158,23 +159,39 @@ func (c *Config) GenerateClipURL(id string, ttl time.Duration) (string, error) {
 	return c.GenerateURL(path, ttl)
 }
 
-// GetConfigFile returns the config file path for the given clipboard name.
-func GetConfigFile(clipboard string) string {
-	return filepath.Join(getConfigDir(), clipboard+suffixConf)
+// ConfigStore represents the config folder
+type ConfigStore struct {
+	dir string
 }
 
-// ListConfigs reads the config folder and returns a map of config files and their Config structs
-func ListConfigs() map[string]*Config {
+// NewConfigStore creates a new config store using the user-specific config dir
+func NewConfigStore() *ConfigStore {
+	return newConfigStoreWithDir(getConfigDir())
+}
+
+// newConfigStoreWithDir creates a config store using the given directory as root
+func newConfigStoreWithDir(dir string) *ConfigStore {
+	return &ConfigStore{
+		dir: dir,
+	}
+}
+
+// FileFromName returns the config file path for the given clipboard name.
+func (c *ConfigStore) FileFromName(clipboard string) string {
+	return filepath.Join(c.dir, clipboard+suffixConf)
+}
+
+// All reads the config folder and returns a map of config files and their Config structs
+func (c *ConfigStore) All() map[string]*Config {
 	configs := make(map[string]*Config)
-	dir := getConfigDir()
-	files, err := ioutil.ReadDir(dir)
+	files, err := ioutil.ReadDir(c.dir)
 	if err != nil {
 		return configs
 	}
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), suffixConf) {
-			filename := filepath.Join(dir, f.Name())
-			config, err := loadConfigFromFile(filename)
+			filename := filepath.Join(c.dir, f.Name())
+			config, err := LoadConfigFromFile(filename)
 			if err == nil {
 				configs[filename] = config
 			}
@@ -183,23 +200,24 @@ func ListConfigs() map[string]*Config {
 	return configs
 }
 
+// LoadConfigFromFile loads the configuration from a file
+func LoadConfigFromFile(filename string) (*Config, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	config, err := loadConfig(file)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
 // ExtractClipboard extracts the name of the clipboard from the config filename, e.g. the name of a clipboard with
 // the config file /etc/pcopy/work.conf is "work".
 func ExtractClipboard(filename string) string {
 	return strings.TrimSuffix(filepath.Base(filename), suffixConf)
-}
-
-// LoadConfig is a helper to load the config file either from the given filename, or if that is empty, determine
-// the filename based on the clipboard name.
-func LoadConfig(filename string, clipboard string) (string, *Config, error) {
-	if filename != "" {
-		config, err := loadConfigFromFile(filename)
-		if err != nil {
-			return "", nil, err
-		}
-		return filename, config, err
-	}
-	return loadConfigFromClipboardIfExists(clipboard)
 }
 
 // ExpandServerAddr expands the server address with the default port if no port is provided,
@@ -248,33 +266,8 @@ func getConfigDir() string {
 	return ExpandHome(userConfigDir)
 }
 
-func loadConfigFromClipboardIfExists(clipboard string) (string, *Config, error) {
-	configFile := GetConfigFile(clipboard)
-	if _, err := os.Stat(configFile); err == nil {
-		config, err := loadConfigFromFile(configFile)
-		if err != nil {
-			return "", nil, err
-		}
-		return configFile, config, nil
-	}
-	return "", newConfig(), nil
-}
-
-func loadConfigFromFile(filename string) (*Config, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	config, err := loadConfig(file)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
 func loadConfig(reader io.Reader) (*Config, error) {
-	config := newConfig()
+	config := NewConfig()
 	raw, err := loadRawConfig(reader)
 	if err != nil {
 		return nil, err
@@ -287,7 +280,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 
 	serverAddr, ok := raw["ServerAddr"]
 	if ok {
-		config.ServerAddr = serverAddr
+		config.ServerAddr = ExpandServerAddr(serverAddr)
 	}
 
 	key, ok := raw["Key"]

@@ -43,7 +43,7 @@ func execServe(c *cli.Context) error {
 	clipboardDir := c.String("dir")
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig(configFileOverride, "server")
+	configFile, config, err := parseAndLoadConfig(configFileOverride, "server")
 	if err != nil {
 		return err
 	}

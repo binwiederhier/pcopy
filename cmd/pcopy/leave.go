@@ -57,7 +57,7 @@ func parseLeaveArgs(c *cli.Context) (string, string, *pcopy.Config, error) {
 	}
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
+	configFile, config, err := parseAndLoadConfig(configFileOverride, clipboard)
 	if err != nil {
 		return "", "", nil, err
 	}

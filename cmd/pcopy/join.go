@@ -56,7 +56,8 @@ func execJoin(c *cli.Context) error {
 	}
 
 	// Find config file
-	configFile := pcopy.GetConfigFile(clipboard)
+	store := pcopy.NewConfigStore()
+	configFile := store.FileFromName(clipboard)
 	if _, err := os.Stat(configFile); err == nil && !force {
 		return fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use --force to override", configFile)
 	}

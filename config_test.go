@@ -1,7 +1,9 @@
 package pcopy
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -71,6 +73,60 @@ func TestLoadConfig_EmptyFileSuccess(t *testing.T) {
 	if !config.WebUI {
 		t.Fatalf("expected %t, got %t", true, config.WebUI)
 	}
+}
+
+func TestLoadConfig_AllTheThingsSuccess(t *testing.T) {
+	dir := t.TempDir()
+
+	// This is a test key, don't freak out!
+	pemKey := `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIHf6DNxfzPdOtM3vw/wW1hTaShp/Z1t0eT7RRak/S39doAoGCCqGSM49
+AwEHoUQDQgAEp60xIGJbAUAmUe+KP9KB8ge4B+vJTKnMSctysQnG+fKOCTc9q7EX
+xmNBMaTK3zXTdMev+TiCfmljflB7ZTkjTw==
+-----END EC PRIVATE KEY-----`
+	keyFile := filepath.Join(dir, "key.key")
+	ioutil.WriteFile(keyFile, []byte(pemKey), 0700)
+
+	pemCert := `-----BEGIN CERTIFICATE-----
+MIIBMjCB2KADAgECAhAmIv+vEcI8iwP/TR4G3MavMAoGCCqGSM49BAMCMBAxDjAM
+BgNVBAMTBXBjb3B5MB4XDTIwMTIyMTE2MDE1NVoXDTIzMTIyODE2MDE1NVowEDEO
+MAwGA1UEAxMFcGNvcHkwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASnrTEgYlsB
+QCZR74o/0oHyB7gH68lMqcxJy3KxCcb58o4JNz2rsRfGY0ExpMrfNdN0x6/5OIJ+
+aWN+UHtlOSNPoxQwEjAQBgNVHREECTAHggVwY29weTAKBggqhkjOPQQDAgNJADBG
+AiEA1W0sKuPLyxoW0QTn0jovq9cAzT4IT5HaGeX8Z5rWlE4CIQCGn1yMReAETlWB
+D1OY3Axih+rz7mF2xHK20TxRuy1sqw==
+-----END CERTIFICATE-----`
+	certFile := filepath.Join(dir, "cert.crt")
+	ioutil.WriteFile(certFile, []byte(pemCert), 0700)
+
+	config, err := loadConfig(strings.NewReader(fmt.Sprintf(`
+ListenAddr :1234
+ServerAddr hi.com
+Key Osz6osE1fRRirA==:XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I=
+KeyFile %s
+CertFile %s
+ClipboardDir %s
+ClipboardSizeLimit 10M
+ClipboardCountLimit 101
+FileSizeLimit 123k
+FileExpireAfter 10d
+WebUI false
+`, keyFile, certFile, dir)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, ":1234", config.ListenAddr)
+	assertStrEquals(t, "hi.com:2586", config.ServerAddr)
+	assertBytesEquals(t, fromBase64(t, "Osz6osE1fRRirA=="), config.Key.Salt)
+	assertBytesEquals(t, fromBase64(t, "XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I="), config.Key.Bytes)
+	assertStrEquals(t, keyFile, config.KeyFile)
+	assertStrEquals(t, certFile, config.CertFile)
+	assertStrEquals(t, dir, config.ClipboardDir)
+	assertInt64Equals(t, 10*1024*1024, config.ClipboardSizeLimit)
+	assertInt64Equals(t, 101, int64(config.ClipboardCountLimit))
+	assertInt64Equals(t, 123*1024, config.FileSizeLimit)
+	assertInt64Equals(t, 10*24, int64(config.FileExpireAfter.Hours()))
+	assertBoolEquals(t, false, config.WebUI)
 }
 
 func TestParseDuration_ZeroSuccess(t *testing.T) {
@@ -143,7 +199,7 @@ func TestCollapseServerAddr_NoCollapse(t *testing.T) {
 }
 
 func TestConfig_GenerateURLUnprotected(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.ServerAddr = "some-host.com"
 
 	url, err := config.GenerateURL("/some-path", time.Hour)
@@ -154,7 +210,7 @@ func TestConfig_GenerateURLUnprotected(t *testing.T) {
 }
 
 func TestConfig_GenerateURLProtected(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.ServerAddr = "some-host.com"
 	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 
@@ -169,7 +225,7 @@ func TestConfig_GenerateURLProtected(t *testing.T) {
 }
 
 func TestConfig_GenerateClipURLUnprotected(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.ServerAddr = "some-host.com"
 
 	url, err := config.GenerateClipURL("some-id", time.Hour)
@@ -180,7 +236,7 @@ func TestConfig_GenerateClipURLUnprotected(t *testing.T) {
 }
 
 func TestConfig_WriteFileAllTheThings(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.ServerAddr = "some-host.com"
 	config.ListenAddr = ":8888"
 	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
@@ -217,7 +273,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 }
 
 func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	if err := config.WriteFile(filename); err != nil {
@@ -251,9 +307,37 @@ CertFile some.crt
 		t.Fatal(err)
 	}
 
-	_, err := loadConfigFromFile(filename)
+	_, err := LoadConfigFromFile(filename)
 	if err == nil {
 		t.Fatalf("expected error due to missing cert, got none")
+	}
+}
+
+func TestConfigStore_FileFromName(t *testing.T) {
+	dir := t.TempDir()
+	store := newConfigStoreWithDir(dir)
+	file := store.FileFromName("work")
+	assertStrEquals(t, dir+"/work.conf", file)
+}
+
+func TestConfigStore_All(t *testing.T) {
+	dir := t.TempDir()
+	f1, _ := os.Create(dir + "/work.conf")
+	f1.Close()
+	f2, _ := os.Create(dir + "/default.conf")
+	f2.Close()
+	store := newConfigStoreWithDir(dir)
+	configs := store.All()
+	if len(configs) != 2 {
+		t.Fatalf("expected two configs, got %d", len(configs))
+	}
+	_, ok1 := configs[dir+"/work.conf"]
+	if !ok1 {
+		t.Fatalf("expected 'work' entry, but didn't have one")
+	}
+	_, ok2 := configs[dir+"/default.conf"]
+	if !ok2 {
+		t.Fatalf("expected 'default' entry, but didn't have one")
 	}
 }
 

@@ -17,7 +17,7 @@ import (
 )
 
 func TestClient_CopyNoAuthSuccess(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/default" {
 			t.Fatalf("expected path %s, got %s", "/default", r.URL.Path)
@@ -34,7 +34,7 @@ func TestClient_CopyNoAuthSuccess(t *testing.T) {
 }
 
 func TestClient_CopyWithHMACAuthSuccess(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.Key = DeriveKey([]byte("some password"), []byte("some salt"))
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Only check that HMAC header is there, the in-depth tests are in the server package
@@ -54,7 +54,7 @@ func TestClient_CopyWithHMACAuthSuccess(t *testing.T) {
 }
 
 func TestClient_CopyFilesSuccess(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		zipBytes, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -93,7 +93,7 @@ func TestClient_CopyFilesSuccess(t *testing.T) {
 }
 
 func TestClient_PasteNoAuthSuccess(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hi there what's up"))
 	}))
@@ -107,7 +107,7 @@ func TestClient_PasteNoAuthSuccess(t *testing.T) {
 }
 
 func TestClient_PasteFilesSuccess(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var buf bytes.Buffer
 		z := zip.NewWriter(&buf)
@@ -138,7 +138,7 @@ func TestClient_PasteFilesSuccess(t *testing.T) {
 }
 
 func TestClient_PasteFilesFailure(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("this is not a zip file"))
 	}))
@@ -152,7 +152,7 @@ func TestClient_PasteFilesFailure(t *testing.T) {
 }
 
 func TestClient_PasteNoAuthNotFound(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -169,7 +169,7 @@ func TestClient_PasteNoAuthNotFound(t *testing.T) {
 }
 
 func TestClient_InfoSuccess(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&infoResponse{
 			ServerAddr: "hi-there.com",
@@ -188,7 +188,7 @@ func TestClient_InfoSuccess(t *testing.T) {
 }
 
 func TestClient_InfoFailed(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("invalid response"))
 	}))
@@ -201,7 +201,7 @@ func TestClient_InfoFailed(t *testing.T) {
 }
 
 func TestClient_PasteWithCertFile(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("some response"))
 	}))
@@ -221,7 +221,7 @@ func TestClient_PasteWithCertFile(t *testing.T) {
 }
 
 func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -285,6 +285,12 @@ func assertStrContains(t *testing.T, s string, substr string) {
 func assertInt64Equals(t *testing.T, expected int64, actual int64) {
 	if actual != expected {
 		t.Fatalf("expected %d, got %d", expected, actual)
+	}
+}
+
+func assertBoolEquals(t *testing.T, expected bool, actual bool) {
+	if actual != expected {
+		t.Fatalf("expected %t, got %t", expected, actual)
 	}
 }
 

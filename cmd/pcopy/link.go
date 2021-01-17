@@ -69,7 +69,7 @@ func printLinks(config *pcopy.Config, id string, ttl time.Duration) error {
 	if id == pcopy.DefaultID {
 		eprintln("ppaste")
 	} else {
-		eprintf("ppaste %s", id)
+		eprintf("ppaste %s\n", id)
 	}
 
 	eprintln()
@@ -98,7 +98,7 @@ func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, time.Duration, error)
 	}
 
 	// Load config
-	configFile, config, err := pcopy.LoadConfig(configFileOverride, clipboard)
+	configFile, config, err := parseAndLoadConfig(configFileOverride, clipboard)
 	if err != nil {
 		return nil, "", 0, err
 	}

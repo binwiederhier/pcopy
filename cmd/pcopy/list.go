@@ -18,7 +18,8 @@ var cmdList = &cli.Command{
 }
 
 func execList(c *cli.Context) error {
-	configs := pcopy.ListConfigs()
+	store := pcopy.NewConfigStore()
+	configs := store.All()
 	if len(configs) > 0 {
 		clipboardHeader := "Clipboard"
 		clipboardMaxLen := len(clipboardHeader)
@@ -26,7 +27,7 @@ func execList(c *cli.Context) error {
 		serverAddrMaxLen := len(serverAddrHeader)
 		configFileHeader := "Config file"
 		configFileMaxLen := len(configFileHeader)
-		for filename, config := range pcopy.ListConfigs() {
+		for filename, config := range configs {
 			clipboard := pcopy.ExtractClipboard(filename)
 			shortName := pcopy.CollapseHome(filename)
 			serverAddr := pcopy.CollapseServerAddr(config.ServerAddr)
@@ -38,7 +39,7 @@ func execList(c *cli.Context) error {
 		lineFmt := fmt.Sprintf("%%-%ds %%-%ds %%s\n", clipboardMaxLen, serverAddrMaxLen)
 		fmt.Printf(lineFmt, clipboardHeader, serverAddrHeader, "Config file")
 		fmt.Printf(lineFmt, strings.Repeat("-", clipboardMaxLen), strings.Repeat("-", serverAddrMaxLen), strings.Repeat("-", configFileMaxLen))
-		for filename, config := range pcopy.ListConfigs() {
+		for filename, config := range configs {
 			clipboard := pcopy.ExtractClipboard(filename)
 			shortName := pcopy.CollapseHome(filename)
 			serverAddr := pcopy.CollapseServerAddr(config.ServerAddr)

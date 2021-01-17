@@ -19,7 +19,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestServer_NewServerInvalidListenAddr(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.ListenAddr = ""
 	_, err := newServer(config)
 	if err == nil {
@@ -28,7 +28,7 @@ func TestServer_NewServerInvalidListenAddr(t *testing.T) {
 }
 
 func TestServer_NewServerInvalidKeyFile(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.KeyFile = ""
 	config.CertFile = "something"
 	_, err := newServer(config)
@@ -38,7 +38,7 @@ func TestServer_NewServerInvalidKeyFile(t *testing.T) {
 }
 
 func TestServer_NewServerInvalidCertFile(t *testing.T) {
-	config := newConfig()
+	config := NewConfig()
 	config.KeyFile = "something"
 	config.CertFile = ""
 	_, err := newServer(config)
@@ -406,7 +406,7 @@ func newTestServer(t *testing.T, config *Config) *server {
 }
 
 func newTestServerConfig(t *testing.T) *Config {
-	config := newConfig()
+	config := NewConfig()
 	tempDir := t.TempDir()
 
 	key, cert, err := GenerateKeyAndCert()
