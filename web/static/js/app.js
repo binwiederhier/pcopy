@@ -79,7 +79,7 @@ function login(e) {
 
     let method = 'GET'
     let path = '/verify'
-    let url = 'https://' + location.host + path
+    let url = location.protocol + '//' + location.host + path
 
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
@@ -236,7 +236,7 @@ function save() {
     let fileId = getFileId()
     let method = 'PUT'
     let path = '/' + fileId
-    let url = 'https://' + location.host + path
+    let url = location.protocol + '//' + location.host + path
     let key = loadKey()
 
     progressStart(fileId, url, path, key)
@@ -378,7 +378,7 @@ function uploadFile(file) {
     let fileId = getFileId()
     let method = 'PUT'
     let path = '/' + fileId
-    let url = 'https://' + location.host + path
+    let url = location.protocol + '//' + location.host + path
     let key = loadKey()
 
     progressStart(fileId, url, path, key)

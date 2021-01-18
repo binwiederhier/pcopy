@@ -1,6 +1,7 @@
 package pcopy
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"io/ioutil"
 	"log"
@@ -99,6 +100,7 @@ func TestServer_HandleWebRootWithGUI(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
+	req.TLS = &tls.ConnectionState{} // No redirect
 	server.handle(rr, req)
 
 	assertStatus(t, rr, http.StatusOK)

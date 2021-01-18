@@ -117,14 +117,16 @@ func Serve(config *Config) error {
 }
 
 func newServer(config *Config) (*server, error) {
-	if config.ListenHTTPS == "" {
+	if config.ListenHTTPS == "" && config.ListenHTTP == "" {
 		return nil, errListenAddrMissing
 	}
-	if config.KeyFile == "" {
-		return nil, errKeyFileMissing
-	}
-	if config.CertFile == "" {
-		return nil, errCertFileMissing
+	if config.ListenHTTPS != "" {
+		if config.KeyFile == "" {
+			return nil, errKeyFileMissing
+		}
+		if config.CertFile == "" {
+			return nil, errCertFileMissing
+		}
 	}
 	if err := os.MkdirAll(config.ClipboardDir, 0700); err != nil {
 		return nil, errClipboardDirNotWritable
@@ -142,14 +144,17 @@ func newServer(config *Config) (*server, error) {
 }
 
 func (s *server) listenAndServe() error {
-	listenHTTP := ""
+	listens := make([]string, 0)
 	if s.config.ListenHTTP != "" {
-		listenHTTP = fmt.Sprintf("%s/HTTP ", s.config.ListenHTTP)
+		listens = append(listens, fmt.Sprintf("%s/http", s.config.ListenHTTP))
+	}
+	if s.config.ListenHTTPS != "" {
+		listens = append(listens, fmt.Sprintf("%s/https", s.config.ListenHTTPS))
 	}
 	if s.config.Key == nil {
-		log.Printf("Listening on %s/HTTPS %s(UNPROTECTED CLIPBOARD)\n", s.config.ListenHTTPS, listenHTTP)
+		log.Printf("Listening on %s (UNPROTECTED CLIPBOARD)\n", strings.Join(listens, " "))
 	} else {
-		log.Printf("Listening on %s %s\n", s.config.ListenHTTPS, listenHTTP)
+		log.Printf("Listening on %s\n", strings.Join(listens, " "))
 	}
 
 	http.HandleFunc("/", s.handle)
@@ -162,11 +167,13 @@ func (s *server) listenAndServe() error {
 			}
 		}()
 	}
-	go func() {
-		if err := http.ListenAndServeTLS(s.config.ListenHTTPS, s.config.CertFile, s.config.KeyFile, nil); err != nil {
-			errChan <- err
-		}
-	}()
+	if s.config.ListenHTTPS != "" {
+		go func() {
+			if err := http.ListenAndServeTLS(s.config.ListenHTTPS, s.config.CertFile, s.config.KeyFile, nil); err != nil {
+				errChan <- err
+			}
+		}()
+	}
 	err := <-errChan
 	return err
 }
@@ -179,7 +186,7 @@ func (s *server) routeList() []route {
 	defer s.Unlock()
 
 	s.routes = []route{
-		newRoute("GET", "/", s.onlyIfWebUI(s.handleWebRoot)),
+		newRoute("GET", "/", s.onlyIfWebUI(s.redirectHTTPS(s.handleWebRoot))),
 		newRoute("PUT", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleWebStatic)),
@@ -237,14 +244,16 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
-	cert, err := LoadCertFromFile(s.config.CertFile)
-	if err != nil {
-		return err
-	}
 	curlPinnedPubKey := ""
-	if bytes.Equal(cert.RawIssuer, cert.RawSubject) {
-		if hash, err := CalculatePublicKeyHash(cert); err == nil {
-			curlPinnedPubKey = EncodeCurlPinnedPublicKeyHash(hash)
+	if r.TLS != nil {
+		cert, err := LoadCertFromFile(s.config.CertFile)
+		if err != nil {
+			return err
+		}
+		if bytes.Equal(cert.RawIssuer, cert.RawSubject) {
+			if hash, err := CalculatePublicKeyHash(cert); err == nil {
+				curlPinnedPubKey = EncodeCurlPinnedPublicKeyHash(hash)
+			}
 		}
 	}
 	return webTemplate.Execute(w, &webTemplateConfig{
@@ -580,6 +589,21 @@ func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
 	}
 }
 
+func (s *server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		if r.TLS == nil && s.config.ListenHTTPS != "" {
+			host, _, _ := net.SplitHostPort(r.Host)
+			_, port, _ := net.SplitHostPort(s.config.ListenHTTPS)
+			u := r.URL
+			u.Host = net.JoinHostPort(host, port)
+			u.Scheme = "https"
+			http.Redirect(w, r, u.String(), http.StatusFound)
+			return nil
+		}
+		return next(w, r)
+	}
+}
+
 // limit wraps all HTTP endpoints and limits API use to a certain number of requests per second.
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
 func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
@@ -648,7 +672,7 @@ var ErrHTTPPayloadTooLarge = &errHTTPNotOK{http.StatusRequestEntityTooLarge, htt
 // ErrHTTPUnauthorized is returned when the client has not sent proper credentials
 var ErrHTTPUnauthorized = &errHTTPNotOK{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
 
-var errListenAddrMissing = errors.New("listen address missing, add 'ListenHTTPS' to config or pass --listen-https")
+var errListenAddrMissing = errors.New("listen address missing, add 'ListenHTTPS' or 'ListenHTTP' to config or pass --listen-http(s)")
 var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to config or pass --keyfile")
 var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass --certfile")
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")

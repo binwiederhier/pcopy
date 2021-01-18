@@ -24,8 +24,8 @@ var (
 )
 
 const (
-	randomFileIDLength  = 8
-	randomFileIDCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	randomFileIDLength  = 10
+	randomFileIDCharset = "abcdefghijklmnopqrstuvwxyz0123456789"
 )
 
 // ExpandHome replaces "~" with the user's home directory

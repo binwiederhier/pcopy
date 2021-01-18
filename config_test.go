@@ -100,7 +100,7 @@ D1OY3Axih+rz7mF2xHK20TxRuy1sqw==
 	ioutil.WriteFile(certFile, []byte(pemCert), 0700)
 
 	config, err := loadConfig(strings.NewReader(fmt.Sprintf(`
-ListenHTTPS :1234
+ListenAddr :1234
 ServerAddr hi.com
 Key Osz6osE1fRRirA==:XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I=
 KeyFile %s
@@ -116,7 +116,7 @@ WebUI false
 		t.Fatal(err)
 	}
 	assertStrEquals(t, ":1234", config.ListenHTTPS)
-	assertStrEquals(t, "hi.com:2586", config.ServerAddr)
+	assertStrEquals(t, "https://hi.com:2586", config.ServerAddr)
 	assertBytesEquals(t, fromBase64(t, "Osz6osE1fRRirA=="), config.Key.Salt)
 	assertBytesEquals(t, fromBase64(t, "XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I="), config.Key.Bytes)
 	assertStrEquals(t, keyFile, config.KeyFile)
@@ -166,20 +166,24 @@ func TestParseDuration_WithDaysAndHoursFailure(t *testing.T) {
 	}
 }
 
-func TestExpandServerAddr_Expand(t *testing.T) {
+func TestExpandServerAddr_ExpandAllTheThings(t *testing.T) {
 	actual := ExpandServerAddr("myhost")
-	expected := "myhost:2586"
+	expected := "https://myhost:2586"
+	if actual != expected {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+}
+
+func TestExpandServerAddr_ExpandProto(t *testing.T) {
+	actual := ExpandServerAddr("myhost:1234")
+	expected := "https://myhost:1234"
 	if actual != expected {
 		t.Fatalf("expected %s, got %s", expected, actual)
 	}
 }
 
 func TestExpandServerAddr_NoExpand(t *testing.T) {
-	actual := ExpandServerAddr("myhost:1234")
-	expected := "myhost:1234"
-	if actual != expected {
-		t.Fatalf("expected %s, got %s", expected, actual)
-	}
+	assertStrEquals(t, "http://myhost:1234", ExpandServerAddr("http://myhost:1234"))
 }
 
 func TestCollapseServerAddr_Collapse(t *testing.T) {
@@ -191,11 +195,11 @@ func TestCollapseServerAddr_Collapse(t *testing.T) {
 }
 
 func TestCollapseServerAddr_NoCollapse(t *testing.T) {
-	actual := CollapseServerAddr("myhost:1234")
-	expected := "myhost:1234"
-	if actual != expected {
-		t.Fatalf("expected %s, got %s", expected, actual)
-	}
+	assertStrEquals(t, "myhost:1234", CollapseServerAddr("myhost:1234"))
+}
+
+func TestCollapseServerAddr_FullHTTPSURL(t *testing.T) {
+	assertStrEquals(t, "myhost", CollapseServerAddr("https://myhost:2586"))
 }
 
 func TestConfig_GenerateURLUnprotected(t *testing.T) {
@@ -273,7 +277,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	}
 	contents := string(b)
 	assertStrContains(t, contents, "ServerAddr some-host.com")
-	assertStrContains(t, contents, "ListenHTTPS :8888")
+	assertStrContains(t, contents, "ListenAddr :8888")
 	assertStrContains(t, contents, "Key c29tZSBzYWx0:MTYgYnl0ZXMgZXhhY3RseQ==")
 	assertStrContains(t, contents, "CertFile some cert file")
 	assertStrContains(t, contents, "KeyFile some key file")
@@ -299,7 +303,7 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 	}
 	contents := string(b)
 	assertStrContains(t, contents, "# ServerAddr")
-	assertStrContains(t, contents, "ListenHTTPS :2586")
+	assertStrContains(t, contents, "ListenAddr :2586")
 	assertStrContains(t, contents, "# Key")
 	assertStrContains(t, contents, "# CertFile")
 	assertStrContains(t, contents, "# KeyFile")
@@ -313,7 +317,7 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 
 func TestConfig_LoadConfigFromFileFailedDueToMissingCert(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
-	contents := `ListenHTTPS :1234
+	contents := `ListenAddr :1234
 CertFile some.crt
 `
 	if err := ioutil.WriteFile(filename, []byte(contents), 0700); err != nil {

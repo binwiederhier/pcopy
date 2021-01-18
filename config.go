@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -144,7 +145,7 @@ func (c *Config) WriteFile(filename string) error {
 // added and the URL will only be valid for the given TTL.
 func (c *Config) GenerateURL(path string, ttl time.Duration) (string, error) {
 	server := strings.ReplaceAll(ExpandServerAddr(c.ServerAddr), ":443", "")
-	url := fmt.Sprintf("https://%s%s", server, path)
+	url := fmt.Sprintf("%s%s", server, path)
 	if c.Key != nil {
 		auth, err := GenerateAuthHMAC(c.Key.Bytes, http.MethodGet, path, ttl)
 		if err != nil {
@@ -223,18 +224,32 @@ func ExtractClipboard(filename string) string {
 	return strings.TrimSuffix(filepath.Base(filename), suffixConf)
 }
 
-// ExpandServerAddr expands the server address with the default port if no port is provided,
-// e.g. "myhost" will become "myhost:2586", but "myhost:1234" will remain unchanged.
+// ExpandServerAddr expands the server address with the default port if no port is provided to a full URL, including
+// protocol prefix. For instance: "myhost" will become "https://myhost:2586", and "myhost:443" will become "https://myhost",
+// but "http://myhost:1234" will remain unchanged.
 func ExpandServerAddr(serverAddr string) string {
+	if strings.HasPrefix(serverAddr, "http://") || strings.HasPrefix(serverAddr, "https://") {
+		return serverAddr
+	}
 	if !strings.Contains(serverAddr, ":") {
 		serverAddr = fmt.Sprintf("%s:%d", serverAddr, DefaultPort)
 	}
-	return serverAddr
+	return fmt.Sprintf("https://%s", strings.ReplaceAll(serverAddr, ":443", ""))
 }
 
 // CollapseServerAddr removes the default port from the given server address if the address contains
 // the default port, but leaves the address unchanged if it doesn't contain it.
 func CollapseServerAddr(serverAddr string) string {
+	if strings.HasPrefix(serverAddr, "http://") {
+		return serverAddr
+	}
+	if strings.HasPrefix(serverAddr, "https://") {
+		u, err := url.Parse(serverAddr)
+		if err != nil {
+			return serverAddr
+		}
+		return strings.TrimSuffix(u.Host, fmt.Sprintf(":%d", DefaultPort))
+	}
 	return strings.TrimSuffix(serverAddr, fmt.Sprintf(":%d", DefaultPort))
 }
 
@@ -276,9 +291,33 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		return nil, err
 	}
 
-	listenHTTPS, ok := raw["ListenHTTPS"]
+	listenAddr, ok := raw["ListenAddr"]
 	if ok {
-		config.ListenHTTPS = listenHTTPS
+		config.ListenHTTP = ""
+		config.ListenHTTPS = ""
+		re := regexp.MustCompile(`^(?i)([^:]*:\d+)?(?:/(https?))?`)
+		addrs := strings.Split(listenAddr, " ")
+		for _, addr := range addrs {
+			matches := re.FindStringSubmatch(addr)
+			if matches == nil {
+				return nil, fmt.Errorf("invalid config value for 'ListenAddr', for address %s", addr)
+			}
+			proto := "https"
+			if len(matches) == 3 {
+				proto = strings.ToLower(matches[2])
+			}
+			if proto == "http" {
+				if config.ListenHTTP != "" {
+					return nil, fmt.Errorf("invalid config value for 'ListenAddr': HTTP address defined more than once")
+				}
+				config.ListenHTTP = matches[1]
+			} else {
+				if config.ListenHTTPS != "" {
+					return nil, fmt.Errorf("invalid config value for 'ListenAddr': HTTPS address defined more than once")
+				}
+				config.ListenHTTPS = matches[1]
+			}
+		}
 	}
 
 	listenHTTP, ok := raw["ListenHTTP"]

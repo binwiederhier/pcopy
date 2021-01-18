@@ -11,8 +11,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Client represents a pcopy client. It can be used to communicate with the server to
@@ -48,7 +50,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
 	}
 
 	path := fmt.Sprintf(clipboardPathFormat, id)
-	url := fmt.Sprintf("https://%s%s", c.config.ServerAddr, path)
+	url := fmt.Sprintf("%s%s", ExpandServerAddr(c.config.ServerAddr), path)
 	req, err := http.NewRequest(http.MethodPut, url, c.withProgressReader(reader, -1))
 	if err != nil {
 		return err
@@ -92,7 +94,7 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 	}
 
 	path := fmt.Sprintf(clipboardPathFormat, id)
-	url := fmt.Sprintf("https://%s%s", c.config.ServerAddr, path)
+	url := fmt.Sprintf("%s%s", ExpandServerAddr(c.config.ServerAddr), path)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -207,7 +209,7 @@ func (c *Client) Verify(cert *x509.Certificate, key *Key) error {
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s/verify", c.config.ServerAddr)
+	url := fmt.Sprintf("%s/verify", ExpandServerAddr(c.config.ServerAddr))
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -251,7 +253,7 @@ func (c *Client) withProgressReader(reader io.ReadCloser, total int64) io.ReadCl
 }
 
 func (c *Client) retrieveInfo(client *http.Client) (*httpResponseInfo, error) {
-	resp, err := client.Get(fmt.Sprintf("https://%s/info", c.config.ServerAddr))
+	resp, err := client.Get(fmt.Sprintf("%s/info", ExpandServerAddr(c.config.ServerAddr)))
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +269,15 @@ func (c *Client) retrieveInfo(client *http.Client) (*httpResponseInfo, error) {
 
 // retrieveCert opens a raw TLS connection and retrieves the leaf certificate
 func (c *Client) retrieveCert() (*x509.Certificate, error) {
-	conn, err := tls.Dial("tcp", c.config.ServerAddr, &tls.Config{
+	u, err := url.Parse(ExpandServerAddr(c.config.ServerAddr))
+	if err != nil {
+		return nil, err
+	}
+	host := u.Host
+	if !strings.Contains(host, ":") {
+		host += ":443"
+	}
+	conn, err := tls.Dial("tcp", host, &tls.Config{
 		InsecureSkipVerify: true,
 	})
 	if err != nil {

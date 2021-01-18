@@ -242,7 +242,7 @@ func newTestClientAndServer(t *testing.T, config *Config, handler http.Handler) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	config.ServerAddr = uri.Host
+	config.ServerAddr = ExpandServerAddr(uri.Host)
 
 	client, err := NewClient(config)
 	if err != nil {
