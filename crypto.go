@@ -138,6 +138,22 @@ func EncodeCurlPinnedPublicKeyHash(hash []byte) string {
 	return fmt.Sprintf("sha256//%s", base64.StdEncoding.EncodeToString(hash))
 }
 
+// ReadCurlPinnedPublicKeyFromFile reads a cert from the given filename and calculates the public key for curl
+func ReadCurlPinnedPublicKeyFromFile(filename string) (string, error) {
+	cert, err := LoadCertFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	if bytes.Equal(cert.RawIssuer, cert.RawSubject) {
+		hash, err := CalculatePublicKeyHash(cert)
+		if err != nil {
+			return "", err
+		}
+		return EncodeCurlPinnedPublicKeyHash(hash), nil
+	}
+	return "", nil
+}
+
 // GenerateAuthHMAC generates the HMAC auth header used to authorize uthenticate against the server.
 // The result can be used in the HTTP "Authorization" header. If the TTL is non-zero, the authorization
 // header will only be valid for the given duration.

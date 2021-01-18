@@ -3,7 +3,7 @@ Description=pcopy server
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/pcopy serve
+ExecStart=/usr/bin/pcopy serve -c /etc/pcopy/server.conf
 Restart=on-failure
 User=pcopy
 Group=pcopy

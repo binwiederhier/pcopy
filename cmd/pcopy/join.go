@@ -75,6 +75,8 @@ func execJoin(c *cli.Context) error {
 		return err
 	}
 
+	// TODO fix info.serverAddr handling
+
 	// Read and verify that password was correct (if server is secured with key)
 	var key *pcopy.Key
 

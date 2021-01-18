@@ -1,7 +1,6 @@
 package pcopy
 
 import (
-	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -51,6 +50,10 @@ var (
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
 	webTemplate       = template.Must(template.New("index").Funcs(templateFnMap).Parse(webTemplateSource))
+
+	//go:embed "web/curl.tmpl"
+	curlTemplateSource string
+	curlTemplate       = template.Must(template.New("curl").Funcs(templateFnMap).Parse(curlTemplateSource))
 
 	//go:embed web/static
 	webStaticFs embed.FS
@@ -186,10 +189,10 @@ func (s *server) routeList() []route {
 	defer s.Unlock()
 
 	s.routes = []route{
-		newRoute("GET", "/", s.onlyIfWebUI(s.redirectHTTPS(s.handleWebRoot))),
+		newRoute("GET", "/", s.handleRoot),
 		newRoute("PUT", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
-		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleWebStatic)),
+		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleStatic)),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
 		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
@@ -243,17 +246,20 @@ func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *server) handleRoot(w http.ResponseWriter, r *http.Request) error {
+	if strings.HasPrefix(r.Header.Get("User-Agent"), "curl/") {
+		return s.handleCurlRoot(w, r)
+	}
+	return s.onlyIfWebUI(s.redirectHTTPS(s.handleWebRoot))(w, r)
+}
+
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
+	var err error
 	curlPinnedPubKey := ""
 	if r.TLS != nil {
-		cert, err := LoadCertFromFile(s.config.CertFile)
+		curlPinnedPubKey, err = ReadCurlPinnedPublicKeyFromFile(s.config.CertFile)
 		if err != nil {
 			return err
-		}
-		if bytes.Equal(cert.RawIssuer, cert.RawSubject) {
-			if hash, err := CalculatePublicKeyHash(cert); err == nil {
-				curlPinnedPubKey = EncodeCurlPinnedPublicKeyHash(hash)
-			}
 		}
 	}
 	return webTemplate.Execute(w, &webTemplateConfig{
@@ -265,7 +271,22 @@ func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-func (s *server) handleWebStatic(w http.ResponseWriter, r *http.Request) error {
+func (s *server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
+	curlPinnedPubKey := ""
+	if r.TLS != nil {
+		var err error
+		curlPinnedPubKey, err = ReadCurlPinnedPublicKeyFromFile(s.config.CertFile)
+		if err != nil {
+			return err
+		}
+	}
+	return curlTemplate.Execute(w, &webTemplateConfig{
+		CurlPinnedPubKey: curlPinnedPubKey,
+		Config:           s.config,
+	})
+}
+
+func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 	r.URL.Path = "/web" + r.URL.Path // This is a hack to get the embedded path
 	http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
 	return nil
