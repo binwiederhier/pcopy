@@ -545,7 +545,7 @@ function storeKey(key) {
 }
 
 function loadKey() {
-    if (localStorage.getItem('key')) {
+    if (config.KeySalt && localStorage.getItem('key')) {
         return CryptoJS.enc.Hex.parse(localStorage.getItem('key'))
     } else {
         return null
