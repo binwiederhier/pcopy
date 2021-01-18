@@ -354,7 +354,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Output URL, TTL, etc.
-	expiry := time.Now().Add(s.config.FileExpireAfter).Unix()
+	// expiry := time.Now().Add(s.config.FileExpireAfter).Unix()
 	url, err := s.config.GenerateClipURL(id, s.config.FileExpireAfter)
 	if err != nil {
 		os.Remove(file)
