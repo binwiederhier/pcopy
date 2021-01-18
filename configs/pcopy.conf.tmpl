@@ -1,12 +1,16 @@
 {{- /*gotype: heckel.io/pcopy.Config*/ -}}
 # pcopy config file
 
-# Hostname and port of the pcopy server
+# URL or hostname/port of the pcopy server.
 #
-# For servers: This address is advertised to clients. It is not strictly necessary to provide a value here, but
-# may be helpful if clients connect using a different hostname. If PORT is not defined, the default port 2586 is used.
+# If only a HOST is given, the address is expanded to https://HOST:2586.
+# If a HOST and a PORT is given, the address is expanded to https://HOST:PORT.
+# If a full URL is given (starting with https:// or http://), the address is left unchanged.
+#
+# For servers: This address is advertised to clients. The server will still come up if the server address / URL
+# is incorrect, but generated links may be incorrect.
 # 
-# Format:    HOST[:PORT]
+# Format:    [http(s)://]HOST[:PORT]
 # Default:   None
 #
 {{if .ServerAddr}}ServerAddr {{.ServerAddr}}{{else}}# ServerAddr{{end}}
