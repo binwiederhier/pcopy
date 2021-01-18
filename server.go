@@ -46,7 +46,7 @@ var (
 	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardPathFormat = "/%s"
-	reservedFiles       = []string{"info", "verify", "static", "robots.txt", "favicon.ico"}
+	reservedFiles       = []string{"help", "version", "info", "verify", "static", "robots.txt", "favicon.ico"}
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
