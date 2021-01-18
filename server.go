@@ -338,9 +338,6 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
-	if s.isStream(r) {
-		return ErrHTTPBadRequest // unfortunately unsupported, cannot return file ID/URL before consuming request
-	}
 	ctx := context.WithValue(r.Context(), routeCtx{}, []string{randomFileID()})
 	return s.handleClipboardPut(w, r.WithContext(ctx))
 }
@@ -376,9 +373,14 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	os.Remove(file)
 
-	// Make fifo device instead of file if type is set to "fifo"
+	// If this is a stream, make fifo device instead of file if type is set to "fifo".
+	// Also, we want to immediately output instructions.
 	if s.isStream(r) {
 		if err := unix.Mkfifo(file, 0600); err != nil {
+			s.countLimiter.Sub(1)
+			return err
+		}
+		if err := s.writePutOutput(w, id, s.outputFormat(r)); err != nil {
 			s.countLimiter.Sub(1)
 			return err
 		}
@@ -419,30 +421,40 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Output URL, TTL, etc.
-	expires := time.Now().Add(s.config.FileExpireAfter).Unix()
-	url, err := s.config.GenerateClipURL(id, s.config.FileExpireAfter)
-	if err != nil {
-		os.Remove(file)
-		return err
-	}
-	w.Header().Set("X-Url", url)
-	w.Header().Set("X-Expires", fmt.Sprintf("%d", expires))
-	if s.outputFormat(r) == "json" {
-		response := &httpResponsePut{
-			URL:     url,
-			Expires: expires,
-		}
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			os.Remove(file)
-			return err
-		}
-	} else {
-		if _, err := w.Write([]byte(url + "\n")); err != nil {
+	if !s.isStream(r) {
+		if err := s.writePutOutput(w, id, s.outputFormat(r)); err != nil {
 			os.Remove(file)
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (s *server) writePutOutput(w http.ResponseWriter, id string, format string) error {
+	expires := time.Now().Add(s.config.FileExpireAfter).Unix()
+	url, err := s.config.GenerateClipURL(id, s.config.FileExpireAfter)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("X-Url", url)
+	w.Header().Set("X-Expires", fmt.Sprintf("%d", expires))
+	if format == "json" {
+		response := &httpResponsePut{
+			URL:     url,
+			Expires: expires,
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			return err
+		}
+	} else {
+		if _, err := w.Write([]byte(url + "\n")); err != nil {
+			return err
+		}
+	}
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
 	return nil
 }
 
