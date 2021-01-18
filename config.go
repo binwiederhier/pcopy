@@ -53,6 +53,9 @@ const (
 	// DefaultFileExpireAfter is the duration after which the server will delete a clipboard file.
 	DefaultFileExpireAfter = time.Hour * 24 * 7
 
+	// DefaultWebUI defines if the Web UI is enabled by default
+	DefaultWebUI = true
+
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
 	suffixConf      = ".conf"
@@ -117,7 +120,7 @@ func NewConfig() *Config {
 		FileSizeLimit:       DefaultFileSizeLimit,
 		FileExpireAfter:     DefaultFileExpireAfter,
 		ProgressFunc:        nil,
-		WebUI:               true,
+		WebUI:               DefaultWebUI,
 	}
 }
 

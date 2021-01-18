@@ -75,11 +75,6 @@ func execJoin(c *cli.Context) error {
 		return err
 	}
 
-	// Override server address if set (server advertised a specific address)
-	if info.ServerAddr != "" {
-		serverAddr = pcopy.ExpandServerAddr(info.ServerAddr)
-	}
-
 	// Read and verify that password was correct (if server is secured with key)
 	var key *pcopy.Key
 
@@ -106,7 +101,8 @@ func execJoin(c *cli.Context) error {
 	// Write config file
 	config := &pcopy.Config{
 		ServerAddr: serverAddr,
-		Key:        key, // May be nil, but that's ok
+		Key:        key,                // May be nil, but that's ok
+		WebUI:      pcopy.DefaultWebUI, // So it isn't rendered in the template
 	}
 	if err := config.WriteFile(configFile); err != nil {
 		return err
