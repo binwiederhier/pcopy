@@ -292,6 +292,9 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
+	if s.isStream(r) {
+		return ErrHTTPBadRequest // unfortunately unsupported, cannot return file ID/URL before consuming request
+	}
 	ctx := context.WithValue(r.Context(), routeCtx{}, []string{randomFileID()})
 	return s.handleClipboardPut(w, r.WithContext(ctx))
 }
@@ -304,7 +307,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
-	stream := r.Header.Get("X-Stream") == "yes" || r.URL.Query().Get("s") == "1"
 
 	// Handle empty body
 	if r.Body == nil {
@@ -323,7 +325,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	os.Remove(file)
 
 	// Make fifo device instead of file if type is set to "fifo"
-	if stream {
+	if s.isStream(r) {
 		if err := unix.Mkfifo(file, 0600); err != nil {
 			s.countLimiter.Sub(1)
 			return err
@@ -379,6 +381,10 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	return nil
+}
+
+func (s *server) isStream(r *http.Request) bool {
+	return r.Header.Get("X-Stream") == "yes" || r.URL.Query().Get("s") == "1"
 }
 
 func (s *server) getClipboardFile(file string) (string, error) {
