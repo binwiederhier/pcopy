@@ -221,6 +221,7 @@ func (s *server) handle(w http.ResponseWriter, r *http.Request) {
 	for _, route := range s.routeList() {
 		matches := route.regex.FindStringSubmatch(r.URL.Path)
 		if len(matches) > 0 && r.Method == route.method {
+			log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 			ctx := context.WithValue(r.Context(), routeCtx{}, matches[1:])
 			if err := route.handler(w, r.WithContext(ctx)); err != nil {
 				if e, ok := err.(*errHTTPNotOK); ok {
