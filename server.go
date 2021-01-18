@@ -292,7 +292,7 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
-	ctx := context.WithValue(r.Context(), routeCtx{}, []string{randomFileId()})
+	ctx := context.WithValue(r.Context(), routeCtx{}, []string{randomFileID()})
 	return s.handleClipboardPut(w, r.WithContext(ctx))
 }
 

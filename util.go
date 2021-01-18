@@ -20,13 +20,12 @@ var (
 		"encodeBase64":     base64.StdEncoding.EncodeToString,
 		"bytesToHuman":     BytesToHuman,
 		"durationToHuman":  DurationToHuman,
-		"joinStrings":      strings.Join,
 	}
 )
 
 const (
-	randomFileIdLength  = 8
-	randomFileIdCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	randomFileIDLength  = 8
+	randomFileIDCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 // ExpandHome replaces "~" with the user's home directory
@@ -168,8 +167,8 @@ func relativizeFiles(files []string) (string, []string, error) {
 	return base, rel, nil
 }
 
-func randomFileId() string {
-	return randomStringWithCharset(randomFileIdLength, randomFileIdCharset)
+func randomFileID() string {
+	return randomStringWithCharset(randomFileIDLength, randomFileIDCharset)
 }
 
 func randomStringWithCharset(length int, charset string) string {
