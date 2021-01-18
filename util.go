@@ -3,6 +3,7 @@ package pcopy
 import (
 	"encoding/base64"
 	"fmt"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,13 +12,21 @@ import (
 	"time"
 )
 
-var templateFnMap = template.FuncMap{
-	"encodeKey":        EncodeKey,
-	"expandServerAddr": ExpandServerAddr,
-	"encodeBase64":     base64.StdEncoding.EncodeToString,
-	"bytesToHuman":     BytesToHuman,
-	"durationToHuman":  DurationToHuman,
-}
+var (
+	random        = rand.New(rand.NewSource(time.Now().UnixNano()))
+	templateFnMap = template.FuncMap{
+		"encodeKey":        EncodeKey,
+		"expandServerAddr": ExpandServerAddr,
+		"encodeBase64":     base64.StdEncoding.EncodeToString,
+		"bytesToHuman":     BytesToHuman,
+		"durationToHuman":  DurationToHuman,
+	}
+)
+
+const (
+	randomFileIdLength  = 8
+	randomFileIdCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+)
 
 // ExpandHome replaces "~" with the user's home directory
 func ExpandHome(path string) string {
@@ -156,4 +165,16 @@ func relativizeFiles(files []string) (string, []string, error) {
 		rel[i] = f[len(base)+1:]
 	}
 	return base, rel, nil
+}
+
+func randomFileId() string {
+	return randomStringWithCharset(randomFileIdLength, randomFileIdCharset)
+}
+
+func randomStringWithCharset(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[random.Intn(len(charset))]
+	}
+	return string(b)
 }

@@ -72,10 +72,16 @@ type visitor struct {
 	lastSeen time.Time
 }
 
-// infoResponse is the response returned by the / endpoint
-type infoResponse struct {
+// httpResponseInfo is the response returned by the /info endpoint
+type httpResponseInfo struct {
 	ServerAddr string `json:"serverAddr"`
 	Salt       string `json:"salt"`
+}
+
+// httpResponsePut is the response returned by clipboard PUTs (if JSON format is selected)
+type httpResponsePut struct {
+	URL    string `json:"url"`
+	Expiry int64  `json:"expiry"`
 }
 
 // handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
@@ -113,7 +119,7 @@ func Serve(config *Config) error {
 		return err
 	}
 	go server.serverManager()
-	return server.listenAndServeTLS()
+	return server.listenAndServe()
 }
 
 func newServer(config *Config) (*server, error) {
@@ -141,7 +147,7 @@ func newServer(config *Config) (*server, error) {
 	}, nil
 }
 
-func (s *server) listenAndServeTLS() error {
+func (s *server) listenAndServe() error {
 	if s.config.Key == nil {
 		log.Printf("Listening on %s (UNPROTECTED CLIPBOARD)\n", s.config.ListenAddr)
 	} else {
@@ -161,6 +167,8 @@ func (s *server) routeList() []route {
 
 	s.routes = []route{
 		newRoute("GET", "/", s.onlyIfWebUI(s.handleWebRoot)),
+		newRoute("PUT", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
+		newRoute("POST", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleWebStatic)),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
@@ -201,7 +209,7 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 		salt = base64.StdEncoding.EncodeToString(s.config.Key.Salt)
 	}
 
-	response := &infoResponse{
+	response := &httpResponseInfo{
 		ServerAddr: s.config.ServerAddr,
 		Salt:       salt,
 	}
@@ -270,10 +278,25 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
+func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
+	ctx := context.WithValue(r.Context(), routeCtx{}, []string{randomFileId()})
+	return s.handleClipboardPut(w, r.WithContext(ctx))
+}
+
 func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) error {
+	// Parse request: file ID, stream, output format
 	fields := r.Context().Value(routeCtx{}).([]string)
-	file, err := s.getClipboardFile(fields[0])
+	id := fields[0]
+	file, err := s.getClipboardFile(id)
 	if err != nil {
+		return ErrHTTPBadRequest
+	}
+
+	stream := r.Header.Get("X-Stream") == "yes" || r.URL.Query().Get("s") == "1"
+	jsonout := r.Header.Get("X-Format") == "json" || r.URL.Query().Get("f") == "json"
+
+	// Handle empty body
+	if r.Body == nil {
 		return ErrHTTPBadRequest
 	}
 
@@ -285,9 +308,11 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
+	// Always delete file first to avoid awkward FIFO/regular-file behavior
+	os.Remove(file)
+
 	// Make fifo device instead of file if type is set to "fifo"
-	if r.Header.Get("X-Stream") == "yes" || r.URL.Query().Get("s") == "1" {
-		os.Remove(file)
+	if stream {
 		if err := unix.Mkfifo(file, 0600); err != nil {
 			s.countLimiter.Sub(1)
 			return err
@@ -302,11 +327,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 	defer f.Close()
 	defer s.updateStatsAndExpire()
-
-	// Handle empty body
-	if r.Body == nil {
-		return ErrHTTPBadRequest
-	}
 
 	// Copy file contents (with file limit & total limit)
 	fileSizeLimiter := newLimiter(s.config.FileSizeLimit)
@@ -332,6 +352,30 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		os.Remove(file)
 		return err
 	}
+
+	// Output URL, TTL, etc.
+	expiry := time.Now().Add(s.config.FileExpireAfter).Unix()
+	url, err := s.config.GenerateClipURL(id, s.config.FileExpireAfter)
+	if err != nil {
+		os.Remove(file)
+		return err
+	}
+	if jsonout {
+		response := &httpResponsePut{
+			URL:    url,
+			Expiry: time.Now().Add(s.config.FileExpireAfter).Unix(),
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			os.Remove(file)
+			return err
+		}
+	} else {
+		if _, err := w.Write([]byte(url + "\n")); err != nil {
+			os.Remove(file)
+			return err
+		}
+	}
+
 	return nil
 }
 

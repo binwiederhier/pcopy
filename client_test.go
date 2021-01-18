@@ -171,7 +171,7 @@ func TestClient_PasteNoAuthNotFound(t *testing.T) {
 func TestClient_InfoSuccess(t *testing.T) {
 	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(&infoResponse{
+		json.NewEncoder(w).Encode(&httpResponseInfo{
 			ServerAddr: "hi-there.com",
 			Salt:       "aSBhbSBiYXNlNjQ=",
 		})

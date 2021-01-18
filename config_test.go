@@ -224,6 +224,19 @@ func TestConfig_GenerateURLProtected(t *testing.T) {
 	// TODO This should actually validate the HMAC, but the authorize() method is in server.go
 }
 
+func TestConfig_GenerateURL443(t *testing.T) {
+	config := NewConfig()
+	config.ServerAddr = "some-host.com:443"
+
+	url, err := config.GenerateURL("/some-path", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(url, "https://some-host.com/some-path") {
+		t.Fatalf("expected URL mismatched, got %s", url)
+	}
+}
+
 func TestConfig_GenerateClipURLUnprotected(t *testing.T) {
 	config := NewConfig()
 	config.ServerAddr = "some-host.com"

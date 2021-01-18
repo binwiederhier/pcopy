@@ -250,14 +250,14 @@ func (c *Client) withProgressReader(reader io.ReadCloser, total int64) io.ReadCl
 	return reader
 }
 
-func (c *Client) retrieveInfo(client *http.Client) (*infoResponse, error) {
+func (c *Client) retrieveInfo(client *http.Client) (*httpResponseInfo, error) {
 	resp, err := client.Get(fmt.Sprintf("https://%s/info", c.config.ServerAddr))
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	info := &infoResponse{}
+	info := &httpResponseInfo{}
 	if err := json.NewDecoder(resp.Body).Decode(info); err != nil {
 		return nil, err
 	}

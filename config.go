@@ -141,7 +141,8 @@ func (c *Config) WriteFile(filename string) error {
 // GenerateURL generates a URL for the given path. If the clipboard is password-protected, an auth parameter is
 // added and the URL will only be valid for the given TTL.
 func (c *Config) GenerateURL(path string, ttl time.Duration) (string, error) {
-	url := fmt.Sprintf("https://%s%s", ExpandServerAddr(c.ServerAddr), path)
+	server := strings.ReplaceAll(ExpandServerAddr(c.ServerAddr), ":443", "")
+	url := fmt.Sprintf("https://%s%s", server, path)
 	if c.Key != nil {
 		auth, err := GenerateAuthHMAC(c.Key.Bytes, http.MethodGet, path, ttl)
 		if err != nil {
