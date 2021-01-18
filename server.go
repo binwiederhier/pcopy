@@ -30,17 +30,25 @@ import (
 )
 
 const (
-	managerTickerInterval      = 30 * time.Second
-	defaultMaxAuthAge          = time.Minute
-	noAuthRequestAge           = 0
-	rateLimitRequestsPerSecond = 2
-	rateLimitBurstPerSecond    = 5
-	rateLimitExpungeAfter      = 3 * time.Minute
-	certCommonName             = "pcopy"
+	managerTickerInterval         = 30 * time.Second
+	defaultMaxAuthAge             = time.Minute
+	noAuthRequestAge              = 0
+	visitorRequestsPerSecond      = 2
+	visitorRequestsPerSecondBurst = 5
+	visitorCountLimit             = 10
+	visitorExpungeAfter           = 3 * time.Minute
+	certCommonName                = "pcopy"
+
+	headerStream     = "X-Stream"
+	headerFormat     = "X-Format"
+	headerURL        = "X-Url"
+	headerExpires    = "X-Expires"
+	queryParamAuth   = "a"
+	queryParamStream = "s"
+	queryParamFormat = "f"
 )
 
 var (
-	authOverrideParam   = "a"
 	authHmacFormat      = "HMAC %d %d %s" // timestamp ttl b64-hmac
 	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
@@ -71,14 +79,21 @@ type server struct {
 
 // visitor represents an API user, and its associated rate.Limiter used for rate limiting
 type visitor struct {
-	limiter  *rate.Limiter
-	lastSeen time.Time
+	countLimiter *limiter
+	rateLimiter  *rate.Limiter
+	lastSeen     time.Time
 }
 
 // httpResponseInfo is the response returned by the /info endpoint
 type httpResponseInfo struct {
 	ServerAddr string `json:"serverAddr"`
 	Salt       string `json:"salt"`
+}
+
+// httpResponsePut is the response returned when uploading a file
+type httpResponsePut struct {
+	URL     string `json:"url"`
+	Expires int64  `json:"expires"`
 }
 
 // handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
@@ -351,6 +366,12 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
+	// Check visitor file count limit
+	v := s.getVisitor(r)
+	if err := v.countLimiter.Add(1); err != nil {
+		return ErrHTTPTooManyRequests
+	}
+
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	os.Remove(file)
 
@@ -405,16 +426,34 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 	w.Header().Set("X-Url", url)
 	w.Header().Set("X-Expires", fmt.Sprintf("%d", expires))
-	if _, err := w.Write([]byte(url + "\n")); err != nil {
-		os.Remove(file)
-		return err
+	if s.outputFormat(r) == "json" {
+		response := &httpResponsePut{
+			URL:     url,
+			Expires: expires,
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			os.Remove(file)
+			return err
+		}
+	} else {
+		if _, err := w.Write([]byte(url + "\n")); err != nil {
+			os.Remove(file)
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (s *server) isStream(r *http.Request) bool {
-	return r.Header.Get("X-Stream") == "yes" || r.URL.Query().Get("s") == "1"
+	return r.Header.Get(headerStream) == "yes" || r.URL.Query().Get(queryParamStream) == "1"
+}
+
+func (s *server) outputFormat(r *http.Request) string {
+	if r.Header.Get(headerFormat) == "json" || r.URL.Query().Get(queryParamFormat) == "json" {
+		return "json"
+	}
+	return "text"
 }
 
 func (s *server) getClipboardFile(file string) (string, error) {
@@ -441,7 +480,7 @@ func (s *server) authorize(r *http.Request) error {
 	}
 
 	auth := r.Header.Get("Authorization")
-	if encodedQueryAuth, ok := r.URL.Query()[authOverrideParam]; ok && len(encodedQueryAuth) > 0 {
+	if encodedQueryAuth, ok := r.URL.Query()[queryParamAuth]; ok && len(encodedQueryAuth) > 0 {
 		queryAuth, err := base64.StdEncoding.DecodeString(encodedQueryAuth[0])
 		if err != nil {
 			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
@@ -546,9 +585,9 @@ func (s *server) updateStatsAndExpire() {
 	s.Lock()
 	defer s.Unlock()
 
-	// Expire visitors from rate limiter map
+	// Expire visitors from rate rateLimiter map
 	for ip, v := range s.rateLimiter {
-		if time.Since(v.lastSeen) > rateLimitExpungeAfter {
+		if time.Since(v.lastSeen) > visitorExpungeAfter {
 			delete(s.rateLimiter, ip)
 		}
 	}
@@ -629,13 +668,8 @@ func (s *server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
 func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr // This should not happen in real life; only in tests.
-		}
-
-		limiter := s.getVisitorLimiter(ip)
-		if !limiter.Allow() {
+		v := s.getVisitor(r)
+		if !v.rateLimiter.Allow() {
 			return ErrHTTPTooManyRequests
 		}
 
@@ -643,21 +677,30 @@ func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
 	}
 }
 
-// getVisitorLimiter creates or retrieves a rate.Limiter for the given visitor.
+// getVisitor creates or retrieves a rate.Limiter for the given visitor.
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
-func (s *server) getVisitorLimiter(ip string) *rate.Limiter {
+func (s *server) getVisitor(r *http.Request) *visitor {
 	s.Lock()
 	defer s.Unlock()
 
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		ip = r.RemoteAddr // This should not happen in real life; only in tests.
+	}
+
 	v, exists := s.rateLimiter[ip]
 	if !exists {
-		limiter := rate.NewLimiter(rateLimitRequestsPerSecond, rateLimitBurstPerSecond)
-		s.rateLimiter[ip] = &visitor{limiter, time.Now()}
-		return limiter
+		v = &visitor{
+			newLimiter(visitorCountLimit),
+			rate.NewLimiter(visitorRequestsPerSecond, visitorRequestsPerSecondBurst),
+			time.Now(),
+		}
+		s.rateLimiter[ip] = v
+		return v
 	}
 
 	v.lastSeen = time.Now()
-	return v.limiter
+	return v
 }
 
 func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {

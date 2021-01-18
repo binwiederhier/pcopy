@@ -4,7 +4,7 @@ NAME
   pcopy - copy/paste across machines
 
 USAGE:
-  curl [-T FILE] [-d DATA] [-u:PASS] {{$url}}[/FILENAME][?s=1]
+  curl [-T FILE] [-d DATA] [-u:PASS] {{$url}}[/FILENAME][?s=1][&f=text|json]
 
 DESCRIPTION:
   This is is the curl-endpoint for pcopy, a tool to copy/paste across machines. You may use
@@ -27,11 +27,14 @@ DESCRIPTION:
     cat a.log | curl -T- "{{$url}}/cool?s=1"  # Stream to "cool", blocks until download begins
 
 OPTIONS:
-  -T FILE   uploads file FILE to the server
-  -d DATA   uploads DATA to the server
-  -u :PASS  use password PASS for basic auth against server
+  Query params:
+    ?s=1          stream data without storing on the server
+    ?f=text|json  output format for PUT/POSTs (default: text)
 
-  Check the curl man page for details.
+  Common curl options (see 'man curl' for more):
+    -T FILE       uploads file FILE to the server
+    -d DATA       uploads DATA to the server
+    -u :PASS      use password PASS for basic auth against server
 {{ if .Config.WebUI}}
 WEB UI:
   {{$url}}
