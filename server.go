@@ -78,12 +78,6 @@ type httpResponseInfo struct {
 	Salt       string `json:"salt"`
 }
 
-// httpResponsePut is the response returned by clipboard PUTs (if JSON format is selected)
-type httpResponsePut struct {
-	URL    string `json:"url"`
-	Expiry int64  `json:"expiry"`
-}
-
 // handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
 type handlerFnWithErr func(http.ResponseWriter, *http.Request) error
 
@@ -123,7 +117,7 @@ func Serve(config *Config) error {
 }
 
 func newServer(config *Config) (*server, error) {
-	if config.ListenAddr == "" {
+	if config.ListenHTTPS == "" {
 		return nil, errListenAddrMissing
 	}
 	if config.KeyFile == "" {
@@ -148,14 +142,33 @@ func newServer(config *Config) (*server, error) {
 }
 
 func (s *server) listenAndServe() error {
+	listenHTTP := ""
+	if s.config.ListenHTTP != "" {
+		listenHTTP = fmt.Sprintf("%s/HTTP ", s.config.ListenHTTP)
+	}
 	if s.config.Key == nil {
-		log.Printf("Listening on %s (UNPROTECTED CLIPBOARD)\n", s.config.ListenAddr)
+		log.Printf("Listening on %s/HTTPS %s(UNPROTECTED CLIPBOARD)\n", s.config.ListenHTTPS, listenHTTP)
 	} else {
-		log.Printf("Listening on %s\n", s.config.ListenAddr)
+		log.Printf("Listening on %s %s\n", s.config.ListenHTTPS, listenHTTP)
 	}
 
 	http.HandleFunc("/", s.handle)
-	return http.ListenAndServeTLS(s.config.ListenAddr, s.config.CertFile, s.config.KeyFile, nil)
+
+	errChan := make(chan error)
+	if s.config.ListenHTTP != "" {
+		go func() {
+			if err := http.ListenAndServe(s.config.ListenHTTP, nil); err != nil {
+				errChan <- err
+			}
+		}()
+	}
+	go func() {
+		if err := http.ListenAndServeTLS(s.config.ListenHTTPS, s.config.CertFile, s.config.KeyFile, nil); err != nil {
+			errChan <- err
+		}
+	}()
+	err := <-errChan
+	return err
 }
 
 func (s *server) routeList() []route {
@@ -284,16 +297,14 @@ func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request
 }
 
 func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) error {
-	// Parse request: file ID, stream, output format
+	// Parse request: file ID, stream
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
 	file, err := s.getClipboardFile(id)
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
-
 	stream := r.Header.Get("X-Stream") == "yes" || r.URL.Query().Get("s") == "1"
-	jsonout := r.Header.Get("X-Format") == "json" || r.URL.Query().Get("f") == "json"
 
 	// Handle empty body
 	if r.Body == nil {
@@ -354,26 +365,17 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Output URL, TTL, etc.
-	// expiry := time.Now().Add(s.config.FileExpireAfter).Unix()
+	expires := time.Now().Add(s.config.FileExpireAfter).Unix()
 	url, err := s.config.GenerateClipURL(id, s.config.FileExpireAfter)
 	if err != nil {
 		os.Remove(file)
 		return err
 	}
-	if jsonout {
-		response := &httpResponsePut{
-			URL:    url,
-			Expiry: time.Now().Add(s.config.FileExpireAfter).Unix(),
-		}
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			os.Remove(file)
-			return err
-		}
-	} else {
-		if _, err := w.Write([]byte(url + "\n")); err != nil {
-			os.Remove(file)
-			return err
-		}
+	w.Header().Set("X-Url", url)
+	w.Header().Set("X-Expires", fmt.Sprintf("%d", expires))
+	if _, err := w.Write([]byte(url + "\n")); err != nil {
+		os.Remove(file)
+		return err
 	}
 
 	return nil
@@ -640,9 +642,9 @@ var ErrHTTPPayloadTooLarge = &errHTTPNotOK{http.StatusRequestEntityTooLarge, htt
 // ErrHTTPUnauthorized is returned when the client has not sent proper credentials
 var ErrHTTPUnauthorized = &errHTTPNotOK{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
 
-var errListenAddrMissing = errors.New("listen address missing, add 'ListenAddr' to config or pass -listen")
-var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to config or pass -keyfile")
-var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass -certfile")
+var errListenAddrMissing = errors.New("listen address missing, add 'ListenHTTPS' to config or pass --listen-https")
+var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to config or pass --keyfile")
+var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass --certfile")
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidFileID = errors.New("invalid file id")
 var errNoMatchingRoute = errors.New("no matching route")

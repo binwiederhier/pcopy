@@ -13,7 +13,8 @@ var cmdServe = &cli.Command{
 	Category: categoryServer,
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
-		&cli.StringFlag{Name: "listen", Aliases: []string{"l"}, Usage: "set bind address to `[ADDR]:PORT`"},
+		&cli.StringFlag{Name: "listen-https", Aliases: []string{"l"}, Usage: "set bind address for HTTPS connections to `[ADDR]:PORT`"},
+		&cli.StringFlag{Name: "listen-http", Aliases: []string{"L"}, Usage: "set bind address for HTTP connections to `[ADDR]:PORT`"},
 		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "set server address to be advertised to clients to `ADDR[:PORT]` (default port: 2586)"},
 		&cli.StringFlag{Name: "key", Aliases: []string{"K"}, Usage: "set private key file for TLS connections to `KEY`"},
 		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "set certificate file for TLS connections to `CERT`"},
@@ -27,16 +28,17 @@ The command will load a the clipboard config from ~/.config/pcopy/server.conf or
 To generate a new config file, you may want to use the 'pcopy setup' command.
 
 Examples:
-  pcopy serve                  # Starts server in the foreground
-  pcopy serve --listen :9999   # Starts server with alternate port
-  PCOPY_KEY=.. pcopy serve     # Starts server with alternate key (see 'pcopy keygen')
+  pcopy serve                      # Starts server in the foreground
+  pcopy serve --listen-https :9999 # Starts server with alternate port
+  PCOPY_KEY=.. pcopy serve         # Starts server with alternate key (see 'pcopy keygen')
 
 To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
 }
 
 func execServe(c *cli.Context) error {
 	configFileOverride := c.String("config")
-	listenAddr := c.String("listen")
+	listenHTTPS := c.String("listen-https")
+	listenHTTP := c.String("listen-http")
 	serverAddr := c.String("server")
 	keyFile := c.String("key")
 	certFile := c.String("cert")
@@ -59,8 +61,11 @@ func execServe(c *cli.Context) error {
 	}
 
 	// Command line overrides
-	if listenAddr != "" {
-		config.ListenAddr = listenAddr
+	if listenHTTPS != "" {
+		config.ListenHTTPS = listenHTTPS
+	}
+	if listenHTTP != "" {
+		config.ListenHTTP = listenHTTP
 	}
 	if serverAddr != "" {
 		config.ServerAddr = pcopy.ExpandServerAddr(serverAddr)

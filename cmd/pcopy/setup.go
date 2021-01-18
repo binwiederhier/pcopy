@@ -155,9 +155,9 @@ func (s *wizard) askClipboardDir() {
 }
 
 func (s *wizard) askListenAddr() {
-	fmt.Println("The listen address is used to bind the local server.")
+	fmt.Println("The listen address is used to bind the local server for HTTPS connections.")
 	fmt.Printf("Listen address (default: :%d): ", pcopy.DefaultPort)
-	s.config.ListenAddr = s.readLine()
+	s.config.ListenHTTPS = s.readLine()
 	fmt.Println()
 }
 

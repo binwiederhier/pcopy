@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 
 func TestServer_NewServerInvalidListenAddr(t *testing.T) {
 	config := NewConfig()
-	config.ListenAddr = ""
+	config.ListenHTTPS = ""
 	_, err := newServer(config)
 	if err == nil {
 		t.Fatalf("expected error, got none")
@@ -428,7 +428,7 @@ func newTestServerConfig(t *testing.T) *Config {
 	}
 
 	config.ServerAddr = "localhost:12345"
-	config.ListenAddr = ":12345"
+	config.ListenHTTPS = ":12345"
 	config.ClipboardDir = clipboardDir
 	config.KeyFile = keyFile
 	config.CertFile = certFile

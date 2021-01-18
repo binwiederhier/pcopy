@@ -76,7 +76,8 @@ var (
 // the client, others only to the server. Some apply to both. Many (but not all) of these settings can be set either
 // via the config file, or via command line parameters.
 type Config struct {
-	ListenAddr          string
+	ListenHTTPS         string
+	ListenHTTP          string
 	ServerAddr          string
 	Key                 *Key
 	KeyFile             string
@@ -103,7 +104,8 @@ type Key struct {
 // NewConfig returns the default config
 func NewConfig() *Config {
 	return &Config{
-		ListenAddr:          fmt.Sprintf(":%d", DefaultPort),
+		ListenHTTPS:         fmt.Sprintf(":%d", DefaultPort),
+		ListenHTTP:          "",
 		ServerAddr:          "",
 		Key:                 nil,
 		KeyFile:             "",
@@ -274,9 +276,14 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		return nil, err
 	}
 
-	listenAddr, ok := raw["ListenAddr"]
+	listenHTTPS, ok := raw["ListenHTTPS"]
 	if ok {
-		config.ListenAddr = listenAddr
+		config.ListenHTTPS = listenHTTPS
+	}
+
+	listenHTTP, ok := raw["ListenHTTP"]
+	if ok {
+		config.ListenHTTP = listenHTTP
 	}
 
 	serverAddr, ok := raw["ServerAddr"]

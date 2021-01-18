@@ -11,15 +11,25 @@
 #
 {{if .ServerAddr}}ServerAddr {{.ServerAddr}}{{else}}# ServerAddr{{end}}
 
-# Address and port to use to bind the server. To bind to all addresses, you may omit the address,
-# e.g. :2586.
+# Address and port to use to bind the server for HTTPS connections. To bind to all addresses,
+# you may omit the address and only pass the port, e.g. :2586.
 #
 # This is a server-only option (pcopy serve). It has no effect for client commands.
 #
 # Format:  [ADDR]:PORT
 # Default: :2586
 #
-{{if .ListenAddr}}ListenAddr {{.ListenAddr}}{{else}}# ListenAddr :2586{{end}}
+{{if .ListenHTTPS}}ListenHTTPS {{.ListenHTTPS}}{{else}}# ListenHTTPS :2586{{end}}
+
+# Address and port to use to bind the server for HTTP connections. To bind to all addresses,
+# you may omit the address and only pass the port, e.g. :80.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  [ADDR]:PORT
+# Default: None
+#
+{{if .ListenHTTP}}ListenHTTP {{.ListenHTTP}}{{else}}# ListenHTTP{{end}}
 
 # If a key is defined, clients need to auth whenever they want copy/paste values
 # to the clipboard. A key is derived from a password and can be generated using
