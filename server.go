@@ -33,19 +33,24 @@ const (
 	managerTickerInterval         = 30 * time.Second
 	defaultMaxAuthAge             = time.Minute
 	noAuthRequestAge              = 0
+	visitorCountLimit             = 10
 	visitorRequestsPerSecond      = 2
 	visitorRequestsPerSecondBurst = 5
-	visitorCountLimit             = 10
 	visitorExpungeAfter           = 3 * time.Minute
+	permUserWrite                 = 7 // 200 oct = --w-------
 	certCommonName                = "pcopy"
 
-	headerStream     = "X-Stream"
-	headerFormat     = "X-Format"
-	headerURL        = "X-Url"
-	headerExpires    = "X-Expires"
-	queryParamAuth   = "a"
-	queryParamStream = "s"
-	queryParamFormat = "f"
+	headerStream       = "X-Stream"
+	headerFormat       = "X-Format"
+	headerWritable     = "X-Writable"
+	headerTTL          = "X-TTL"
+	headerURL          = "X-Url"
+	headerExpires      = "X-Expires"
+	queryParamAuth     = "a"
+	queryParamStream   = "s"
+	queryParamFormat   = "f"
+	queryParamWritable = "w"
+	queryParamTTL      = "t"
 )
 
 var (
@@ -72,7 +77,7 @@ type server struct {
 	config       *Config
 	countLimiter *limiter
 	sizeLimiter  *limiter
-	rateLimiter  map[string]*visitor
+	visitors     map[string]*visitor
 	routes       []route
 	sync.Mutex
 }
@@ -94,6 +99,11 @@ type httpResponseInfo struct {
 type httpResponsePut struct {
 	URL     string `json:"url"`
 	Expires int64  `json:"expires"`
+}
+
+// metaFile defines the metadata file format stored next to each file
+type metaFile struct {
+	Expires int64 `json:"expires"`
 }
 
 // handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
@@ -156,7 +166,7 @@ func newServer(config *Config) (*server, error) {
 		config:       config,
 		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
 		countLimiter: newLimiter(int64(config.ClipboardCountLimit)),
-		rateLimiter:  make(map[string]*visitor),
+		visitors:     make(map[string]*visitor),
 		routes:       nil,
 	}, nil
 }
@@ -310,7 +320,7 @@ func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 
 func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
-	file, err := s.getClipboardFile(fields[0])
+	file, _, err := s.getClipboardFile(fields[0])
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
@@ -346,7 +356,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Parse request: file ID, stream
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	file, err := s.getClipboardFile(id)
+	file, metafile, err := s.getClipboardFile(id)
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
@@ -356,38 +366,78 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		return ErrHTTPBadRequest
 	}
 
-	// Check total file count limit (only if file didn't exist already)
+	// Check if file exists
 	stat, _ := os.Stat(file)
 	if stat == nil {
+		// File does not exist
+
+		// Check total file count limit
 		if err := s.countLimiter.Add(1); err != nil {
 			return ErrHTTPTooManyRequests
 		}
-	}
+	} else {
+		// File exists
 
-	// Check visitor file count limit
-	v := s.getVisitor(r)
-	if err := v.countLimiter.Add(1); err != nil {
-		return ErrHTTPTooManyRequests
+		// Check visitor file count limit
+		v := s.getVisitor(r)
+		if err := v.countLimiter.Add(1); err != nil {
+			return ErrHTTPTooManyRequests
+		}
+
+		// File not writable
+		if stat.Mode().Perm()&(1<<permUserWrite) == 0 {
+			return ErrHTTPBadRequest
+		}
 	}
 
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	os.Remove(file)
+	os.Remove(metafile)
+
+	writable := r.Header.Get(headerWritable) == "yes" || r.URL.Query().Get(queryParamWritable) == "1"
+	perm := os.FileMode(0400)
+	if writable {
+		perm = 0600
+	}
+
+	ttl, err := s.getTTL(r)
+	if err != nil {
+		return err
+	}
+	expires := int64(0)
+	if ttl > 0 {
+		expires = time.Now().Add(ttl).Unix()
+	}
+
+	response := &metaFile{
+		Expires: expires,
+	}
+	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer mf.Close()
+	if err := json.NewEncoder(mf).Encode(response); err != nil {
+		return err
+	}
+	mf.Close()
 
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
+	format := s.outputFormat(r)
 	if s.isStream(r) {
 		if err := unix.Mkfifo(file, 0600); err != nil {
 			s.countLimiter.Sub(1)
 			return err
 		}
-		if err := s.writePutOutput(w, id, s.outputFormat(r)); err != nil {
+		if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
 			s.countLimiter.Sub(1)
 			return err
 		}
 	}
 
 	// Create new file or truncate existing
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, perm)
 	if err != nil {
 		s.countLimiter.Sub(1)
 		return err
@@ -422,7 +472,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Output URL, TTL, etc.
 	if !s.isStream(r) {
-		if err := s.writePutOutput(w, id, s.outputFormat(r)); err != nil {
+		if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
 			os.Remove(file)
 			return err
 		}
@@ -431,14 +481,13 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-func (s *server) writePutOutput(w http.ResponseWriter, id string, format string) error {
-	expires := time.Now().Add(s.config.FileExpireAfter).Unix()
-	url, err := s.config.GenerateClipURL(id, s.config.FileExpireAfter)
+func (s *server) writePutOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
+	url, err := s.config.GenerateClipURL(id, ttl) // TODO this is horrible
 	if err != nil {
 		return err
 	}
-	w.Header().Set("X-Url", url)
-	w.Header().Set("X-Expires", fmt.Sprintf("%d", expires))
+	w.Header().Set(headerURL, url)
+	w.Header().Set(headerExpires, fmt.Sprintf("%d", expires))
 	if format == "json" {
 		response := &httpResponsePut{
 			URL:     url,
@@ -448,7 +497,7 @@ func (s *server) writePutOutput(w http.ResponseWriter, id string, format string)
 			return err
 		}
 	} else {
-		if _, err := w.Write([]byte(url + "\n")); err != nil {
+		if _, err := w.Write([]byte(url + "\n")); err != nil { // TODO maybe use 'pcopy link' code
 			return err
 		}
 	}
@@ -456,6 +505,22 @@ func (s *server) writePutOutput(w http.ResponseWriter, id string, format string)
 		f.Flush()
 	}
 	return nil
+}
+
+func (s *server) getTTL(r *http.Request) (time.Duration, error) {
+	var err error
+	var ttl time.Duration
+	if r.URL.Query().Get(queryParamTTL) != "" {
+		ttl, err = parseDuration(r.URL.Query().Get(queryParamTTL))
+	} else if r.Header.Get(headerTTL) != "" {
+		ttl, err = parseDuration(r.Header.Get(headerTTL))
+	} else if s.config.FileExpireAfter > 0 {
+		ttl = s.config.FileExpireAfter
+	}
+	if err != nil {
+		return 0, ErrHTTPBadRequest
+	}
+	return ttl, nil
 }
 
 func (s *server) isStream(r *http.Request) bool {
@@ -469,13 +534,15 @@ func (s *server) outputFormat(r *http.Request) string {
 	return "text"
 }
 
-func (s *server) getClipboardFile(file string) (string, error) {
+func (s *server) getClipboardFile(id string) (string, string, error) {
 	for _, reserved := range reservedFiles {
-		if file == reserved {
-			return "", errInvalidFileID
+		if id == reserved {
+			return "", "", errInvalidFileID
 		}
 	}
-	return fmt.Sprintf("%s/%s", s.config.ClipboardDir, file), nil
+	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, id)
+	meta := fmt.Sprintf("%s/%s:meta", s.config.ClipboardDir, id)
+	return file, meta, nil
 }
 
 func (s *server) auth(next handlerFnWithErr) handlerFnWithErr {
@@ -598,10 +665,10 @@ func (s *server) updateStatsAndExpire() {
 	s.Lock()
 	defer s.Unlock()
 
-	// Expire visitors from rate rateLimiter map
-	for ip, v := range s.rateLimiter {
+	// Expire visitors from rate visitors map
+	for ip, v := range s.visitors {
 		if time.Since(v.lastSeen) > visitorExpungeAfter {
-			delete(s.rateLimiter, ip)
+			delete(s.visitors, ip)
 		}
 	}
 
@@ -614,6 +681,9 @@ func (s *server) updateStatsAndExpire() {
 	numFiles := int64(0)
 	totalSize := int64(0)
 	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ":meta") {
+			continue
+		}
 		if !s.maybeExpire(f) {
 			numFiles++
 			totalSize += f.Size()
@@ -637,18 +707,45 @@ func (s *server) printStats() {
 		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.sizeLimiter.Limit()))
 	}
 	log.Printf("files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
-		s.countLimiter.Value(), countLimit, BytesToHuman(s.sizeLimiter.Value()), sizeLimit, len(s.rateLimiter))
+		s.countLimiter.Value(), countLimit, BytesToHuman(s.sizeLimiter.Value()), sizeLimit, len(s.visitors))
 }
 
 // maybeExpire deletes a file if it has expired and returns true if it did
-func (s *server) maybeExpire(file os.FileInfo) bool {
-	if s.config.FileExpireAfter == 0 || time.Since(file.ModTime()) <= s.config.FileExpireAfter {
+func (s *server) maybeExpire(info os.FileInfo) bool {
+	file := filepath.Join(s.config.ClipboardDir, info.Name())
+	metafile := fmt.Sprintf("%s:meta", file)
+	if !s.isExpired(info, metafile) {
 		return false
 	}
-	if err := os.Remove(filepath.Join(s.config.ClipboardDir, file.Name())); err != nil {
+	if err := os.Remove(file); err != nil {
 		log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
+		return false
 	}
-	log.Printf("removed expired entry: %s (%s)", file.Name(), BytesToHuman(file.Size()))
+	if err := os.Remove(metafile); err != nil {
+		log.Printf("failed to remove clipboard meta file after expiry: %s", err.Error())
+		return false
+	}
+	log.Printf("removed expired entry: %s (%s)", info.Name(), BytesToHuman(info.Size()))
+	return true
+}
+
+// isExpired returns if a file is expired
+func (s *server) isExpired(info os.FileInfo, metafile string) bool {
+	if mf, err := os.Open(metafile); err == nil {
+		defer mf.Close()
+		var m metaFile
+		if err := json.NewDecoder(mf).Decode(&m); err != nil {
+			log.Printf("failed to read meta file %s: %s", metafile, err.Error())
+			return false
+		}
+		if m.Expires > 0 {
+			return time.Since(time.Unix(m.Expires, 0)) > 0
+		}
+		return false
+	}
+	if s.config.FileExpireAfter == 0 || time.Since(info.ModTime()) <= s.config.FileExpireAfter {
+		return false
+	}
 	return true
 }
 
@@ -665,12 +762,17 @@ func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
 func (s *server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if r.TLS == nil && s.config.ListenHTTPS != "" {
-			host, _, _ := net.SplitHostPort(r.Host)
+			newURL := r.URL
+			newURL.Host = r.Host
+			newURL.Scheme = "https"
+			if strings.Contains(newURL.Host, ":") {
+				newURL.Host, _, _ = net.SplitHostPort(newURL.Host)
+			}
 			_, port, _ := net.SplitHostPort(s.config.ListenHTTPS)
-			u := r.URL
-			u.Host = net.JoinHostPort(host, port)
-			u.Scheme = "https"
-			http.Redirect(w, r, u.String(), http.StatusFound)
+			if port != "443" {
+				newURL.Host = net.JoinHostPort(newURL.Host, port)
+			}
+			http.Redirect(w, r, newURL.String(), http.StatusFound)
 			return nil
 		}
 		return next(w, r)
@@ -701,14 +803,14 @@ func (s *server) getVisitor(r *http.Request) *visitor {
 		ip = r.RemoteAddr // This should not happen in real life; only in tests.
 	}
 
-	v, exists := s.rateLimiter[ip]
+	v, exists := s.visitors[ip]
 	if !exists {
 		v = &visitor{
 			newLimiter(visitorCountLimit),
 			rate.NewLimiter(visitorRequestsPerSecond, visitorRequestsPerSecondBurst),
 			time.Now(),
 		}
-		s.rateLimiter[ip] = v
+		s.visitors[ip] = v
 		return v
 	}
 

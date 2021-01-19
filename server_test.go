@@ -271,7 +271,7 @@ func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 	assertFileContent(t, config, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
+	req, _ = http.NewRequest("PUT", "/file2?w=1", strings.NewReader("another one"))
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "another one")
