@@ -4,7 +4,7 @@ NAME
   pcopy - copy/paste across machines
 
 USAGE:
-  curl [-T FILE] [-d DATA] [-u:PASS] {{$url}}[/FILENAME][?s=1][&f=text|json]
+  curl [-T FILE] [-d DATA] [-u:PASS] {{$url}}[/FILENAME][?s=1][&m=rw|ro][&t=<duration>][&f=text|json]
 
 DESCRIPTION:
   This is is the curl-endpoint for pcopy, a tool to copy/paste across machines. You may use
@@ -19,16 +19,18 @@ DESCRIPTION:
   the password.
 
   Examples:
-    curl -T hi.txt {{$url}}                   # Copy file hi.txt and pick a random file name
-    curl -d "a thing" {{$url}}/thing.txt      # Copy text "a thing" to "thing.txt"
+    curl -T hi.txt {{$url}}                   # Copy file hi.txt and pick a random file name (via PUT)
+    curl -d "a thing" {{$url}}/thing.txt      # Copy text "a thing" to "thing.txt" (via POST)
     cat go.log | curl -T- {{$url}}/go.log     # Copy text from STDIN to "go.log"
     curl -u:mypass -d hi {{$url}}             # Uses password "mypass" to copy text "hi"
     cat a.log | curl -T- "{{$url}}/cool?s=1"  # Stream to "cool", blocks until download begins
 
 OPTIONS:
   Query params:
-    ?s=1          stream data without storing on the server
-    ?f=text|json  output format for PUT/POSTs (default: text)
+    ?s=1           stream data without storing on the server
+    ?m=rw|ro       defines whether to set the file mode as read-write or read-only (default: {{index .Config.FileModesAllowed 0}}, allowed: {{stringsJoin .Config.FileModesAllowed " "}})
+    ?t=<duration>  time-to-live (TTL) for this file, after which it will be deleted (default/max: {{if .Config.FileExpireAfter}}{{.Config.FileExpireAfter | durationToHuman}}{{else}}never{{end}})
+    ?f=text|json   output format for PUT/POSTs (default: text)
 
   Common curl options (see 'man curl' for more):
     -T FILE       uploads file FILE to the server

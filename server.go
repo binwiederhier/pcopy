@@ -37,19 +37,18 @@ const (
 	visitorRequestsPerSecond      = 2
 	visitorRequestsPerSecondBurst = 5
 	visitorExpungeAfter           = 3 * time.Minute
-	permUserWrite                 = 7 // 200 oct = --w-------
 	certCommonName                = "pcopy"
 
 	headerStream       = "X-Stream"
 	headerFormat       = "X-Format"
-	headerWritable     = "X-Writable"
+	headerFileMode     = "X-Mode"
 	headerTTL          = "X-TTL"
 	headerURL          = "X-Url"
 	headerExpires      = "X-Expires"
 	queryParamAuth     = "a"
 	queryParamStream   = "s"
 	queryParamFormat   = "f"
-	queryParamWritable = "w"
+	queryParamFileMode = "m"
 	queryParamTTL      = "t"
 )
 
@@ -103,7 +102,8 @@ type httpResponsePut struct {
 
 // metaFile defines the metadata file format stored next to each file
 type metaFile struct {
-	Expires int64 `json:"expires"`
+	Mode    string `json:"mode"`
+	Expires int64  `json:"expires"`
 }
 
 // handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
@@ -385,8 +385,12 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 
 		// File not writable
-		if stat.Mode().Perm()&(1<<permUserWrite) == 0 {
-			return ErrHTTPBadRequest
+		m, err := s.readMetaFile(metafile)
+		if err != nil {
+			return err
+		}
+		if m.Mode == modeReadOnly {
+			return ErrHTTPMethodNotAllowed // TODO test this
 		}
 	}
 
@@ -394,10 +398,9 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	os.Remove(file)
 	os.Remove(metafile)
 
-	writable := r.Header.Get(headerWritable) == "yes" || r.URL.Query().Get(queryParamWritable) == "1"
-	perm := os.FileMode(0400)
-	if writable {
-		perm = 0600
+	mode, err := s.getFileMode(r)
+	if err != nil {
+		return err
 	}
 
 	ttl, err := s.getTTL(r)
@@ -410,6 +413,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	response := &metaFile{
+		Mode:    mode,
 		Expires: expires,
 	}
 	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
@@ -437,7 +441,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Create new file or truncate existing
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, perm)
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		s.countLimiter.Sub(1)
 		return err
@@ -507,6 +511,21 @@ func (s *server) writePutOutput(w http.ResponseWriter, id string, expires int64,
 	return nil
 }
 
+func (s *server) getFileMode(r *http.Request) (string, error) {
+	mode := s.config.FileModesAllowed[0]
+	if r.Header.Get(headerFileMode) != "" {
+		mode = r.Header.Get(headerFileMode)
+	} else if r.URL.Query().Get(queryParamFileMode) != "" {
+		mode = r.URL.Query().Get(queryParamFileMode)
+	}
+	for _, allowed := range s.config.FileModesAllowed {
+		if mode == allowed {
+			return mode, nil
+		}
+	}
+	return "", ErrHTTPBadRequest
+}
+
 func (s *server) getTTL(r *http.Request) (time.Duration, error) {
 	var err error
 	var ttl time.Duration
@@ -519,6 +538,9 @@ func (s *server) getTTL(r *http.Request) (time.Duration, error) {
 	}
 	if err != nil {
 		return 0, ErrHTTPBadRequest
+	}
+	if s.config.FileExpireAfter > 0 && ttl > s.config.FileExpireAfter {
+		ttl = s.config.FileExpireAfter // TODO test TTL
 	}
 	return ttl, nil
 }
@@ -731,15 +753,9 @@ func (s *server) maybeExpire(info os.FileInfo) bool {
 
 // isExpired returns if a file is expired
 func (s *server) isExpired(info os.FileInfo, metafile string) bool {
-	if mf, err := os.Open(metafile); err == nil {
-		defer mf.Close()
-		var m metaFile
-		if err := json.NewDecoder(mf).Decode(&m); err != nil {
-			log.Printf("failed to read meta file %s: %s", metafile, err.Error())
-			return false
-		}
-		if m.Expires > 0 {
-			return time.Since(time.Unix(m.Expires, 0)) > 0
+	if mf, err := s.readMetaFile(metafile); err == nil {
+		if mf.Expires > 0 {
+			return time.Since(time.Unix(mf.Expires, 0)) > 0
 		}
 		return false
 	}
@@ -824,6 +840,20 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err erro
 	w.Write([]byte(http.StatusText(code)))
 }
 
+func (s *server) readMetaFile(metafile string) (*metaFile, error) {
+	mf, err := os.Open(metafile)
+	if err != nil {
+		return nil, err
+	}
+	defer mf.Close()
+
+	var m metaFile
+	if err := json.NewDecoder(mf).Decode(&m); err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
 type errHTTPNotOK struct {
 	code   int
 	status string
@@ -838,6 +868,9 @@ var ErrHTTPPartialContent = &errHTTPNotOK{http.StatusPartialContent, http.Status
 
 // ErrHTTPBadRequest is returned when the request sent by the client was invalid, e.g. invalid file name
 var ErrHTTPBadRequest = &errHTTPNotOK{http.StatusBadRequest, http.StatusText(http.StatusBadRequest)}
+
+// ErrHTTPMethodNotAllowed is returned when the file state does not allow the current method, e.g. PUTting a read-only file
+var ErrHTTPMethodNotAllowed = &errHTTPNotOK{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)}
 
 // ErrHTTPNotFound is returned when a resource is not found on the server
 var ErrHTTPNotFound = &errHTTPNotOK{http.StatusNotFound, http.StatusText(http.StatusNotFound)}

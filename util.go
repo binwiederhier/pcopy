@@ -20,6 +20,7 @@ var (
 		"encodeBase64":     base64.StdEncoding.EncodeToString,
 		"bytesToHuman":     BytesToHuman,
 		"durationToHuman":  DurationToHuman,
+		"stringsJoin":      strings.Join,
 	}
 )
 

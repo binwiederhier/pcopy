@@ -53,6 +53,9 @@ const (
 	// DefaultFileExpireAfter is the duration after which the server will delete a clipboard file.
 	DefaultFileExpireAfter = time.Hour * 24 * 7
 
+	// DefaultFileModesAllowed is the default setting for whether files are overwritable
+	DefaultFileModesAllowed = "rw ro"
+
 	// DefaultWebUI defines if the Web UI is enabled by default
 	DefaultWebUI = true
 
@@ -61,6 +64,8 @@ const (
 	suffixConf      = ".conf"
 	suffixKey       = ".key"
 	suffixCert      = ".crt"
+	modeReadWrite   = "rw"
+	modeReadOnly    = "ro"
 )
 
 var (
@@ -91,6 +96,7 @@ type Config struct {
 	ClipboardCountLimit int
 	FileSizeLimit       int64
 	FileExpireAfter     time.Duration
+	FileModesAllowed    []string
 	ProgressFunc        ProgressFunc
 	WebUI               bool
 }
@@ -119,6 +125,7 @@ func NewConfig() *Config {
 		ClipboardCountLimit: DefaultClipboardCountLimit,
 		FileSizeLimit:       DefaultFileSizeLimit,
 		FileExpireAfter:     DefaultFileExpireAfter,
+		FileModesAllowed:    strings.Split(DefaultFileModesAllowed, " "),
 		ProgressFunc:        nil,
 		WebUI:               DefaultWebUI,
 	}
@@ -354,7 +361,6 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		if _, err := os.Stat(certFile); err != nil {
 			return nil, err
 		}
-
 		config.CertFile = certFile
 	}
 
@@ -393,6 +399,20 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 		}
+	}
+
+	fileModesAllowed, ok := raw["FileModesAllowed"]
+	if ok {
+		modes := strings.Split(fileModesAllowed, " ")
+		if len(modes) == 0 || len(modes) > 2 {
+			return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': max two, but at least one value expected")
+		}
+		for _, m := range modes {
+			if m != modeReadOnly && m != modeReadWrite {
+				return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': %s", m)
+			}
+		}
+		config.FileModesAllowed = modes
 	}
 
 	webUI, ok := raw["WebUI"]

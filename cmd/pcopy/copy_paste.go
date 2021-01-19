@@ -29,6 +29,8 @@ var cmdCopy = &cli.Command{
 		&cli.BoolFlag{Name: "link", Aliases: []string{"l"}, Usage: "show link and curl command after copying, same as 'pcopy link'"},
 		&cli.BoolFlag{Name: "stream", Aliases: []string{"S"}, Usage: "stream data to other client via fifo device"},
 		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Value: 6 * time.Hour, Usage: "set duration the link is valid for to `TTL` (only protected)"},
+		// TODO add --read-only/-ro + --read-write/-rw
+		// TODO fix --ttl to use real TTL
 	},
 	Description: `Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is
 the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').

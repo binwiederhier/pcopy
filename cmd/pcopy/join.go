@@ -103,8 +103,8 @@ func execJoin(c *cli.Context) error {
 	// Write config file
 	config := &pcopy.Config{
 		ServerAddr: serverAddr,
-		Key:        key,                // May be nil, but that's ok
-		WebUI:      pcopy.DefaultWebUI, // So it isn't rendered in the template
+		Key:        key, // May be nil, but that's ok
+		WebUI:      pcopy.DefaultWebUI,
 	}
 	if err := config.WriteFile(configFile); err != nil {
 		return err
