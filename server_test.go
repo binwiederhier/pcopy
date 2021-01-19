@@ -271,7 +271,7 @@ func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 	assertFileContent(t, config, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest("PUT", "/file2?w=1", strings.NewReader("another one"))
+	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "another one")
@@ -282,6 +282,24 @@ func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "overwriting file 2")
+}
+
+func TestServer_HandleClipboardPutOverwriteFailure(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.FileModesAllowed = []string{modeReadOnly}
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+	assertFileContent(t, config, "file2", "another one")
+
+	// Overwrite file 2 should fail
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("overwriting file 2 fails"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusMethodNotAllowed)
 }
 
 func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
@@ -397,6 +415,32 @@ func TestServer_AuthorizeHmacFailureWrongKeyProtected(t *testing.T) {
 	if err := server.authorize(req); err != ErrHTTPUnauthorized {
 		t.Fatalf("expected invalid auth, got %#v", err)
 	}
+}
+
+func TestServer_ExpireSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.FileExpireAfter = time.Second
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/new-thing", strings.NewReader("something"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+	assertFileContent(t, config, "new-thing", "something")
+
+	time.Sleep(1050 * time.Millisecond)
+	server.updateStatsAndExpire()
+	assertNotExists(t, config, "new-thing")
+}
+
+func TestServer_ReservedWordsFailure(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/robots.txt", strings.NewReader("something"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusBadRequest)
 }
 
 func newTestServer(t *testing.T, config *Config) *server {

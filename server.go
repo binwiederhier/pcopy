@@ -38,6 +38,7 @@ const (
 	visitorRequestsPerSecondBurst = 5
 	visitorExpungeAfter           = 3 * time.Minute
 	certCommonName                = "pcopy"
+	metaFileSuffix                = ":meta"
 
 	headerStream       = "X-Stream"
 	headerFormat       = "X-Format"
@@ -563,7 +564,7 @@ func (s *server) getClipboardFile(id string) (string, string, error) {
 		}
 	}
 	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, id)
-	meta := fmt.Sprintf("%s/%s:meta", s.config.ClipboardDir, id)
+	meta := fmt.Sprintf("%s/%s%s", s.config.ClipboardDir, id, metaFileSuffix)
 	return file, meta, nil
 }
 
@@ -703,7 +704,7 @@ func (s *server) updateStatsAndExpire() {
 	numFiles := int64(0)
 	totalSize := int64(0)
 	for _, f := range files {
-		if strings.HasSuffix(f.Name(), ":meta") {
+		if strings.HasSuffix(f.Name(), metaFileSuffix) {
 			continue
 		}
 		if !s.maybeExpire(f) {
@@ -735,7 +736,7 @@ func (s *server) printStats() {
 // maybeExpire deletes a file if it has expired and returns true if it did
 func (s *server) maybeExpire(info os.FileInfo) bool {
 	file := filepath.Join(s.config.ClipboardDir, info.Name())
-	metafile := fmt.Sprintf("%s:meta", file)
+	metafile := fmt.Sprintf("%s%s", file, metaFileSuffix)
 	if !s.isExpired(info, metafile) {
 		return false
 	}
