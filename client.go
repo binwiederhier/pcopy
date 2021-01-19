@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Client represents a pcopy client. It can be used to communicate with the server to
@@ -41,6 +42,25 @@ func NewClient(config *Config) (*Client, error) {
 	}, nil
 }
 
+type DelayedReadCloser struct {
+	rc io.ReadCloser
+}
+
+func (d *DelayedReadCloser) Read(p []byte) (n int, err error) {
+	fmt.Printf("Read %d\n", len(p))
+	return d.rc.Read(p)
+}
+
+func (d *DelayedReadCloser) Close() error {
+	fmt.Printf("Close\n")
+	return nil
+}
+
+func (d *DelayedReadCloser) ReallyClose() error {
+	fmt.Printf("ReallyClosek\n")
+	return d.rc.Close()
+}
+
 // Copy streams the data from reader to the server via a HTTP PUT request. The id parameter
 // is the file identifier that can be used to paste the data later using Paste.
 func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
@@ -51,7 +71,9 @@ func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
 
 	path := fmt.Sprintf(clipboardPathFormat, id)
 	url := fmt.Sprintf("%s%s", ExpandServerAddr(c.config.ServerAddr), path)
-	req, err := http.NewRequest(http.MethodPut, url, c.withProgressReader(reader, -1))
+
+	body := &DelayedReadCloser{c.withProgressReader(reader, -1)}
+	req, err := http.NewRequest(http.MethodPut, url, body)
 	if err != nil {
 		return err
 	}
@@ -62,6 +84,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
 		req.Header.Set("X-Stream", "yes")
 	}
 
+	println("BEFORE DO")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -72,6 +95,10 @@ func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
 	} else if resp.StatusCode != http.StatusOK {
 		return &errHTTPNotOK{resp.StatusCode, resp.Status}
 	}
+	println("AFTER DO")
+	println("url: " + resp.Header.Get("X-Url"))
+	time.Sleep(20 * time.Second)
+	body.ReallyClose()
 
 	return nil
 }

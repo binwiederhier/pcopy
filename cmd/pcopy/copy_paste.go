@@ -27,6 +27,7 @@ var cmdCopy = &cli.Command{
 		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
 		&cli.BoolFlag{Name: "link", Aliases: []string{"l"}, Usage: "show link and curl command after copying, same as 'pcopy link'"},
+		&cli.BoolFlag{Name: "random", Aliases: []string{"r"}, Usage: "generate random file name"},
 		&cli.BoolFlag{Name: "stream", Aliases: []string{"S"}, Usage: "stream data to other client via fifo device"},
 		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Value: 6 * time.Hour, Usage: "set duration the link is valid for to `TTL` (only protected)"},
 		// TODO add --read-only/-ro + --read-write/-rw
@@ -97,6 +98,10 @@ func execCopy(c *cli.Context) error {
 	stream := c.Bool("stream")
 	link := c.Bool("link")
 	ttl := c.Duration("ttl")
+	random := c.Bool("random")
+	if random {
+		id = ""
+	}
 
 	if link && stream {
 		if err := printLinks(config, id, ttl); err != nil {

@@ -254,6 +254,9 @@ function save() {
     }
 
     xhr.addEventListener('readystatechange', function (e) {
+
+        console.log(xhr.readyState)
+        console.log(xhr.getAllResponseHeaders())
         if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
             progressFinish(xhr.status)
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
@@ -328,6 +331,14 @@ function progressStart(fileId, url, path, key) {
 
     infoArea.classList.remove('error')
     infoArea.classList.remove("hidden")
+}
+
+function progressShowLinks(progress) {
+    if (streamEnabled()) {
+        infoStreamTitleActive.innerHTML = `Streaming ... ${progress}%`
+    } else {
+        infoUploadTitleActive.innerHTML = `Uploading ... ${progress}%`
+    }
 }
 
 function progressUpdate(progress) {
@@ -558,7 +569,7 @@ function clearKey() {
 
 function getFileId() {
     if (randomFileIdEnabled()) {
-        return Math.random().toString(36).slice(2)
+        return ""
     } else {
         return (headerFileId.value || 'default')
     }

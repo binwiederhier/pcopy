@@ -441,7 +441,9 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Create new file or truncate existing
+	log.Printf("before open %s\n", file)
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	log.Printf("after open %s\n", file)
 	if err != nil {
 		s.countLimiter.Sub(1)
 		return err
@@ -486,10 +488,14 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (s *server) writePutOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
+	println("before put output")
 	url, err := s.config.GenerateClipURL(id, ttl) // TODO this is horrible
 	if err != nil {
 		return err
 	}
+	// Chrome bug: XMLHttpRequest.onreadystatechange doesn't fire if Content-Type is not set
+	// See https://stackoverflow.com/a/4752861/1440785
+	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set(headerURL, url)
 	w.Header().Set(headerExpires, fmt.Sprintf("%d", expires))
 	if format == "json" {
@@ -505,9 +511,14 @@ func (s *server) writePutOutput(w http.ResponseWriter, id string, expires int64,
 			return err
 		}
 	}
+	for i := 0; i < 100; i++ {
+		w.Write([]byte("hi there\n"))
+	}
+	println("before flush")
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
+	println("after flush/put output")
 	return nil
 }
 
