@@ -59,13 +59,17 @@ const (
 	// DefaultWebUI defines if the Web UI is enabled by default
 	DefaultWebUI = true
 
+	// FileModeReadWrite allows files to be overwritten
+	FileModeReadWrite = "rw"
+
+	// FileModeReadOnly ensures that files cannot be overwritten
+	FileModeReadOnly = "ro"
+
 	systemConfigDir = "/etc/pcopy"
 	userConfigDir   = "~/.config/pcopy"
 	suffixConf      = ".conf"
 	suffixKey       = ".key"
 	suffixCert      = ".crt"
-	modeReadWrite   = "rw"
-	modeReadOnly    = "ro"
 )
 
 var (
@@ -171,6 +175,28 @@ func (c *Config) GenerateURL(path string, ttl time.Duration) (string, error) {
 func (c *Config) GenerateClipURL(id string, ttl time.Duration) (string, error) {
 	path := fmt.Sprintf(clipboardPathFormat, id)
 	return c.GenerateURL(path, ttl)
+}
+
+// GenerateCurlCommand creates a curl command to download the given path
+func (c *Config) GenerateCurlCommand(path string, ttl time.Duration) (string, error) {
+	args := make([]string, 0)
+	if c.CertFile == "" {
+		args = append(args, "-sSL")
+	} else {
+		pin, err := ReadCurlPinnedPublicKeyFromFile(c.CertFile)
+		if err != nil {
+			args = append(args, "-sSLk")
+		} else if pin != "" {
+			args = append(args, "-sSLk", fmt.Sprintf("--pinnedpubkey %s", pin))
+		} else {
+			args = append(args, "-sSL")
+		}
+	}
+	url, err := c.GenerateURL(path, ttl)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url), nil
 }
 
 // ConfigStore represents the config folder
@@ -408,7 +434,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 			return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': max two, but at least one value expected")
 		}
 		for _, m := range modes {
-			if m != modeReadOnly && m != modeReadWrite {
+			if m != FileModeReadOnly && m != FileModeReadWrite {
 				return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': %s", m)
 			}
 		}

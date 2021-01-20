@@ -286,7 +286,7 @@ func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 
 func TestServer_HandleClipboardPutOverwriteFailure(t *testing.T) {
 	config := newTestServerConfig(t)
-	config.FileModesAllowed = []string{modeReadOnly}
+	config.FileModesAllowed = []string{FileModeReadOnly}
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()

@@ -48,12 +48,17 @@ const (
 	headerTTL               = "X-TTL"
 	headerURL               = "X-Url"
 	headerExpires           = "X-Expires"
+	headerCurl              = "X-Curl"
 	queryParamAuth          = "a"
 	queryParamStreamReserve = "r"
 	queryParamStream        = "s"
 	queryParamFormat        = "f"
 	queryParamFileMode      = "m"
 	queryParamTTL           = "t"
+
+	formatJson        = "json"
+	formatText        = "text"
+	formatHeadersOnly = "headersonly"
 )
 
 var (
@@ -98,12 +103,13 @@ type httpResponseInfo struct {
 	Salt       string `json:"salt"`
 }
 
-// httpResponsePut is the response returned when uploading a file
-type httpResponsePut struct {
+// httpResponseFileInfo is the response returned when uploading a file
+type httpResponseFileInfo struct {
 	URL     string `json:"url"`
 	File    string `json:"file"`
 	TTL     int    `json:"ttl"`
 	Expires int64  `json:"expires"`
+	Curl    string `json:"curl"`
 }
 
 // metaFile defines the metadata file format stored next to each file
@@ -228,6 +234,7 @@ func (s *server) routeList() []route {
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
 		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
+		newRoute("HEAD", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardHead))),
 		newRoute("PUT", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
 		newRoute("POST", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
 	}
@@ -305,18 +312,7 @@ func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
-	curlPinnedPubKey := ""
-	if r.TLS != nil {
-		var err error
-		curlPinnedPubKey, err = ReadCurlPinnedPublicKeyFromFile(s.config.CertFile)
-		if err != nil {
-			return err
-		}
-	}
-	return curlTemplate.Execute(w, &webTemplateConfig{
-		CurlPinnedPubKey: curlPinnedPubKey,
-		Config:           s.config,
-	})
+	return curlTemplate.Execute(w, &webTemplateConfig{Config: s.config})
 }
 
 func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
@@ -352,6 +348,29 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 		os.Remove(file)
 	}
 	return nil
+}
+
+func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {
+	fields := r.Context().Value(routeCtx{}).([]string)
+	id := fields[0]
+	file, metafile, err := s.getClipboardFile(id)
+	if err != nil {
+		return ErrHTTPBadRequest
+	}
+
+	stat, err := os.Stat(file)
+	if err != nil {
+		return ErrHTTPNotFound
+	}
+	if stat.Mode()&os.ModeNamedPipe == 0 {
+		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
+	}
+	mf, err := s.readMetaFile(metafile)
+
+	expires := mf.Expires
+	ttl := time.Unix(mf.Expires, 0).Sub(time.Now())
+
+	return s.writeFileInfoOutput(w, id, expires, ttl, formatHeadersOnly)
 }
 
 func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
@@ -397,7 +416,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		if err != nil {
 			return err
 		}
-		if m.Mode != modeReadWrite {
+		if m.Mode != FileModeReadWrite {
 			return ErrHTTPMethodNotAllowed // TODO test this
 		}
 		reserved = m.Reserved
@@ -421,7 +440,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		expires = time.Now().Add(ttl).Unix()
 	}
 	if reserve {
-		mode = modeReadWrite
+		mode = FileModeReadWrite
 		expires = time.Now().Add(10 * time.Second).Unix()
 	}
 
@@ -441,7 +460,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			return err
 		}
 		if earlyResponse {
-			if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
+			if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
 				s.countLimiter.Sub(1)
 				return err
 			}
@@ -484,7 +503,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Output URL, TTL, etc.
 	if !earlyResponse {
-		if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
+		if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
 			os.Remove(file)
 			return err
 		}
@@ -493,33 +512,46 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-func (s *server) writePutOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
+func (s *server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
 	url, err := s.config.GenerateClipURL(id, ttl) // TODO this is horrible
 	if err != nil {
 		return err
 	}
+	path := fmt.Sprintf(clipboardPathFormat, id)
+	curl, err := s.config.GenerateCurlCommand(path, ttl)
+	if err != nil {
+		curl = ""
+	}
+
 	w.Header().Set(headerURL, url)
 	w.Header().Set(headerFile, id)
 	w.Header().Set(headerTTL, fmt.Sprintf("%d", int(ttl.Seconds())))
 	w.Header().Set(headerExpires, fmt.Sprintf("%d", expires))
-	if format == "json" {
-		response := &httpResponsePut{
+	w.Header().Set(headerCurl, curl)
+
+	if format == formatJson {
+		response := &httpResponseFileInfo{
 			URL:     url,
 			File:    id,
 			TTL:     int(ttl.Seconds()),
 			Expires: expires,
+			Curl:    curl,
 		}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			return err
 		}
-	} else {
+	} else if format == formatText {
 		if _, err := w.Write([]byte(url + "\n")); err != nil { // TODO maybe use 'pcopy link' code
 			return err
 		}
 	}
+
+	// This is important for streaming with curl, so that the download instructions
+	// are immediately available before the request body is fully read.
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
+
 	return nil
 }
 

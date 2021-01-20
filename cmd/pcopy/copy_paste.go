@@ -10,7 +10,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"time"
 )
 
 var cmdCopy = &cli.Command{
@@ -29,9 +28,9 @@ var cmdCopy = &cli.Command{
 		&cli.BoolFlag{Name: "nolink", Aliases: []string{"n"}, Usage: "do not show link and curl command after copying"},
 		&cli.BoolFlag{Name: "stream", Aliases: []string{"s"}, Usage: "stream data to other client via fifo device"},
 		&cli.BoolFlag{Name: "random", Aliases: []string{"r"}, Usage: "pick random file name and ignore name that has been passed"},
-		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Value: 6 * time.Hour, Usage: "set duration the link is valid for to `TTL` (only protected)"},
-		// TODO add --read-only/-ro + --read-write/-rw
-		// TODO fix --ttl to use real TTL
+		&cli.BoolFlag{Name: "read-only", Aliases: []string{"ro"}, Usage: "make remote file read-only (if supported by the server)"},
+		&cli.BoolFlag{Name: "read-write", Aliases: []string{"rw"}, Usage: "allow file to be overwritten (if supported by the server)"},
+		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "server default", Usage: "set duration the link is valid for to `TTL`"},
 	},
 	Description: `Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is
 the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
@@ -95,31 +94,46 @@ func execCopy(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
 	stream := c.Bool("stream")
 	link := !c.Bool("nolink")
 	ttl := c.Duration("ttl")
 	random := c.Bool("random")
+	readonly := c.Bool("read-only")
+	readwrite := c.Bool("read-write")
+
+	if readonly && readwrite {
+		return cli.Exit("error: either --read-only or --read-write are allowed, not both", 1)
+	}
+	mode := ""
+	if readonly {
+		mode = pcopy.FileModeReadOnly
+	} else if readwrite {
+		mode = pcopy.FileModeReadWrite
+	}
 
 	if random {
 		id = ""
 	}
+
+	var fileInfo *pcopy.FileInfo
 	if stream {
-		id, err = client.Reserve(id) // TODO return URL, id, TTL, ..
+		fileInfo, err = client.Reserve(id)
 		if err != nil {
 			return err
 		}
+		id = fileInfo.File
 	}
 
 	if link && stream {
-		if err := printLinks(config, id, ttl); err != nil {
-			return err
-		}
+		eprintf(pcopy.PrintLinks(fileInfo))
 		eprintln()
 		eprintln("# Streaming contents: upload will hold until you start downloading using any of the commands above.")
 	}
 
 	if len(files) > 0 {
-		if err := client.CopyFiles(files, id, stream); err != nil {
+		fileInfo, err = client.CopyFiles(files, id, ttl, mode, stream)
+		if err != nil {
 			return handleCopyError(err)
 		}
 	} else {
@@ -135,12 +149,14 @@ func execCopy(c *cli.Context) error {
 			reader = createInteractiveReader()
 		}
 
-		if err := client.Copy(reader, id, stream); err != nil {
+		fileInfo, err = client.Copy(reader, id, ttl, mode, stream)
+		if err != nil {
 			return handleCopyError(err)
 		}
 	}
+
 	if link && !stream {
-		return printLinks(config, id, ttl)
+		eprintf(pcopy.PrintLinks(fileInfo))
 	}
 	return nil
 }

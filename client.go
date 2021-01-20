@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Client represents a pcopy client. It can be used to communicate with the server to
@@ -31,6 +32,15 @@ type ServerInfo struct {
 	Cert       *x509.Certificate
 }
 
+// FileInfo contains information about an uploaded file
+type FileInfo struct {
+	URL     string
+	File    string
+	TTL     time.Duration
+	Expires time.Time
+	Curl    string
+}
+
 // NewClient creates a new pcopy client. It fails if the ServerAddr is not filled.
 func NewClient(config *Config) (*Client, error) {
 	if config.ServerAddr == "" {
@@ -43,47 +53,83 @@ func NewClient(config *Config) (*Client, error) {
 
 // Copy streams the data from reader to the server via a HTTP PUT request. The id parameter
 // is the file identifier that can be used to paste the data later using Paste.
-func (c *Client) Copy(reader io.ReadCloser, id string, stream bool) error {
+func (c *Client) Copy(reader io.ReadCloser, id string, ttl time.Duration, mode string, stream bool) (*FileInfo, error) {
 	client, err := c.newHTTPClient(nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	path := fmt.Sprintf(clipboardPathFormat, id)
 	url := fmt.Sprintf("%s%s", ExpandServerAddr(c.config.ServerAddr), path)
 	req, err := http.NewRequest(http.MethodPut, url, c.withProgressReader(reader, -1))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := c.addAuthHeader(req, nil); err != nil {
-		return err
+		return nil, err
+	}
+	req.Header.Set(headerFormat, formatHeadersOnly)
+	if ttl > 0 {
+		req.Header.Set(headerTTL, ttl.String())
+	}
+	if mode != "" {
+		req.Header.Set(headerFileMode, mode)
 	}
 	if stream {
-		req.Header.Set("X-Stream", "yes")
+		req.Header.Set(headerStream, "yes")
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	} else if resp.StatusCode == http.StatusPartialContent {
-		return ErrHTTPPartialContent
+		return nil, ErrHTTPPartialContent
 	} else if resp.StatusCode == http.StatusRequestEntityTooLarge {
-		return ErrHTTPPayloadTooLarge
+		return nil, ErrHTTPPayloadTooLarge
 	} else if resp.StatusCode != http.StatusOK {
-		return &errHTTPNotOK{resp.StatusCode, resp.Status}
+		return nil, &errHTTPNotOK{resp.StatusCode, resp.Status}
 	}
 
-	return nil
+	return c.parseFileInfoResponse(resp)
 }
 
 // CopyFiles creates a ZIP archive of the given files and streams it to the server using the Copy
 // method. No temporary ZIP archive is created on disk. It's all streamed.
-func (c *Client) CopyFiles(files []string, id string, stream bool) error {
+func (c *Client) CopyFiles(files []string, id string, ttl time.Duration, mode string, stream bool) (*FileInfo, error) {
 	zipReader, err := createZipReader(files)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return c.Copy(zipReader, id, stream)
+	return c.Copy(zipReader, id, ttl, mode, stream)
+}
+
+// Reserve requests a file name from the server and reserves it for a very short period
+// of time. This is a workaround to be able to stream to a random file ID.
+func (c *Client) Reserve(id string) (*FileInfo, error) {
+	client, err := c.newHTTPClient(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	path := fmt.Sprintf(clipboardPathFormat, id)
+	url := fmt.Sprintf("%s%s", ExpandServerAddr(c.config.ServerAddr), path)
+	req, err := http.NewRequest(http.MethodPut, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.addAuthHeader(req, nil); err != nil {
+		return nil, err
+	}
+	req.Header.Set(headerReserve, "yes")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	} else if resp.StatusCode != http.StatusOK {
+		return nil, &errHTTPNotOK{resp.StatusCode, resp.Status}
+	}
+
+	return c.parseFileInfoResponse(resp)
 }
 
 // Paste reads the file with the given id from the server and writes it to writer.
@@ -160,42 +206,38 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	return nil
 }
 
-// Reserve requests a file name from the server and reserves it for a very short period
-// of time. This is a workaround to be able to stream to a random file ID.
-func (c *Client) Reserve(id string) (string, error) {
+// FileInfo retrieves file metadata for the given file
+func (c *Client) FileInfo(id string) (*FileInfo, error) {
 	client, err := c.newHTTPClient(nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	path := fmt.Sprintf(clipboardPathFormat, id)
 	url := fmt.Sprintf("%s%s", ExpandServerAddr(c.config.ServerAddr), path)
-	req, err := http.NewRequest(http.MethodPut, url, nil)
+	req, err := http.NewRequest(http.MethodHead, url, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if err := c.addAuthHeader(req, nil); err != nil {
-		return "", err
+		return nil, err
 	}
-	req.Header.Set(headerReserve, "yes")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	} else if resp.StatusCode != http.StatusOK {
-		return "", &errHTTPNotOK{resp.StatusCode, resp.Status}
-	} else if resp.Header.Get("X-File") == "" {
-		return "", &errHTTPNotOK{http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)}
+		return nil, &errHTTPNotOK{resp.StatusCode, resp.Status}
 	}
 
-	return resp.Header.Get("X-File"), nil
+	return c.parseFileInfoResponse(resp)
 }
 
-// Info queries the server for information (password salt, advertised address) required during the
+// ServerInfo queries the server for information (password salt, advertised address) required during the
 // join operation. This method will first attempt to securely connect over HTTPS, and (if that fails)
 // fall back to skipping certificate verification. In the latter case, it will download and return
 // the server certificate so the client can pin them.
-func (c *Client) Info() (*ServerInfo, error) {
+func (c *Client) ServerInfo() (*ServerInfo, error) {
 	var cert *x509.Certificate
 	var err error
 
@@ -281,6 +323,24 @@ func (c *Client) withProgressReader(reader io.ReadCloser, total int64) io.ReadCl
 		return newProgressReader(reader, total, c.config.ProgressFunc)
 	}
 	return reader
+}
+
+func (c *Client) parseFileInfoResponse(resp *http.Response) (*FileInfo, error) {
+	expires, err := strconv.ParseInt(resp.Header.Get(headerExpires), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	ttl, err := strconv.ParseInt(resp.Header.Get(headerTTL), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &FileInfo{
+		File:    resp.Header.Get(headerFile),
+		URL:     resp.Header.Get(headerURL),
+		Expires: time.Unix(expires, 0),
+		TTL:     time.Duration(ttl) * time.Second,
+		Curl:    resp.Header.Get(headerCurl),
+	}, nil
 }
 
 func (c *Client) retrieveInfo(client *http.Client) (*httpResponseInfo, error) {

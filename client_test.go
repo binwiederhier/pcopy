@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestClient_CopyNoAuthSuccess(t *testing.T) {
@@ -28,7 +29,7 @@ func TestClient_CopyNoAuthSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := client.Copy(ioutil.NopCloser(strings.NewReader("something")), "default", false); err != nil {
+	if _, err := client.Copy(ioutil.NopCloser(strings.NewReader("something")), "default", time.Hour, FileModeReadWrite, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -48,7 +49,7 @@ func TestClient_CopyWithHMACAuthSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := client.Copy(ioutil.NopCloser(strings.NewReader("blabla")), "hi-there", false); err != nil {
+	if _, err := client.Copy(ioutil.NopCloser(strings.NewReader("blabla")), "hi-there", time.Hour, FileModeReadWrite, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -87,7 +88,7 @@ func TestClient_CopyFilesSuccess(t *testing.T) {
 	ioutil.WriteFile(file2, []byte("file content 2"), 0700)
 
 	files := []string{file1, dir1}
-	if err := client.CopyFiles(files, "a-few-files", false); err != nil {
+	if _, err := client.CopyFiles(files, "a-few-files", time.Hour, FileModeReadWrite, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -178,7 +179,7 @@ func TestClient_InfoSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	info, err := client.Info()
+	info, err := client.ServerInfo()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +195,7 @@ func TestClient_InfoFailed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := client.Info()
+	_, err := client.ServerInfo()
 	if err == nil {
 		t.Fatalf("expected error, got none")
 	}

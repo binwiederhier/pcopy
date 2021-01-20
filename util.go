@@ -87,6 +87,23 @@ func DurationToHuman(d time.Duration) (str string) {
 	return
 }
 
+// PrintLinks generates instruction text to download links
+func PrintLinks(info *FileInfo) string {
+	id := info.File
+	if id == DefaultID {
+		id = ""
+	}
+	return fmt.Sprintf(`# Direct link (valid for %s, expires %s)
+%s
+
+# Paste via pcopy (you may need a prefix)
+ppaste %s
+
+# Paste via curl
+%s
+`, DurationToHuman(info.TTL), info.Expires.String(), info.URL, id, info.Curl)
+}
+
 // commonPrefix determines the longest common prefix across a list of paths.
 // The given paths can be files or directories.
 func commonPrefix(paths []string) string {

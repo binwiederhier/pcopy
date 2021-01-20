@@ -70,7 +70,7 @@ func execJoin(c *cli.Context) error {
 		return err
 	}
 
-	info, err := client.Info()
+	info, err := client.ServerInfo()
 	if err != nil {
 		return err
 	}
