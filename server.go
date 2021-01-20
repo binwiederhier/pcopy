@@ -40,17 +40,19 @@ const (
 	certCommonName                = "pcopy"
 	metaFileSuffix                = ":meta"
 
-	headerStream       = "X-Stream"
-	headerFormat       = "X-Format"
-	headerFileMode     = "X-Mode"
-	headerTTL          = "X-TTL"
-	headerURL          = "X-Url"
-	headerExpires      = "X-Expires"
-	queryParamAuth     = "a"
-	queryParamStream   = "s"
-	queryParamFormat   = "f"
-	queryParamFileMode = "m"
-	queryParamTTL      = "t"
+	headerStream            = "X-Stream"
+	headerStreamReserve     = "X-StreamReserve"
+	headerFormat            = "X-Format"
+	headerFileMode          = "X-Mode"
+	headerTTL               = "X-TTL"
+	headerURL               = "X-Url"
+	headerExpires           = "X-Expires"
+	queryParamAuth          = "a"
+	queryParamStreamReserve = "r"
+	queryParamStream        = "s"
+	queryParamFormat        = "f"
+	queryParamFileMode      = "m"
+	queryParamTTL           = "t"
 )
 
 var (
@@ -103,8 +105,9 @@ type httpResponsePut struct {
 
 // metaFile defines the metadata file format stored next to each file
 type metaFile struct {
-	Mode    string `json:"mode"`
-	Expires int64  `json:"expires"`
+	Mode     string `json:"mode"`
+	Expires  int64  `json:"expires"`
+	Reserved bool   `json:"reserved"`
 }
 
 // handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
@@ -368,6 +371,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Check if file exists
+	reserved := false
 	stat, _ := os.Stat(file)
 	if stat == nil {
 		// File does not exist
@@ -390,20 +394,21 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		if err != nil {
 			return err
 		}
-		if m.Mode == modeReadOnly {
+		rwfile := m.Mode == modeReadWrite
+		reserved = m.Reserved && time.Since(stat.ModTime()) < 5*time.Second
+		if !rwfile && !reserved {
 			return ErrHTTPMethodNotAllowed // TODO test this
 		}
 	}
 
-	// Always delete file first to avoid awkward FIFO/regular-file behavior
-	os.Remove(file)
-	os.Remove(metafile)
-
+	// Read query params
+	format := s.outputFormat(r)
+	stream := s.isStream(r)
+	reserve := s.isReserve(r)
 	mode, err := s.getFileMode(r)
 	if err != nil {
 		return err
 	}
-
 	ttl, err := s.getTTL(r)
 	if err != nil {
 		return err
@@ -413,9 +418,14 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		expires = time.Now().Add(ttl).Unix()
 	}
 
+	// Always delete file first to avoid awkward FIFO/regular-file behavior
+	os.Remove(file)
+	os.Remove(metafile)
+
 	response := &metaFile{
-		Mode:    mode,
-		Expires: expires,
+		Mode:     mode,
+		Expires:  expires,
+		Reserved: reserve,
 	}
 	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
@@ -429,15 +439,16 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
-	format := s.outputFormat(r)
-	if s.isStream(r) {
+	if stream {
 		if err := unix.Mkfifo(file, 0600); err != nil {
 			s.countLimiter.Sub(1)
 			return err
 		}
-		if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
-			s.countLimiter.Sub(1)
-			return err
+		if !reserved {
+			if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
+				s.countLimiter.Sub(1)
+				return err
+			}
 		}
 	}
 
@@ -476,7 +487,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Output URL, TTL, etc.
-	if !s.isStream(r) {
+	if !stream {
 		if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
 			os.Remove(file)
 			return err
@@ -548,6 +559,10 @@ func (s *server) getTTL(r *http.Request) (time.Duration, error) {
 
 func (s *server) isStream(r *http.Request) bool {
 	return r.Header.Get(headerStream) == "yes" || r.URL.Query().Get(queryParamStream) == "1"
+}
+
+func (s *server) isReserve(r *http.Request) bool {
+	return r.Header.Get(headerStreamReserve) == "yes" || r.URL.Query().Get(queryParamStreamReserve) == "1"
 }
 
 func (s *server) outputFormat(r *http.Request) string {
