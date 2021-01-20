@@ -48,6 +48,7 @@ let infoStreamTitleActive = document.getElementById("info-stream-title-active")
 let infoErrorHeader = document.getElementById("info-error-header")
 let infoErrorCode = document.getElementById("info-error-code")
 let infoErrorTextLimitReached = document.getElementById("info-error-text-limit-reached")
+let infoErrorTextNotAllowed = document.getElementById("info-error-text-not-allowed")
 
 let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
@@ -308,6 +309,7 @@ function progressStart(fileId, url, path, key) {
     infoDirectLinkDownload.href = url
     infoCommandDirectLink.value = url
 
+    // TODO use information from response to populate these fields
     infoTabLinkPcopy.classList.add('tab-active')
     infoTabLinkCurl.classList.remove('tab-active')
     infoCommandLine.dataset.pcopy = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
@@ -360,10 +362,12 @@ function progressFailed(code) {
     infoArea.classList.add('error')
     infoLinks.classList.add('hidden')
     infoErrorCode.innerHTML = code
+    infoErrorTextLimitReached.classList.add('hidden')
+    infoErrorTextNotAllowed.classList.add('hidden')
     if (code === 429 || code === 413) { // 429 Too Many Request, or 413 Payload Too Large
         infoErrorTextLimitReached.classList.remove('hidden')
-    } else {
-        infoErrorTextLimitReached.classList.add('hidden')
+    } else if (code === 405) {
+        infoErrorTextNotAllowed.classList.remove('hidden')
     }
     infoErrorHeader.classList.remove('hidden')
 }
@@ -572,7 +576,7 @@ function randomFileIdEnabled() {
     if (localStorage.getItem('randomName') !== null) {
         return localStorage.getItem('randomName') === 'true'
     } else {
-        return false
+        return true
     }
 }
 

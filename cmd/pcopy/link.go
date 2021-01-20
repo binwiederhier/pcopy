@@ -45,6 +45,8 @@ func execLink(c *cli.Context) error {
 }
 
 func printLinks(config *pcopy.Config, id string, ttl time.Duration) error {
+	// TODO use information from header instead of generating URL here
+
 	url, err := config.GenerateClipURL(id, ttl)
 	if err != nil {
 		return err

@@ -24,10 +24,11 @@ var cmdCopy = &cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
 		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "load certificate file `CERT` to use for cert pinning"},
-		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
+		&cli.StringFlag{Name: "server", Aliases: []string{"S"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
-		&cli.BoolFlag{Name: "link", Aliases: []string{"l"}, Usage: "show link and curl command after copying, same as 'pcopy link'"},
-		&cli.BoolFlag{Name: "stream", Aliases: []string{"S"}, Usage: "stream data to other client via fifo device"},
+		&cli.BoolFlag{Name: "nolink", Aliases: []string{"n"}, Usage: "do not show link and curl command after copying"},
+		&cli.BoolFlag{Name: "stream", Aliases: []string{"s"}, Usage: "stream data to other client via fifo device"},
+		&cli.BoolFlag{Name: "random", Aliases: []string{"r"}, Usage: "pick random file name and ignore name that has been passed"},
 		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "6h", Value: 6 * time.Hour, Usage: "set duration the link is valid for to `TTL` (only protected)"},
 		// TODO add --read-only/-ro + --read-write/-rw
 		// TODO fix --ttl to use real TTL
@@ -63,7 +64,7 @@ var cmdPaste = &cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
 		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "load certificate file `CERT` to use for cert pinning"},
-		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
+		&cli.StringFlag{Name: "server", Aliases: []string{"S"}, Usage: "connect to server `ADDR[:PORT]` (default port: 2586)"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not output progress"},
 	},
 	Description: `Without DIR argument, this command write the remote clipboard contents to STDOUT. ID is the
@@ -95,8 +96,19 @@ func execCopy(c *cli.Context) error {
 		return err
 	}
 	stream := c.Bool("stream")
-	link := c.Bool("link")
+	link := !c.Bool("nolink")
 	ttl := c.Duration("ttl")
+	random := c.Bool("random")
+
+	if random {
+		id = ""
+	}
+	if stream {
+		id, err = client.Reserve(id) // TODO return URL, id, TTL, ..
+		if err != nil {
+			return err
+		}
+	}
 
 	if link && stream {
 		if err := printLinks(config, id, ttl); err != nil {

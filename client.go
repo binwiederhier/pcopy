@@ -160,6 +160,37 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	return nil
 }
 
+// Reserve requests a file name from the server and reserves it for a very short period
+// of time. This is a workaround to be able to stream to a random file ID.
+func (c *Client) Reserve(id string) (string, error) {
+	client, err := c.newHTTPClient(nil)
+	if err != nil {
+		return "", err
+	}
+
+	path := fmt.Sprintf(clipboardPathFormat, id)
+	url := fmt.Sprintf("%s%s", ExpandServerAddr(c.config.ServerAddr), path)
+	req, err := http.NewRequest(http.MethodPut, url, nil)
+	if err != nil {
+		return "", err
+	}
+	if err := c.addAuthHeader(req, nil); err != nil {
+		return "", err
+	}
+	req.Header.Set(headerReserve, "yes")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	} else if resp.StatusCode != http.StatusOK {
+		return "", &errHTTPNotOK{resp.StatusCode, resp.Status}
+	} else if resp.Header.Get("X-File") == "" {
+		return "", &errHTTPNotOK{http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)}
+	}
+
+	return resp.Header.Get("X-File"), nil
+}
+
 // Info queries the server for information (password salt, advertised address) required during the
 // join operation. This method will first attempt to securely connect over HTTPS, and (if that fails)
 // fall back to skipping certificate verification. In the latter case, it will download and return

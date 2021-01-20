@@ -33,7 +33,7 @@ const (
 	managerTickerInterval         = 30 * time.Second
 	defaultMaxAuthAge             = time.Minute
 	noAuthRequestAge              = 0
-	visitorCountLimit             = 10
+	visitorCountLimit             = 100
 	visitorRequestsPerSecond      = 2
 	visitorRequestsPerSecondBurst = 5
 	visitorExpungeAfter           = 3 * time.Minute
@@ -41,9 +41,10 @@ const (
 	metaFileSuffix                = ":meta"
 
 	headerStream            = "X-Stream"
-	headerStreamReserve     = "X-StreamReserve"
+	headerReserve           = "X-Reserve"
 	headerFormat            = "X-Format"
 	headerFileMode          = "X-Mode"
+	headerFile              = "X-File"
 	headerTTL               = "X-TTL"
 	headerURL               = "X-Url"
 	headerExpires           = "X-Expires"
@@ -100,6 +101,8 @@ type httpResponseInfo struct {
 // httpResponsePut is the response returned when uploading a file
 type httpResponsePut struct {
 	URL     string `json:"url"`
+	File    string `json:"file"`
+	TTL     int    `json:"ttl"`
 	Expires int64  `json:"expires"`
 }
 
@@ -394,17 +397,17 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		if err != nil {
 			return err
 		}
-		rwfile := m.Mode == modeReadWrite
-		reserved = m.Reserved && time.Since(stat.ModTime()) < 5*time.Second
-		if !rwfile && !reserved {
+		if m.Mode != modeReadWrite {
 			return ErrHTTPMethodNotAllowed // TODO test this
 		}
+		reserved = m.Reserved
 	}
 
 	// Read query params
 	format := s.outputFormat(r)
 	stream := s.isStream(r)
 	reserve := s.isReserve(r)
+	earlyResponse := stream && !reserved
 	mode, err := s.getFileMode(r)
 	if err != nil {
 		return err
@@ -417,25 +420,18 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if ttl > 0 {
 		expires = time.Now().Add(ttl).Unix()
 	}
+	if reserve {
+		mode = modeReadWrite
+		expires = time.Now().Add(10 * time.Second).Unix()
+	}
 
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	os.Remove(file)
 	os.Remove(metafile)
 
-	response := &metaFile{
-		Mode:     mode,
-		Expires:  expires,
-		Reserved: reserve,
-	}
-	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-	if err != nil {
+	if err := s.writeMetaFile(metafile, mode, expires, reserve); err != nil {
 		return err
 	}
-	defer mf.Close()
-	if err := json.NewEncoder(mf).Encode(response); err != nil {
-		return err
-	}
-	mf.Close()
 
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
@@ -444,7 +440,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			s.countLimiter.Sub(1)
 			return err
 		}
-		if !reserved {
+		if earlyResponse {
 			if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
 				s.countLimiter.Sub(1)
 				return err
@@ -487,7 +483,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Output URL, TTL, etc.
-	if !stream {
+	if !earlyResponse {
 		if err := s.writePutOutput(w, id, expires, ttl, format); err != nil {
 			os.Remove(file)
 			return err
@@ -503,10 +499,14 @@ func (s *server) writePutOutput(w http.ResponseWriter, id string, expires int64,
 		return err
 	}
 	w.Header().Set(headerURL, url)
+	w.Header().Set(headerFile, id)
+	w.Header().Set(headerTTL, fmt.Sprintf("%d", int(ttl.Seconds())))
 	w.Header().Set(headerExpires, fmt.Sprintf("%d", expires))
 	if format == "json" {
 		response := &httpResponsePut{
 			URL:     url,
+			File:    id,
+			TTL:     int(ttl.Seconds()),
 			Expires: expires,
 		}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -562,7 +562,7 @@ func (s *server) isStream(r *http.Request) bool {
 }
 
 func (s *server) isReserve(r *http.Request) bool {
-	return r.Header.Get(headerStreamReserve) == "yes" || r.URL.Query().Get(queryParamStreamReserve) == "1"
+	return r.Header.Get(headerReserve) == "yes" || r.URL.Query().Get(queryParamStreamReserve) == "1"
 }
 
 func (s *server) outputFormat(r *http.Request) string {
@@ -868,6 +868,23 @@ func (s *server) readMetaFile(metafile string) (*metaFile, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+func (s *server) writeMetaFile(metafile string, mode string, expires int64, reserved bool) error {
+	response := &metaFile{
+		Mode:     mode,
+		Expires:  expires,
+		Reserved: reserved,
+	}
+	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer mf.Close()
+	if err := json.NewEncoder(mf).Encode(response); err != nil {
+		return err
+	}
+	return nil
 }
 
 type errHTTPNotOK struct {

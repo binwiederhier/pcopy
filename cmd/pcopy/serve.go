@@ -15,7 +15,7 @@ var cmdServe = &cli.Command{
 		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
 		&cli.StringFlag{Name: "listen-https", Aliases: []string{"l"}, Usage: "set bind address for HTTPS connections to `[ADDR]:PORT`"},
 		&cli.StringFlag{Name: "listen-http", Aliases: []string{"L"}, Usage: "set bind address for HTTP connections to `[ADDR]:PORT`"},
-		&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "set server address to be advertised to clients to `ADDR[:PORT]` (default port: 2586)"},
+		&cli.StringFlag{Name: "server", Aliases: []string{"S"}, Usage: "set server address to be advertised to clients to `ADDR[:PORT]` (default port: 2586)"},
 		&cli.StringFlag{Name: "key", Aliases: []string{"K"}, Usage: "set private key file for TLS connections to `KEY`"},
 		&cli.StringFlag{Name: "cert", Aliases: []string{"C"}, Usage: "set certificate file for TLS connections to `CERT`"},
 		&cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Usage: "set clipboard directory to keep clipboard contents to `DIR`"},
