@@ -36,7 +36,7 @@ func execLink(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	eprint(pcopy.PrintLinks(info))
+	eprint(pcopy.FileInfoInstructions(info))
 	return nil
 }
 

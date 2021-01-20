@@ -87,8 +87,8 @@ func DurationToHuman(d time.Duration) (str string) {
 	return
 }
 
-// PrintLinks generates instruction text to download links
-func PrintLinks(info *FileInfo) string {
+// FileInfoInstructions generates instruction text to download links
+func FileInfoInstructions(info *FileInfo) string {
 	id := info.File
 	if id == DefaultID {
 		id = ""

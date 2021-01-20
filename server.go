@@ -541,7 +541,15 @@ func (s *server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 			return err
 		}
 	} else if format == formatText {
-		if _, err := w.Write([]byte(url + "\n")); err != nil { // TODO maybe use 'pcopy link' code
+		info := &FileInfo{
+			URL:     url,
+			File:    id,
+			TTL:     ttl,
+			Expires: time.Unix(expires, 0),
+			Curl:    curl,
+		}
+
+		if _, err := w.Write([]byte(FileInfoInstructions(info))); err != nil {
 			return err
 		}
 	}

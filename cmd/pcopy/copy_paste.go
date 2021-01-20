@@ -126,7 +126,7 @@ func execCopy(c *cli.Context) error {
 	}
 
 	if link && stream {
-		eprintf(pcopy.PrintLinks(fileInfo))
+		eprintf(pcopy.FileInfoInstructions(fileInfo))
 		eprintln()
 		eprintln("# Streaming contents: upload will hold until you start downloading using any of the commands above.")
 	}
@@ -156,7 +156,7 @@ func execCopy(c *cli.Context) error {
 	}
 
 	if link && !stream {
-		eprintf(pcopy.PrintLinks(fileInfo))
+		eprintf(pcopy.FileInfoInstructions(fileInfo))
 	}
 	return nil
 }
