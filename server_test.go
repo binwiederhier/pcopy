@@ -133,6 +133,20 @@ func TestServer_HandleWebRootWithGUI(t *testing.T) {
 	}
 }
 
+func TestServer_HandleWebRootRedirectHTTPSWithGUI(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.ListenHTTP = ":9876"
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Host = "localhost"
+	server.handle(rr, req)
+
+	assertStatus(t, rr, http.StatusFound)
+	assertStrEquals(t, "https://localhost:12345/", rr.Header().Get("Location"))
+}
+
 func TestServer_HandleWebStaticResourceWithGUI(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
@@ -372,7 +386,7 @@ func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
 		assertStatus(t, rr1, http.StatusOK)
 	}()
 
-	time.Sleep(100*time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	filename := filepath.Join(config.ClipboardDir, "file1")
 	stat, _ := os.Stat(filename)
@@ -386,6 +400,8 @@ func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
 	stat, _ = os.Stat(filename)
 	assertBoolEquals(t, true, stat == nil)
 }
+
+// TODO add tests to include :meta files
 
 func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
 	config := newTestServerConfig(t)
@@ -408,7 +424,7 @@ func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
 		assertStatus(t, rr1, http.StatusOK)
 	}()
 
-	time.Sleep(100*time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	filename := filepath.Join(config.ClipboardDir, "file1")
 	stat, _ := os.Stat(filename)
@@ -437,7 +453,7 @@ func TestServer_HandleClipboardHeadSuccess(t *testing.T) {
 	assertStatus(t, rr, http.StatusOK)
 
 	assertStrEquals(t, "abc", rr.Header().Get("X-File"))
-	assertStrEquals(t, "https://" + config.ServerAddr + "/abc", rr.Header().Get("X-URL"))
+	assertStrEquals(t, "https://"+config.ServerAddr+"/abc", rr.Header().Get("X-URL"))
 	assertStrContains(t, rr.Header().Get("X-Curl"), "--pinnedpubkey")
 }
 
