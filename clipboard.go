@@ -32,13 +32,13 @@ type clipboardStats struct {
 
 // clipboardFile defines the metadata file format stored next to each file
 type clipboardFile struct {
-	ID       string `json:"-"`
-	Size     int64 `json:"-"`
+	ID       string    `json:"-"`
+	Size     int64     `json:"-"`
 	ModTime  time.Time `json:"-"`
-	Pipe     bool `json:"-"`
-	Mode     string `json:"mode"`
-	Expires  int64  `json:"expires"`
-	Reserved bool   `json:"reserved"`
+	Pipe     bool      `json:"-"`
+	Mode     string    `json:"mode"`
+	Expires  int64     `json:"expires"`
+	Reserved bool      `json:"reserved"`
 }
 
 func newClipboard(dir string, expireAfter time.Duration) (*clipboard, error) {
@@ -80,18 +80,22 @@ func (c *clipboard) DeleteFile(id string) error {
 	return nil
 }
 
-func (c *clipboard) Expire() (*clipboardStats, error) {
+func (c *clipboard) Expire() error {
 	entries, err := c.List()
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	totalSize := int64(0)
-	for _, e := range entries {
-		c.maybeExpire(e)
-		totalSize += e.Size
+	for _, entry := range entries {
+		if entry.Expires == 0 || time.Until(time.Unix(entry.Expires, 0)) > 0 {
+			continue
+		}
+		if err := c.DeleteFile(entry.ID); err != nil {
+			log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
+			continue
+		}
+		log.Printf("removed expired entry: %s (%s)", entry.ID, BytesToHuman(entry.Size))
 	}
-	return &clipboardStats{len(entries), totalSize}, nil
+	return nil
 }
 
 func (c *clipboard) Stats() (*clipboardStats, error) {
@@ -175,17 +179,4 @@ func (c *clipboard) WriteMeta(id string, mode string, expires int64, reserved bo
 		return err
 	}
 	return nil
-}
-
-// maybeExpire deletes a file if it has expired and returns true if it did
-func (c *clipboard) maybeExpire(entry *clipboardFile) bool {
-	if entry.Expires == 0 || time.Until(time.Unix(entry.Expires, 0)) > 0 {
-		return false
-	}
-	if err := c.DeleteFile(entry.ID); err != nil {
-		log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
-		return false
-	}
-	log.Printf("removed expired entry: %s (%s)", entry.ID, BytesToHuman(entry.Size))
-	return true
 }

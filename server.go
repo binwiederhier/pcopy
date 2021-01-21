@@ -724,7 +724,9 @@ func (s *server) updateStatsAndExpire() {
 	}
 
 	// Walk clipboard to update size/count limiters, and expire/delete files
-	s.clipboard.Expire()
+	if err := s.clipboard.Expire(); err != nil {
+		log.Printf("cannot expire clipboard entries: %s", err.Error())
+	}
 
 	stats, err := s.clipboard.Stats()
 	if err != nil {
