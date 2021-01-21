@@ -291,7 +291,8 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/you-cant-always?f=json&t=2m", strings.NewReader("get what you want"))
+	req, _ := http.NewRequest("PUT", "/you-cant-always?f=json", strings.NewReader("get what you want"))
+	req.Header.Set("X-TTL", "2m")
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
@@ -303,6 +304,20 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 	assertStrContains(t, info.Curl, "--pinnedpubkey")
 	assertInt64Equals(t, int64(time.Minute*2), int64(time.Second*time.Duration(info.TTL)))
 	assertBoolEquals(t, true, time.Until(time.Unix(info.Expires, 0)) <= 2*time.Minute)
+}
+
+func TestServer_HandleClipboardPutWithTooLargeTTL(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.FileExpireAfter = time.Hour
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", nil)
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+
+	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL")) // TODO X-TTL is inconsistent: request expects a human format, response is seconds
+	assertInt64Equals(t, int64(time.Hour), int64(time.Second*time.Duration(ttl)))
 }
 
 func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
@@ -405,7 +420,8 @@ func TestServer_HandleClipboardPutReadOnlyDisallowOverwriteSuccess(t *testing.T)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/file2?m=ro", strings.NewReader("another one"))
+	req, _ := http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
+	req.Header.Set("X-Mode", "ro")
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
