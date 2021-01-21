@@ -226,7 +226,7 @@ func TestServer_HandleClipboardPutRandom(t *testing.T) {
 	assertStatus(t, rr, http.StatusOK)
 
 	assertInt64Equals(t, 10, int64(len(rr.Header().Get("X-File"))))
-	assertStrEquals(t, fmt.Sprintf("%d", 3600 * 24 * 7), rr.Header().Get("X-TTL"))
+	assertStrEquals(t, fmt.Sprintf("%d", 3600*24*7), rr.Header().Get("X-TTL"))
 	assertFileContent(t, config, rr.Header().Get("X-File"), "this is a thing")
 }
 

@@ -56,7 +56,7 @@ const (
 	queryParamFileMode      = "m"
 	queryParamTTL           = "t"
 
-	formatJson        = "json"
+	formatJSON        = "json"
 	formatText        = "text"
 	formatHeadersOnly = "headersonly"
 )
@@ -366,9 +366,12 @@ func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) err
 		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
 	}
 	mf, err := s.readMetaFile(metafile)
+	if err != nil {
+		return err
+	}
 
 	expires := mf.Expires
-	ttl := time.Unix(mf.Expires, 0).Sub(time.Now())
+	ttl := time.Until(time.Unix(mf.Expires, 0))
 
 	return s.writeFileInfoOutput(w, id, expires, ttl, formatHeadersOnly)
 }
@@ -529,7 +532,7 @@ func (s *server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 	w.Header().Set(headerExpires, fmt.Sprintf("%d", expires))
 	w.Header().Set(headerCurl, curl)
 
-	if format == formatJson {
+	if format == formatJSON {
 		response := &httpResponseFileInfo{
 			URL:     url,
 			File:    id,
