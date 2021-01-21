@@ -38,7 +38,6 @@ const (
 	visitorRequestsPerSecondBurst = 5
 	visitorExpungeAfter           = 3 * time.Minute
 	certCommonName                = "pcopy"
-	metaFileSuffix                = ":meta"
 
 	headerStream            = "X-Stream"
 	headerReserve           = "X-Reserve"
@@ -83,6 +82,7 @@ var (
 // server is the main HTTP server struct. It's the one with all the good stuff.
 type server struct {
 	config       *Config
+	clipboard    *clipboard
 	countLimiter *limiter
 	sizeLimiter  *limiter
 	visitors     map[string]*visitor
@@ -172,11 +172,13 @@ func newServer(config *Config) (*server, error) {
 	if err := os.MkdirAll(config.ClipboardDir, 0700); err != nil {
 		return nil, errClipboardDirNotWritable
 	}
-	if unix.Access(config.ClipboardDir, unix.W_OK) != nil {
-		return nil, errClipboardDirNotWritable
+	clipboard, err := newClipboard(config.ClipboardDir)
+	if err != nil {
+		return nil, err
 	}
 	return &server{
 		config:       config,
+		clipboard:    clipboard,
 		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
 		countLimiter: newLimiter(int64(config.ClipboardCountLimit)),
 		visitors:     make(map[string]*visitor),
@@ -323,7 +325,8 @@ func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 
 func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
-	file, metafile, err := s.getClipboardFile(fields[0])
+	id := fields[0]
+	file, _, err := s.clipboard.GetFilenames(id)
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
@@ -345,8 +348,7 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 	if stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
-		os.Remove(file)
-		os.Remove(metafile)
+		s.clipboard.DeleteFile(id)
 	}
 	return nil
 }
@@ -354,7 +356,7 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	file, metafile, err := s.getClipboardFile(id)
+	file, metafile, err := s.clipboard.GetFilenames(id)
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
@@ -366,7 +368,7 @@ func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) err
 	if stat.Mode()&os.ModeNamedPipe == 0 {
 		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
 	}
-	mf, err := s.readMetaFile(metafile)
+	mf, err := s.clipboard.readMetaFile(metafile)
 	if err != nil {
 		return err
 	}
@@ -386,7 +388,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Parse request: file ID, stream
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	file, metafile, err := s.getClipboardFile(id)
+	file, metafile, err := s.clipboard.GetFilenames(id)
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
@@ -416,7 +418,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 
 		// File not writable
-		m, err := s.readMetaFile(metafile)
+		m, err := s.clipboard.readMetaFile(metafile)
 		if err != nil {
 			return err
 		}
@@ -449,10 +451,9 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
-	os.Remove(file)
-	os.Remove(metafile)
+	s.clipboard.DeleteFile(id)
 
-	if err := s.writeMetaFile(metafile, mode, expires, reserve); err != nil {
+	if err := s.clipboard.writeMetaFile(metafile, mode, expires, reserve); err != nil {
 		return err
 	}
 
@@ -614,17 +615,6 @@ func (s *server) outputFormat(r *http.Request) string {
 		return "json"
 	}
 	return "text"
-}
-
-func (s *server) getClipboardFile(id string) (string, string, error) {
-	for _, reserved := range reservedFiles {
-		if id == reserved {
-			return "", "", errInvalidFileID
-		}
-	}
-	file := fmt.Sprintf("%s/%s", s.config.ClipboardDir, id)
-	meta := fmt.Sprintf("%s/%s%s", s.config.ClipboardDir, id, metaFileSuffix)
-	return file, meta, nil
 }
 
 func (s *server) auth(next handlerFnWithErr) handlerFnWithErr {
@@ -813,7 +803,7 @@ func (s *server) maybeExpire(info os.FileInfo) bool {
 
 // isExpired returns if a file is expired
 func (s *server) isExpired(info os.FileInfo, metafile string) bool {
-	if mf, err := s.readMetaFile(metafile); err == nil {
+	if mf, err := s.clipboard.readMetaFile(metafile); err == nil {
 		if mf.Expires > 0 {
 			return time.Since(time.Unix(mf.Expires, 0)) > 0
 		}
@@ -898,37 +888,6 @@ func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err erro
 	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
 	w.Write([]byte(http.StatusText(code)))
-}
-
-func (s *server) readMetaFile(metafile string) (*metaFile, error) {
-	mf, err := os.Open(metafile)
-	if err != nil {
-		return nil, err
-	}
-	defer mf.Close()
-
-	var m metaFile
-	if err := json.NewDecoder(mf).Decode(&m); err != nil {
-		return nil, err
-	}
-	return &m, nil
-}
-
-func (s *server) writeMetaFile(metafile string, mode string, expires int64, reserved bool) error {
-	response := &metaFile{
-		Mode:     mode,
-		Expires:  expires,
-		Reserved: reserved,
-	}
-	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-	if err != nil {
-		return err
-	}
-	defer mf.Close()
-	if err := json.NewEncoder(mf).Encode(response); err != nil {
-		return err
-	}
-	return nil
 }
 
 type errHTTPNotOK struct {
