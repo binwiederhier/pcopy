@@ -328,11 +328,11 @@ func (c *Client) withProgressReader(reader io.ReadCloser, total int64) io.ReadCl
 func (c *Client) parseFileInfoResponse(resp *http.Response) (*FileInfo, error) {
 	expires, err := strconv.ParseInt(resp.Header.Get(headerExpires), 10, 64)
 	if err != nil {
-		return nil, err
+		expires = 0
 	}
 	ttl, err := strconv.ParseInt(resp.Header.Get(headerTTL), 10, 64)
 	if err != nil {
-		return nil, err
+		ttl = 0
 	}
 	return &FileInfo{
 		File:    resp.Header.Get(headerFile),
