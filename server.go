@@ -220,11 +220,11 @@ func (s *server) listenAndServe() error {
 }
 
 func (s *server) routeList() []route {
+	s.Lock()
+	defer s.Unlock()
 	if s.routes != nil {
 		return s.routes
 	}
-	s.Lock()
-	defer s.Unlock()
 
 	s.routes = []route{
 		newRoute("GET", "/", s.handleRoot),

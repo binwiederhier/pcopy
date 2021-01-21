@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -256,19 +258,51 @@ func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {
 	assertNotExists(t, config, "/../invalid-id")
 }
 
-func TestServer_HandleClipboardPutGet(t *testing.T) {
+func TestServer_HandleClipboardPutGetSuccess(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/you-cant-always", strings.NewReader("get what you want"))
+	req, _ := http.NewRequest("PUT", "/you-cant-always?t=4d", strings.NewReader("get what you want"))
 	server.handle(rr, req)
+
+	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
+	expires, _ := strconv.Atoi(rr.Header().Get("X-Expires"))
+
 	assertStatus(t, rr, http.StatusOK)
+	assertStrEquals(t, "you-cant-always", rr.Header().Get("X-File"))
+	assertStrEquals(t, "https://localhost:12345/you-cant-always", rr.Header().Get("X-URL"))
+	assertStrContains(t, rr.Header().Get("X-Curl"), "https://localhost:12345/you-cant-always")
+	assertStrContains(t, rr.Header().Get("X-Curl"), "--pinnedpubkey")
+	assertInt64Equals(t, int64(time.Hour*24*4), int64(time.Second*time.Duration(ttl)))
+	assertBoolEquals(t, true, time.Until(time.Unix(int64(expires), 0)) <= 24*4*time.Hour)
+	assertStrContains(t, rr.Body.String(), "https://localhost:12345/you-cant-always")
+	assertStrContains(t, rr.Body.String(), "Direct link (valid for 4d")
+	assertStrContains(t, rr.Body.String(), "--pinnedpubkey")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("GET", "/you-cant-always", nil)
 	server.handle(rr, req)
 	assertResponse(t, rr, http.StatusOK, "get what you want")
+}
+
+func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/you-cant-always?f=json&t=2m", strings.NewReader("get what you want"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+
+	var info httpResponseFileInfo
+	json.NewDecoder(rr.Body).Decode(&info)
+	assertStrEquals(t, "you-cant-always", info.File)
+	assertStrEquals(t, "https://localhost:12345/you-cant-always", info.URL)
+	assertStrContains(t, info.Curl, "https://localhost:12345/you-cant-always")
+	assertStrContains(t, info.Curl, "--pinnedpubkey")
+	assertInt64Equals(t, int64(time.Minute*2), int64(time.Second*time.Duration(info.TTL)))
+	assertBoolEquals(t, true, time.Until(time.Unix(info.Expires, 0)) <= 2*time.Minute)
 }
 
 func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
@@ -351,6 +385,32 @@ func TestServer_HandleClipboardPutOverwriteFailure(t *testing.T) {
 	// Overwrite file 2 should fail
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("overwriting file 2 fails"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusMethodNotAllowed)
+}
+
+func TestServer_HandleClipboardPutReadWriteFailure(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.FileModesAllowed = []string{FileModeReadOnly}
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/file2?m=rw", strings.NewReader("another one"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusBadRequest)
+}
+
+func TestServer_HandleClipboardPutReadOnlyDisallowOverwriteSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/file2?m=ro", strings.NewReader("another one"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusMethodNotAllowed)
 }
