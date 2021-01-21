@@ -14,12 +14,10 @@ import (
 	"golang.org/x/time/rate"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -65,7 +63,6 @@ var (
 	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardPathFormat = "/%s"
-	reservedFiles       = []string{"help", "version", "info", "verify", "static", "robots.txt", "favicon.ico"}
 
 	//go:embed "web/index.gohtml"
 	webTemplateSource string
@@ -110,13 +107,6 @@ type httpResponseFileInfo struct {
 	TTL     int    `json:"ttl"`
 	Expires int64  `json:"expires"`
 	Curl    string `json:"curl"`
-}
-
-// metaFile defines the metadata file format stored next to each file
-type metaFile struct {
-	Mode     string `json:"mode"`
-	Expires  int64  `json:"expires"`
-	Reserved bool   `json:"reserved"`
 }
 
 // handlerFnWithErr extends the normal http.HandlerFunc to be able to easily return errors
@@ -169,10 +159,7 @@ func newServer(config *Config) (*server, error) {
 			return nil, errCertFileMissing
 		}
 	}
-	if err := os.MkdirAll(config.ClipboardDir, 0700); err != nil {
-		return nil, errClipboardDirNotWritable
-	}
-	clipboard, err := newClipboard(config.ClipboardDir)
+	clipboard, err := newClipboard(config.ClipboardDir, config.FileExpireAfter)
 	if err != nil {
 		return nil, err
 	}
@@ -326,57 +313,49 @@ func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	file, _, err := s.clipboard.GetFilenames(id)
-	if err != nil {
+	if !s.clipboard.IsValidID(id) {
 		return ErrHTTPBadRequest
 	}
+	file, _ := s.clipboard.GetFilenames(id)
 
-	stat, err := os.Stat(file)
+	stat, err := s.clipboard.Stat(id)
 	if err != nil {
 		return ErrHTTPNotFound
 	}
-	if stat.Mode()&os.ModeNamedPipe == 0 {
-		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
+	if !stat.Pipe {
+		w.Header().Set("Length", fmt.Sprintf("%d", stat.Size))
 	}
+
 	f, err := os.Open(file)
 	if err != nil {
 		return ErrHTTPNotFound
 	}
 	defer f.Close()
+	defer func() {
+		if stat.Pipe {
+			s.clipboard.DeleteFile(id)
+		}
+	}()
 
 	if _, err = io.Copy(w, f); err != nil {
 		return err
 	}
-	if stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
-		s.clipboard.DeleteFile(id)
-	}
+
 	return nil
 }
 
 func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	file, metafile, err := s.clipboard.GetFilenames(id)
-	if err != nil {
-		return ErrHTTPBadRequest
-	}
-
-	stat, err := os.Stat(file)
+	stat, err := s.clipboard.Stat(id)
 	if err != nil {
 		return ErrHTTPNotFound
 	}
-	if stat.Mode()&os.ModeNamedPipe == 0 {
-		w.Header().Set("Length", strconv.FormatInt(stat.Size(), 10))
+	if !stat.Pipe {
+		w.Header().Set("Length", fmt.Sprintf("%d", stat.Size))
 	}
-	mf, err := s.clipboard.readMetaFile(metafile)
-	if err != nil {
-		return err
-	}
-
-	expires := mf.Expires
-	ttl := time.Until(time.Unix(mf.Expires, 0))
-
-	return s.writeFileInfoOutput(w, id, expires, ttl, formatHeadersOnly)
+	ttl := time.Until(time.Unix(stat.Expires, 0))
+	return s.writeFileInfoOutput(w, id, stat.Expires, ttl, formatHeadersOnly)
 }
 
 func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
@@ -388,10 +367,10 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Parse request: file ID, stream
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	file, metafile, err := s.clipboard.GetFilenames(id)
-	if err != nil {
+	if !s.clipboard.IsValidID(id) {
 		return ErrHTTPBadRequest
 	}
+	file, _ := s.clipboard.GetFilenames(id)
 
 	// Handle empty body
 	if r.Body == nil {
@@ -418,7 +397,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 
 		// File not writable
-		m, err := s.clipboard.readMetaFile(metafile)
+		m, err := s.clipboard.Stat(id)
 		if err != nil {
 			return err
 		}
@@ -453,7 +432,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	s.clipboard.DeleteFile(id)
 
-	if err := s.clipboard.writeMetaFile(metafile, mode, expires, reserve); err != nil {
+	if err := s.clipboard.WriteMeta(id, mode, expires, reserve); err != nil {
 		return err
 	}
 
@@ -486,7 +465,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	limitWriter := newLimitWriter(f, fileSizeLimiter, s.sizeLimiter)
 
 	if _, err := io.Copy(limitWriter, r.Body); err != nil {
-		os.Remove(file)
+		s.clipboard.DeleteFile(id)
 		if pe, ok := err.(*fs.PathError); ok {
 			err = pe.Err
 		}
@@ -502,14 +481,14 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 	if err := r.Body.Close(); err != nil {
-		os.Remove(file)
+		s.clipboard.DeleteFile(id)
 		return err
 	}
 
 	// Output URL, TTL, etc.
 	if !earlyResponse {
 		if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
-			os.Remove(file)
+			s.clipboard.DeleteFile(id)
 			return err
 		}
 	}
@@ -745,24 +724,16 @@ func (s *server) updateStatsAndExpire() {
 	}
 
 	// Walk clipboard to update size/count limiters, and expire/delete files
-	files, err := ioutil.ReadDir(s.config.ClipboardDir)
+	s.clipboard.Expire()
+
+	stats, err := s.clipboard.Stats()
 	if err != nil {
-		log.Printf("error reading clipboard: %s", err.Error())
-		return
+		log.Printf("cannot get stats from clipboard: %s", err.Error())
+	} else {
+		s.countLimiter.Set(int64(stats.NumFiles))
+		s.sizeLimiter.Set(stats.Size)
 	}
-	numFiles := int64(0)
-	totalSize := int64(0)
-	for _, f := range files {
-		if strings.HasSuffix(f.Name(), metaFileSuffix) {
-			continue
-		}
-		if !s.maybeExpire(f) {
-			numFiles++
-			totalSize += f.Size()
-		}
-	}
-	s.countLimiter.Set(numFiles)
-	s.sizeLimiter.Set(totalSize)
+
 	s.printStats()
 }
 
@@ -780,39 +751,6 @@ func (s *server) printStats() {
 	}
 	log.Printf("files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
 		s.countLimiter.Value(), countLimit, BytesToHuman(s.sizeLimiter.Value()), sizeLimit, len(s.visitors))
-}
-
-// maybeExpire deletes a file if it has expired and returns true if it did
-func (s *server) maybeExpire(info os.FileInfo) bool {
-	file := filepath.Join(s.config.ClipboardDir, info.Name())
-	metafile := fmt.Sprintf("%s%s", file, metaFileSuffix)
-	if !s.isExpired(info, metafile) {
-		return false
-	}
-	if err := os.Remove(file); err != nil {
-		log.Printf("failed to remove clipboard entry after expiry: %s", err.Error())
-		return false
-	}
-	if err := os.Remove(metafile); err != nil {
-		log.Printf("failed to remove clipboard meta file after expiry: %s", err.Error())
-		return false
-	}
-	log.Printf("removed expired entry: %s (%s)", info.Name(), BytesToHuman(info.Size()))
-	return true
-}
-
-// isExpired returns if a file is expired
-func (s *server) isExpired(info os.FileInfo, metafile string) bool {
-	if mf, err := s.clipboard.readMetaFile(metafile); err == nil {
-		if mf.Expires > 0 {
-			return time.Since(time.Unix(mf.Expires, 0)) > 0
-		}
-		return false
-	}
-	if s.config.FileExpireAfter == 0 || time.Since(info.ModTime()) <= s.config.FileExpireAfter {
-		return false
-	}
-	return true
 }
 
 func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
