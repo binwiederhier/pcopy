@@ -97,8 +97,8 @@ type visitor struct {
 	lastSeen     time.Time
 }
 
-// httpResponseInfo is the response returned by the /info endpoint
-type httpResponseInfo struct {
+// httpResponseServerInfo is the response returned by the /info endpoint
+type httpResponseServerInfo struct {
 	ServerAddr string `json:"serverAddr"`
 	Salt       string `json:"salt"`
 }
@@ -272,7 +272,7 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 		salt = base64.StdEncoding.EncodeToString(s.config.Key.Salt)
 	}
 
-	response := &httpResponseInfo{
+	response := &httpResponseServerInfo{
 		ServerAddr: s.config.ServerAddr,
 		Salt:       salt,
 	}

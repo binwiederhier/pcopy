@@ -343,14 +343,14 @@ func (c *Client) parseFileInfoResponse(resp *http.Response) (*FileInfo, error) {
 	}, nil
 }
 
-func (c *Client) retrieveInfo(client *http.Client) (*httpResponseInfo, error) {
+func (c *Client) retrieveInfo(client *http.Client) (*httpResponseServerInfo, error) {
 	resp, err := client.Get(fmt.Sprintf("%s/info", ExpandServerAddr(c.config.ServerAddr)))
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	info := &httpResponseInfo{}
+	info := &httpResponseServerInfo{}
 	if err := json.NewDecoder(resp.Body).Decode(info); err != nil {
 		return nil, err
 	}

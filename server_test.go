@@ -3,6 +3,7 @@ package pcopy
 import (
 	"crypto/tls"
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -59,6 +60,16 @@ func TestServer_HandleInfoUnprotected(t *testing.T) {
 	assertResponse(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":""}`)
 }
 
+func TestServer_HandleVerify(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/verify", nil)
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+}
+
 func TestServer_HandleInfoProtected(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
@@ -80,6 +91,18 @@ func TestServer_HandleDoesNotExist(t *testing.T) {
 	server.handle(rr, req)
 
 	assertStatus(t, rr, http.StatusNotFound)
+}
+
+func TestServer_HandleCurlRoot(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Header.Set("User-Agent", "curl/1.2.3")
+	server.handle(rr, req)
+
+	assertStrContains(t, rr.Body.String(), "This is is the curl-endpoint for pcopy")
 }
 
 func TestServer_HandleWebRootNoGUI(t *testing.T) {
@@ -190,6 +213,21 @@ func TestServer_HandleClipboardPut(t *testing.T) {
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "new-thing", content)
+}
+
+func TestServer_HandleClipboardPutRandom(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/", strings.NewReader("this is a thing"))
+	server.handle(rr, req)
+
+	assertStatus(t, rr, http.StatusOK)
+
+	assertInt64Equals(t, 10, int64(len(rr.Header().Get("X-File"))))
+	assertStrEquals(t, fmt.Sprintf("%d", 3600 * 24 * 7), rr.Header().Get("X-TTL"))
+	assertFileContent(t, config, rr.Header().Get("X-File"), "this is a thing")
 }
 
 func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {
