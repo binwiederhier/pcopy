@@ -1,6 +1,7 @@
 package pcopy
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -356,6 +357,88 @@ func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
 	server.handle(rr, req)
 	assertStatus(t, rr, http.StatusRequestEntityTooLarge)
 	assertNotExists(t, config, "file2")
+}
+
+func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	payload := string(bytes.Repeat([]byte("this is a 60 byte long string that's being repeated 99 times"), 99))
+
+	go func() {
+		rr1 := httptest.NewRecorder()
+		req, _ := http.NewRequest("PUT", "/file1?s=1", strings.NewReader(payload))
+		server.handle(rr1, req)
+		assertStatus(t, rr1, http.StatusOK)
+	}()
+
+	time.Sleep(100*time.Millisecond)
+
+	filename := filepath.Join(config.ClipboardDir, "file1")
+	stat, _ := os.Stat(filename)
+	assertBoolEquals(t, true, stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/file1", nil)
+	server.handle(rr, req)
+	assertResponse(t, rr, http.StatusOK, payload)
+
+	stat, _ = os.Stat(filename)
+	assertBoolEquals(t, true, stat == nil)
+}
+
+func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	payload := string(bytes.Repeat([]byte("this is a 60 byte long string that's being repeated 10 times"), 10))
+
+	go func() {
+		// Reserve
+		rr1 := httptest.NewRecorder()
+		req, _ := http.NewRequest("PUT", "/file1?r=1", nil)
+		server.handle(rr1, req)
+		assertStatus(t, rr1, http.StatusOK)
+		assertFileContent(t, config, "file1", "")
+
+		// Stream
+		rr1 = httptest.NewRecorder()
+		req, _ = http.NewRequest("PUT", "/file1?s=1", strings.NewReader(payload))
+		server.handle(rr1, req)
+		assertStatus(t, rr1, http.StatusOK)
+	}()
+
+	time.Sleep(100*time.Millisecond)
+
+	filename := filepath.Join(config.ClipboardDir, "file1")
+	stat, _ := os.Stat(filename)
+	assertBoolEquals(t, true, stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/file1", nil)
+	server.handle(rr, req)
+	assertResponse(t, rr, http.StatusOK, payload)
+
+	stat, _ = os.Stat(filename)
+	assertBoolEquals(t, true, stat == nil)
+}
+
+func TestServer_HandleClipboardHeadSuccess(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/abc", strings.NewReader("this is a thing"))
+	server.handle(rr, req)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest("HEAD", "/abc", nil)
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+
+	assertStrEquals(t, "abc", rr.Header().Get("X-File"))
+	assertStrEquals(t, "https://" + config.ServerAddr + "/abc", rr.Header().Get("X-URL"))
+	assertStrContains(t, rr.Header().Get("X-Curl"), "--pinnedpubkey")
 }
 
 func TestServer_AuthorizeSuccessUnprotected(t *testing.T) {

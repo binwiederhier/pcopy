@@ -323,7 +323,7 @@ func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 
 func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
-	file, _, err := s.getClipboardFile(fields[0])
+	file, metafile, err := s.getClipboardFile(fields[0])
 	if err != nil {
 		return ErrHTTPBadRequest
 	}
@@ -346,6 +346,7 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 	}
 	if stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
 		os.Remove(file)
+		os.Remove(metafile)
 	}
 	return nil
 }
@@ -392,7 +393,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Handle empty body
 	if r.Body == nil {
-		return ErrHTTPBadRequest
+		r.Body = io.NopCloser(strings.NewReader(""))
 	}
 
 	// Check if file exists
