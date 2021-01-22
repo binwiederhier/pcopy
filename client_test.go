@@ -169,7 +169,27 @@ func TestClient_PasteNoAuthNotFound(t *testing.T) {
 	}
 }
 
-func TestClient_InfoSuccess(t *testing.T) {
+func TestClient_PasteWithCertFile(t *testing.T) {
+	config := NewConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("some response"))
+	}))
+	defer server.Close()
+	client.httpClient = nil // We want to use the cert file on disk, and not the mock HTTP client
+
+	config.CertFile = filepath.Join(t.TempDir(), "server.crt")
+	pemCert, _ := EncodeCert(server.Certificate())
+	ioutil.WriteFile(config.CertFile, pemCert, 0700)
+
+	var buf bytes.Buffer
+	err := client.Paste(&buf, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "some response", buf.String())
+}
+
+func TestClient_ServerInfoSuccess(t *testing.T) {
 	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&httpResponseServerInfo{
@@ -201,24 +221,52 @@ func TestClient_InfoFailed(t *testing.T) {
 	}
 }
 
-func TestClient_PasteWithCertFile(t *testing.T) {
+func TestClient_FileInfoSuccess(t *testing.T) {
 	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("some response"))
+		assertStrEquals(t, http.MethodHead, r.Method)
+		assertStrEquals(t, "/hi.txt", r.RequestURI)
+		w.Header().Set(headerFile, "hi.txt")
+		w.Header().Set(headerURL, "https://sup.com/hi.txt")
+		w.Header().Set(headerExpires, "1611323111")
+		w.Header().Set(headerTTL, "360")
+		w.Header().Set(headerCurl, "curl https://sup.com/hi.txt")
 	}))
 	defer server.Close()
-	client.httpClient = nil // We want to use the cert file on disk, and not the mock HTTP client
 
-	config.CertFile = filepath.Join(t.TempDir(), "server.crt")
-	pemCert, _ := EncodeCert(server.Certificate())
-	ioutil.WriteFile(config.CertFile, pemCert, 0700)
-
-	var buf bytes.Buffer
-	err := client.Paste(&buf, "default")
+	info, err := client.FileInfo("hi.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertStrEquals(t, "some response", buf.String())
+	assertStrEquals(t, "hi.txt", info.File)
+	assertStrEquals(t, "https://sup.com/hi.txt", info.URL)
+	assertInt64Equals(t, 1611323111, info.Expires.Unix())
+	assertInt64Equals(t, 360, int64(info.TTL.Seconds()))
+	assertStrEquals(t, "curl https://sup.com/hi.txt", info.Curl)
+}
+
+func TestClient_ReserveSuccess(t *testing.T) {
+	config := NewConfig()
+	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertStrEquals(t, http.MethodPut, r.Method)
+		assertStrEquals(t, "yes", r.Header.Get(headerReserve))
+		w.Header().Set(headerFile, "hi.txt")
+		w.Header().Set(headerURL, "https://sup.com/hi.txt")
+		w.Header().Set(headerExpires, "1611323111")
+		w.Header().Set(headerTTL, "360")
+		w.Header().Set(headerCurl, "curl https://sup.com/hi.txt")
+	}))
+	defer server.Close()
+
+	info, err := client.Reserve("hi.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStrEquals(t, "hi.txt", info.File)
+	assertStrEquals(t, "https://sup.com/hi.txt", info.URL)
+	assertInt64Equals(t, 1611323111, info.Expires.Unix())
+	assertInt64Equals(t, 360, int64(info.TTL.Seconds()))
+	assertStrEquals(t, "curl https://sup.com/hi.txt", info.Curl)
 }
 
 func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {

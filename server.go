@@ -27,7 +27,6 @@ const (
 	managerTickerInterval         = 30 * time.Second
 	defaultMaxAuthAge             = time.Minute
 	noAuthRequestAge              = 0
-	visitorCountLimit             = 100
 	visitorRequestsPerSecond      = 2
 	visitorRequestsPerSecondBurst = 5
 	visitorExpungeAfter           = 3 * time.Minute

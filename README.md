@@ -43,13 +43,13 @@ sudo apt install pcopy
 
 **Debian/Ubuntu** (*manual install*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.8/pcopy_0.4.8_amd64.deb
-dpkg -i pcopy_0.4.8_amd64.deb
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.10/pcopy_0.4.10_amd64.deb
+dpkg -i pcopy_0.4.10_amd64.deb
 ```
 
 **Fedora/RHEL/CentOS:**
 ```bash
-rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.8/pcopy_0.4.8_amd64.rpm
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.10/pcopy_0.4.10_amd64.rpm
 ```
 
 **Docker** (*see [detailed instructions](#docker-usage)*)**:**
@@ -66,8 +66,8 @@ go1.16beta1 get -u heckel.io/pcopy/cmd/pcopy
 
 **Manual install** (*any x86_64-based Linux*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.8/pcopy_0.4.8_linux_x86_64.tar.gz
-sudo tar -C /usr/bin -zxf pcopy_0.4.8_linux_x86_64.tar.gz pcopy
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.10/pcopy_0.4.10_linux_x86_64.tar.gz
+sudo tar -C /usr/bin -zxf pcopy_0.4.10_linux_x86_64.tar.gz pcopy
 ```
 
 After installation, you may want to check out the [Bash/ZSH autocomplete instructions](#bashzsh-autocompletion).
@@ -297,6 +297,23 @@ COMMANDS:
 
 Try 'pcopy COMMAND --help' for more information.
 ``` 
+
+## Building
+Building pcopy is dead simple, however it does need Go >=1.16beta1, because it uses [embed](https://tip.golang.org/pkg/embed/). 
+Here's how you build it:
+
+```
+go get golang.org/dl/go1.16beta1
+go1.16beta1 download
+make build-simple
+# Builds to dist/pcopy_linux_amd64/pcopy
+``` 
+
+To build releases, I use [GoReleaser](https://goreleaser.com/). If you have that installed, you can run `make build` or 
+`make build-snapshot`.
+
+## Contributing
+I welcome any and all contributions. Just create a PR or an issue, or talk to me [on Slack](https://gophers.slack.com/archives/C01JMTPGF2Q).
 
 ## Inspired by
 Thanks [nakabonne](https://github.com/nakabonne) for making [pbgopy](https://github.com/nakabonne/pbgopy), and for 
