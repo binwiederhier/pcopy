@@ -21,6 +21,15 @@ func TestSniffWriter_NoSniffWriterWriteHTML(t *testing.T) {
 	assertStrEquals(t, "text/html; charset=utf-8", rr.Header().Get("Content-Type"))
 }
 
+func TestSniffWriter_WriteHTMLSplitIntoTwoWrites(t *testing.T) {
+	// This test shows how splitting the HTML into two Write() calls will still yield text/plain
+
+	rr := httptest.NewRecorder()
+	rr.Write([]byte("<scr"))
+	rr.Write([]byte("ipt>alert('hi')</script>"))
+	assertStrEquals(t, "text/plain; charset=utf-8", rr.Header().Get("Content-Type"))
+}
+
 func TestSniffWriter_WriteBinary(t *testing.T) {
 	rr := httptest.NewRecorder()
 	sw := newSniffWriter(rr)
