@@ -56,6 +56,9 @@ const (
 	// DefaultFileModesAllowed is the default setting for whether files are overwritable
 	DefaultFileModesAllowed = "rw ro"
 
+	// DefaultFileCountPerVisitorLimit defines the default max number of files per visitor in a given period of time
+	DefaultFileCountPerVisitorLimit = 50
+
 	// DefaultWebUI defines if the Web UI is enabled by default
 	DefaultWebUI = true
 
@@ -89,20 +92,21 @@ var (
 // the client, others only to the server. Some apply to both. Many (but not all) of these settings can be set either
 // via the config file, or via command line parameters.
 type Config struct {
-	ListenHTTPS         string
-	ListenHTTP          string
-	ServerAddr          string
-	Key                 *Key
-	KeyFile             string
-	CertFile            string
-	ClipboardDir        string
-	ClipboardSizeLimit  int64
-	ClipboardCountLimit int
-	FileSizeLimit       int64
-	FileExpireAfter     time.Duration
-	FileModesAllowed    []string
-	ProgressFunc        ProgressFunc
-	WebUI               bool
+	ListenHTTPS              string
+	ListenHTTP               string
+	ServerAddr               string
+	Key                      *Key
+	KeyFile                  string
+	CertFile                 string
+	ClipboardDir             string
+	ClipboardSizeLimit       int64
+	ClipboardCountLimit      int
+	FileSizeLimit            int64
+	FileExpireAfter          time.Duration
+	FileModesAllowed         []string
+	FileCountPerVisitorLimit int
+	ProgressFunc             ProgressFunc
+	WebUI                    bool
 }
 
 // ProgressFunc is callback that is called during copy/paste operations to indicate progress to the user.
@@ -118,20 +122,21 @@ type Key struct {
 // NewConfig returns the default config
 func NewConfig() *Config {
 	return &Config{
-		ListenHTTPS:         fmt.Sprintf(":%d", DefaultPort),
-		ListenHTTP:          "",
-		ServerAddr:          "",
-		Key:                 nil,
-		KeyFile:             "",
-		CertFile:            "",
-		ClipboardDir:        DefaultClipboardDir,
-		ClipboardSizeLimit:  DefaultClipboardSizeLimit,
-		ClipboardCountLimit: DefaultClipboardCountLimit,
-		FileSizeLimit:       DefaultFileSizeLimit,
-		FileExpireAfter:     DefaultFileExpireAfter,
-		FileModesAllowed:    strings.Split(DefaultFileModesAllowed, " "),
-		ProgressFunc:        nil,
-		WebUI:               DefaultWebUI,
+		ListenHTTPS:              fmt.Sprintf(":%d", DefaultPort),
+		ListenHTTP:               "",
+		ServerAddr:               "",
+		Key:                      nil,
+		KeyFile:                  "",
+		CertFile:                 "",
+		ClipboardDir:             DefaultClipboardDir,
+		ClipboardSizeLimit:       DefaultClipboardSizeLimit,
+		ClipboardCountLimit:      DefaultClipboardCountLimit,
+		FileSizeLimit:            DefaultFileSizeLimit,
+		FileExpireAfter:          DefaultFileExpireAfter,
+		FileModesAllowed:         strings.Split(DefaultFileModesAllowed, " "),
+		FileCountPerVisitorLimit: DefaultFileCountPerVisitorLimit,
+		ProgressFunc:             nil,
+		WebUI:                    DefaultWebUI,
 	}
 }
 

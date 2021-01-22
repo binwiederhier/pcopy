@@ -247,6 +247,27 @@ func TestServer_HandleClipboardPutRandom(t *testing.T) {
 	assertFileContent(t, config, rr.Header().Get("X-File"), "this is a thing")
 }
 
+func TestServer_HandleClipboardPutUntilVisitorLimitReached(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.FileCountPerVisitorLimit = 2
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/", strings.NewReader("this is a thing"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest("PUT", "/", strings.NewReader("this is a another thing"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest("PUT", "/", strings.NewReader("this is a yet another thing"))
+	server.handle(rr, req)
+	assertStatus(t, rr, http.StatusTooManyRequests)
+}
+
 func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)

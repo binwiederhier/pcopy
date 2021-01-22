@@ -361,18 +361,18 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if stat == nil {
 		// File does not exist
 
+		// Check visitor file count limit
+		v := s.getVisitor(r)
+		if err := v.countLimiter.Add(1); err != nil {
+			return ErrHTTPTooManyRequests
+		}
+
 		// Check total file count limit
 		if err := s.clipboard.Add(); err != nil {
 			return ErrHTTPTooManyRequests
 		}
 	} else {
 		// File exists
-
-		// Check visitor file count limit
-		v := s.getVisitor(r)
-		if err := v.countLimiter.Add(1); err != nil {
-			return ErrHTTPTooManyRequests
-		}
 
 		// File not writable
 		m, err := s.clipboard.Stat(id)
@@ -766,7 +766,7 @@ func (s *server) getVisitor(r *http.Request) *visitor {
 	v, exists := s.visitors[ip]
 	if !exists {
 		v = &visitor{
-			newLimiter(visitorCountLimit),
+			newLimiter(int64(s.config.FileCountPerVisitorLimit)),
 			rate.NewLimiter(visitorRequestsPerSecond, visitorRequestsPerSecondBurst),
 			time.Now(),
 		}
