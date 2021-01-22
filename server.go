@@ -402,7 +402,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			return err
 		}
 		if m.Mode != FileModeReadWrite {
-			return ErrHTTPMethodNotAllowed // TODO test this
+			return ErrHTTPMethodNotAllowed
 		}
 		reserved = m.Reserved
 	}
