@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	reservedFiles = []string{"help", "version", "info", "verify", "static", "robots.txt", "favicon.ico"}
+	reservedFiles = []string{"help", "version", "info", "verify", "random", "static", "robots.txt", "favicon.ico"}
 )
 
 type clipboard struct {

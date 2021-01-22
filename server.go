@@ -208,8 +208,8 @@ func (s *server) routeList() []route {
 
 	s.routes = []route{
 		newRoute("GET", "/", s.handleRoot),
-		newRoute("PUT", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
-		newRoute("POST", "/", s.limit(s.auth(s.handleClipboardPutRandom))),
+		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
+		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleStatic)),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),

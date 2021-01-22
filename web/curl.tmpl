@@ -9,7 +9,8 @@ USAGE:
 DESCRIPTION:
   This is is the curl-endpoint for pcopy, a tool to copy/paste across machines. You may use
   curl's -T option to PUT files, or -d option to POST data. If a FILENAME is passed, it will
-  be used. If not, a random one will be picked.
+  be used. If not, a random one will be picked. You may also pass the word "random" as a FILENAME
+  to avoid curl's awkward file name logic when -T is used.
 
   To stream data without storing it on the server, you may pass the ?s=1 query parameter.
   The upload will then block until the download of the file begins.
@@ -19,8 +20,10 @@ DESCRIPTION:
   the password.
 
   Examples:
-    curl -T hi.txt {{$url}}                   # Copy file hi.txt and pick a random file name (via PUT)
+    curl -T hi.txt {{$url}}                   # Copy file hi.txt to {{$url}}/hi.txt (via PUT)
+    curl -T hi.txt {{$url}}/random            # Copy file hi.txt and pick a random file name (via PUT)
     curl -d "a thing" {{$url}}/thing.txt      # Copy text "a thing" to "thing.txt" (via POST)
+    curl -d howdy '{{$url}}?t=30m'            # Copy text "howdy" to a random file with a TTL of 30m
     cat go.log | curl -T- {{$url}}/go.log     # Copy text from STDIN to "go.log"
     curl -u:mypass -d hi {{$url}}             # Uses password "mypass" to copy text "hi"
     cat a.log | curl -T- "{{$url}}/cool?s=1"  # Stream to "cool", blocks until download begins
@@ -28,7 +31,7 @@ DESCRIPTION:
 OPTIONS:
   Query params:
     ?s=1           stream data without storing on the server
-    ?m=rw|ro       defines whether to set the file mode as read-write or read-only (default: {{index .Config.FileModesAllowed 0}}, allowed: {{stringsJoin .Config.FileModesAllowed " "}})
+    ?m=rw|ro       defines whether to set the file mode as read-write or read-only (default: {{index .Config.FileModesAllowed 0}}, allowed: {{stringsJoin .Config.FileModesAllowed ", "}})
     ?t=<duration>  time-to-live (TTL) for this file, after which it will be deleted (default/max: {{if .Config.FileExpireAfter}}{{.Config.FileExpireAfter | durationToHuman}}{{else}}never{{end}})
     ?f=text|json   output format for PUT/POSTs (default: text)
 
@@ -45,5 +48,6 @@ LIMITS:
   Total number of files: {{if .Config.ClipboardCountLimit}} max. {{.Config.ClipboardCountLimit }} files{{else}}no limit{{end}}
   Per-file size limit: {{if .Config.FileSizeLimit}}{{.Config.FileSizeLimit | bytesToHuman }}{{else}}no limit{{end}}
   Per-file expiration: {{if .Config.FileExpireAfter}}deleted after {{.Config.FileExpireAfter | durationToHuman }}{{else}}never{{end}}
+  Allowed file modes: {{stringsJoin .Config.FileModesAllowed ", "}}
 
 To find out more about pcopy, check out https://heckel.io/pcopy.
