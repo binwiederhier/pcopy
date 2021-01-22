@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"syscall"
@@ -60,30 +61,15 @@ func newClipboard(config *Config) (*clipboard, error) {
 	}, nil
 }
 
-func (c *clipboard) IsValidID(id string) bool {
-	// TODO include regex from server.go
-	for _, reserved := range reservedFiles {
-		if id == reserved {
-			return false
-		}
-	}
-	return true
-}
-
-func (c *clipboard) GetFilenames(id string) (string, string) {
-	file := fmt.Sprintf("%s/%s", c.config.ClipboardDir, id)
-	return file, file + metaFileSuffix
-}
-
 func (c *clipboard) DeleteFile(id string) error {
-	if !c.IsValidID(id) {
-		return errInvalidFileID
-	}
-	file, metafile := c.GetFilenames(id)
-	if err := os.Remove(file); err != nil {
+	file, metafile, err := c.getFilenames(id)
+	if err != nil {
 		return err
 	}
 	if err := os.Remove(metafile); err != nil {
+		return err
+	}
+	if err := os.Remove(file); err != nil {
 		return err
 	}
 	return nil
@@ -141,11 +127,10 @@ func (c *clipboard) List() ([]*clipboardFile, error) {
 }
 
 func (c *clipboard) Stat(id string) (*clipboardFile, error) {
-	if !c.IsValidID(id) {
-		return nil, errInvalidFileID
+	file, metafile, err := c.getFilenames(id)
+	if err != nil {
+		return nil, err
 	}
-
-	file, metafile := c.GetFilenames(id)
 	stat, err := os.Stat(file)
 	if err != nil {
 		return nil, err
@@ -172,10 +157,10 @@ func (c *clipboard) Stat(id string) (*clipboardFile, error) {
 }
 
 func (c *clipboard) WriteMeta(id string, mode string, expires int64, reserved bool) error {
-	if !c.IsValidID(id) {
-		return errInvalidFileID
+	_, metafile, err := c.getFilenames(id)
+	if err != nil {
+		return err
 	}
-	_, metafile := c.GetFilenames(id)
 	response := &clipboardFile{
 		Mode:     mode,
 		Expires:  expires,
@@ -196,11 +181,11 @@ func (c *clipboard) Add() error {
 	return c.countLimiter.Add(1)
 }
 
-func (c *clipboard) Copy(id string, rc io.ReadCloser) error {
-	if !c.IsValidID(id) {
-		return errInvalidFileID
+func (c *clipboard) WriteFile(id string, rc io.ReadCloser) error {
+	file, _, err := c.getFilenames(id)
+	if err != nil {
+		return err
 	}
-	file, _ := c.GetFilenames(id)
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
@@ -229,6 +214,47 @@ func (c *clipboard) Copy(id string, rc io.ReadCloser) error {
 	}
 
 	return nil
+}
+
+func (c *clipboard) MakePipe(id string) error {
+	file, _, err := c.getFilenames(id)
+	if err != nil {
+		return err
+	}
+	return unix.Mkfifo(file, 0600)
+}
+
+func (c *clipboard) ReadFile(id string, w http.ResponseWriter) error {
+	file, _, err := c.getFilenames(id)
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(w, f)
+	return err
+}
+
+func (c *clipboard) getFilenames(id string) (string, string, error) {
+	if !c.isValidID(id) {
+		return "", "", errInvalidFileID
+	}
+	file := fmt.Sprintf("%s/%s", c.config.ClipboardDir, id)
+	return file, file + metaFileSuffix, nil
+}
+
+func (c *clipboard) isValidID(id string) bool {
+	// TODO include regex from server.go
+	for _, reserved := range reservedFiles {
+		if id == reserved {
+			return false
+		}
+	}
+	return true
 }
 
 var errBrokenPipe = errors.New("broken pipe")

@@ -10,13 +10,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -231,7 +229,9 @@ func (s *server) handle(w http.ResponseWriter, r *http.Request) {
 			log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 			ctx := context.WithValue(r.Context(), routeCtx{}, matches[1:])
 			if err := route.handler(w, r.WithContext(ctx)); err != nil {
-				if e, ok := err.(*errHTTPNotOK); ok {
+				if err == errInvalidFileID {
+					s.fail(w, r, http.StatusBadRequest, err)
+				} else if e, ok := err.(*errHTTPNotOK); ok {
 					s.fail(w, r, e.code, e)
 				} else {
 					s.fail(w, r, http.StatusInternalServerError, err)
@@ -307,11 +307,6 @@ func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	if !s.clipboard.IsValidID(id) {
-		return ErrHTTPBadRequest
-	}
-	file, _ := s.clipboard.GetFilenames(id)
-
 	stat, err := s.clipboard.Stat(id)
 	if err != nil {
 		return ErrHTTPNotFound
@@ -320,20 +315,13 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 		w.Header().Set("Length", fmt.Sprintf("%d", stat.Size))
 	}
 
-	f, err := os.Open(file)
-	if err != nil {
-		return ErrHTTPNotFound
-	}
-	defer f.Close()
 	defer func() {
 		if stat.Pipe {
 			s.clipboard.DeleteFile(id)
 		}
 	}()
 
-	if _, err = io.Copy(w, f); err != nil {
-		return err
-	}
+	s.clipboard.ReadFile(id, w)
 
 	return nil
 }
@@ -361,10 +349,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Parse request: file ID, stream
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
-	if !s.clipboard.IsValidID(id) {
-		return ErrHTTPBadRequest
-	}
-	file, _ := s.clipboard.GetFilenames(id)
 
 	// Handle empty body
 	if r.Body == nil {
@@ -373,7 +357,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Check if file exists
 	reserved := false
-	stat, _ := os.Stat(file)
+	stat, _ := s.clipboard.Stat(id)
 	if stat == nil {
 		// File does not exist
 
@@ -437,7 +421,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
 	if stream {
-		if err := unix.Mkfifo(file, 0600); err != nil {
+		if err := s.clipboard.MakePipe(id); err != nil {
 			return err
 		}
 		if earlyResponse {
@@ -448,7 +432,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Copy file contents (with file limit & total limit)
-	if err := s.clipboard.Copy(id, r.Body); err != nil {
+	if err := s.clipboard.WriteFile(id, r.Body); err != nil {
 		if err == errLimitReached {
 			return ErrHTTPPayloadTooLarge
 		} else if err == errBrokenPipe {
