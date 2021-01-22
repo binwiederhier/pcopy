@@ -320,7 +320,7 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 		}
 	}()
 
-	return s.clipboard.ReadFile(id, w)
+	return s.clipboard.ReadFile(id, newSniffWriter(w))
 }
 
 func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {

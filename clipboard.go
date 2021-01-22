@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 	"syscall"
@@ -224,7 +223,7 @@ func (c *clipboard) MakePipe(id string) error {
 	return unix.Mkfifo(file, 0600)
 }
 
-func (c *clipboard) ReadFile(id string, w http.ResponseWriter) error {
+func (c *clipboard) ReadFile(id string, w io.Writer) error {
 	file, _, err := c.getFilenames(id)
 	if err != nil {
 		return err
