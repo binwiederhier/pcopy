@@ -3,12 +3,16 @@ package pcopy
 import (
 	_ "embed" // Required for go:embed instructions
 	"encoding/json"
+	"errors"
 	"fmt"
 	"golang.org/x/sys/unix"
+	"io"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -21,8 +25,9 @@ var (
 )
 
 type clipboard struct {
-	dir                 string
-	fallbackExpireAfter time.Duration
+	config       *Config
+	countLimiter *limiter
+	sizeLimiter  *limiter
 }
 
 type clipboardStats struct {
@@ -41,14 +46,18 @@ type clipboardFile struct {
 	Reserved bool      `json:"reserved"`
 }
 
-func newClipboard(dir string, expireAfter time.Duration) (*clipboard, error) {
-	if err := os.MkdirAll(dir, 0700); err != nil {
+func newClipboard(config *Config) (*clipboard, error) {
+	if err := os.MkdirAll(config.ClipboardDir, 0700); err != nil {
 		return nil, errClipboardDirNotWritable
 	}
-	if unix.Access(dir, unix.W_OK) != nil {
+	if unix.Access(config.ClipboardDir, unix.W_OK) != nil {
 		return nil, errClipboardDirNotWritable
 	}
-	return &clipboard{dir, expireAfter}, nil
+	return &clipboard{
+		config:       config,
+		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
+		countLimiter: newLimiter(int64(config.ClipboardCountLimit)),
+	}, nil
 }
 
 func (c *clipboard) IsValidID(id string) bool {
@@ -62,7 +71,7 @@ func (c *clipboard) IsValidID(id string) bool {
 }
 
 func (c *clipboard) GetFilenames(id string) (string, string) {
-	file := fmt.Sprintf("%s/%s", c.dir, id)
+	file := fmt.Sprintf("%s/%s", c.config.ClipboardDir, id)
 	return file, file + metaFileSuffix
 }
 
@@ -107,12 +116,14 @@ func (c *clipboard) Stats() (*clipboardStats, error) {
 	for _, f := range entries {
 		totalSize += f.Size
 	}
+	c.countLimiter.Set(int64(len(entries)))
+	c.sizeLimiter.Set(totalSize)
 	return &clipboardStats{len(entries), totalSize}, nil
 }
 
 func (c *clipboard) List() ([]*clipboardFile, error) {
 	entries := make([]*clipboardFile, 0)
-	files, err := ioutil.ReadDir(c.dir)
+	files, err := ioutil.ReadDir(c.config.ClipboardDir)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +161,7 @@ func (c *clipboard) Stat(id string) (*clipboardFile, error) {
 	var cf clipboardFile
 	if err := json.NewDecoder(mf).Decode(&cf); err != nil {
 		log.Printf("error reading meta file for %s: %s", id, err.Error())
-		cf.Expires = int64(c.fallbackExpireAfter.Seconds())
+		cf.Expires = int64(c.config.FileExpireAfter.Seconds())
 	}
 	cf.ID = id
 	cf.Size = stat.Size()
@@ -180,3 +191,44 @@ func (c *clipboard) WriteMeta(id string, mode string, expires int64, reserved bo
 	}
 	return nil
 }
+
+func (c *clipboard) Add() error {
+	return c.countLimiter.Add(1)
+}
+
+func (c *clipboard) Copy(id string, rc io.ReadCloser) error {
+	if !c.IsValidID(id) {
+		return errInvalidFileID
+	}
+	file, _ := c.GetFilenames(id)
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fileSizeLimiter := newLimiter(c.config.FileSizeLimit)
+	limitWriter := newLimitWriter(f, fileSizeLimiter, c.sizeLimiter)
+
+	if _, err := io.Copy(limitWriter, rc); err != nil {
+		c.DeleteFile(id)
+		if pe, ok := err.(*fs.PathError); ok {
+			err = pe.Err
+		}
+		if se, ok := err.(*os.SyscallError); ok {
+			err = se.Err
+		}
+		if err == syscall.EPIPE {
+			return errBrokenPipe
+		}
+		return err // most likely this is errLimitReached
+	}
+	if err := rc.Close(); err != nil {
+		c.DeleteFile(id)
+		return err
+	}
+
+	return nil
+}
+
+var errBrokenPipe = errors.New("broken pipe")

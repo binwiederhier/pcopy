@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
 	"io"
-	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -22,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"text/template"
 	"time"
 )
@@ -78,12 +76,10 @@ var (
 
 // server is the main HTTP server struct. It's the one with all the good stuff.
 type server struct {
-	config       *Config
-	clipboard    *clipboard
-	countLimiter *limiter
-	sizeLimiter  *limiter
-	visitors     map[string]*visitor
-	routes       []route
+	config    *Config
+	clipboard *clipboard
+	visitors  map[string]*visitor
+	routes    []route
 	sync.Mutex
 }
 
@@ -159,17 +155,15 @@ func newServer(config *Config) (*server, error) {
 			return nil, errCertFileMissing
 		}
 	}
-	clipboard, err := newClipboard(config.ClipboardDir, config.FileExpireAfter)
+	clipboard, err := newClipboard(config)
 	if err != nil {
 		return nil, err
 	}
 	return &server{
-		config:       config,
-		clipboard:    clipboard,
-		sizeLimiter:  newLimiter(config.ClipboardSizeLimit),
-		countLimiter: newLimiter(int64(config.ClipboardCountLimit)),
-		visitors:     make(map[string]*visitor),
-		routes:       nil,
+		config:    config,
+		clipboard: clipboard,
+		visitors:  make(map[string]*visitor),
+		routes:    nil,
 	}, nil
 }
 
@@ -384,7 +378,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		// File does not exist
 
 		// Check total file count limit
-		if err := s.countLimiter.Add(1); err != nil {
+		if err := s.clipboard.Add(); err != nil {
 			return ErrHTTPTooManyRequests
 		}
 	} else {
@@ -432,6 +426,10 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	s.clipboard.DeleteFile(id)
 
+	// Ensure that we update the limiters and such!
+	defer s.updateStatsAndExpire()
+
+	// TODO this is bad when things crash
 	if err := s.clipboard.WriteMeta(id, mode, expires, reserve); err != nil {
 		return err
 	}
@@ -440,48 +438,23 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Also, we want to immediately output instructions.
 	if stream {
 		if err := unix.Mkfifo(file, 0600); err != nil {
-			s.countLimiter.Sub(1)
 			return err
 		}
 		if earlyResponse {
 			if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
-				s.countLimiter.Sub(1)
 				return err
 			}
 		}
 	}
 
-	// Create new file or truncate existing
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-	if err != nil {
-		s.countLimiter.Sub(1)
-		return err
-	}
-	defer f.Close()
-	defer s.updateStatsAndExpire()
-
 	// Copy file contents (with file limit & total limit)
-	fileSizeLimiter := newLimiter(s.config.FileSizeLimit)
-	limitWriter := newLimitWriter(f, fileSizeLimiter, s.sizeLimiter)
-
-	if _, err := io.Copy(limitWriter, r.Body); err != nil {
-		s.clipboard.DeleteFile(id)
-		if pe, ok := err.(*fs.PathError); ok {
-			err = pe.Err
-		}
-		if se, ok := err.(*os.SyscallError); ok {
-			err = se.Err
-		}
-		if err == syscall.EPIPE { // "broken pipe", happens when interrupting on receiver-side while streaming
-			return ErrHTTPPartialContent
-		}
+	if err := s.clipboard.Copy(id, r.Body); err != nil {
 		if err == errLimitReached {
 			return ErrHTTPPayloadTooLarge
+		} else if err == errBrokenPipe {
+			// This happens when interrupting on receiver-side while streaming. We treat this as a success.
+			return ErrHTTPPartialContent
 		}
-		return err
-	}
-	if err := r.Body.Close(); err != nil {
-		s.clipboard.DeleteFile(id)
 		return err
 	}
 
@@ -732,27 +705,24 @@ func (s *server) updateStatsAndExpire() {
 	if err != nil {
 		log.Printf("cannot get stats from clipboard: %s", err.Error())
 	} else {
-		s.countLimiter.Set(int64(stats.NumFiles))
-		s.sizeLimiter.Set(stats.Size)
+		s.printStats(stats)
 	}
-
-	s.printStats()
 }
 
-func (s *server) printStats() {
+func (s *server) printStats(stats *clipboardStats) {
 	var countLimit, sizeLimit string
-	if s.countLimiter.Limit() == 0 {
+	if s.config.ClipboardCountLimit == 0 {
 		countLimit = "no limit"
 	} else {
-		countLimit = fmt.Sprintf("max %d", s.countLimiter.Limit())
+		countLimit = fmt.Sprintf("max %d", s.config.ClipboardCountLimit)
 	}
-	if s.sizeLimiter.Limit() == 0 {
+	if s.config.ClipboardSizeLimit == 0 {
 		sizeLimit = "no limit"
 	} else {
-		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.sizeLimiter.Limit()))
+		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.config.ClipboardSizeLimit))
 	}
 	log.Printf("files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
-		s.countLimiter.Value(), countLimit, BytesToHuman(s.sizeLimiter.Value()), sizeLimit, len(s.visitors))
+		stats.NumFiles, countLimit, BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
 }
 
 func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
