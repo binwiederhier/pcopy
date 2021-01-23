@@ -228,19 +228,24 @@ function keyHandler(e) {
     }
 }
 
-function save() {
+async function save() {
     if (!allowSubmit) {
         return
     }
 
+    let key = loadKey()
     let streaming = streamEnabled()
-    let fileId = getFileId()
+    let fileId = ''
+    if (randomFileIdEnabled()) {
+        fileId = await reserveAndUpdateLinkFields()
+    } else {
+        fileId = getFileId()
+    }
     let method = 'PUT'
     let path = '/' + fileId
     let url = location.protocol + '//' + location.host + path
-    let key = loadKey()
 
-    progressStart(fileId, url, path, key)
+    progressStart()
 
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
@@ -302,26 +307,14 @@ function handleFile(file) {
     uploadFile(file)
 }
 
-function progressStart(fileId, url, path, key) {
-    url = maybeAddAuthParam(url, path, key)
-
-    infoDirectLinkStream.href = url
-    infoDirectLinkDownload.href = url
-    infoCommandDirectLink.value = url
-
-    // TODO use information from response to populate these fields
-    infoTabLinkPcopy.classList.add('tab-active')
-    infoTabLinkCurl.classList.remove('tab-active')
-    infoCommandLine.dataset.pcopy = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
-    infoCommandLine.dataset.curl = generateCurlCommand(url)
-    infoCommandLine.value = infoCommandLine.dataset.pcopy
-
+function progressStart() {
     progressHideHeaders()
 
     if (streamEnabled()) {
         infoStreamTitleActive.innerHTML = 'Streaming ...'
         infoLinks.classList.remove('hidden')
         infoStreamHeaderActive.classList.remove('hidden')
+
     } else {
         infoUploadTitleActive.innerHTML = 'Uploading ...'
         infoLinks.classList.add('hidden')
@@ -330,6 +323,18 @@ function progressStart(fileId, url, path, key) {
 
     infoArea.classList.remove('error')
     infoArea.classList.remove("hidden")
+}
+
+function updateLinkFields(fileId, url, curl) {
+    infoDirectLinkStream.href = url
+    infoDirectLinkDownload.href = url
+    infoCommandDirectLink.value = url
+    
+    infoTabLinkPcopy.classList.add('tab-active')
+    infoTabLinkCurl.classList.remove('tab-active')
+    infoCommandLine.dataset.pcopy = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
+    infoCommandLine.dataset.curl = curl
+    infoCommandLine.value = infoCommandLine.dataset.pcopy
 }
 
 function progressUpdate(progress) {
@@ -370,6 +375,8 @@ function progressFailed(code) {
         infoErrorTextNotAllowed.classList.remove('hidden')
     }
     infoErrorHeader.classList.remove('hidden')
+    infoArea.classList.add('error')
+    infoArea.classList.remove("hidden")
 }
 
 function progressHideHeaders() {
@@ -378,19 +385,48 @@ function progressHideHeaders() {
         .forEach((el) => el.classList.add('hidden'))
 }
 
-function uploadFile(file) {
+async function reserveAndUpdateLinkFields() {
+    const key = loadKey()
+    const headers = {
+        'X-Reserve': 'yes'
+    }
+    if (key) {
+        headers['Authorization'] = generateAuthHMAC(key, 'PUT', '/')
+    }
+    const response = await fetch(`/`, {
+        method: 'PUT',
+        headers: headers
+    })
+    if (response.status !== 200) {
+        progressFailed(response.status);
+        return;
+    }
+    let fileId = response.headers.get("X-File")
+    let url = response.headers.get('X-Url')
+    let curl = response.headers.get('X-Curl')
+    updateLinkFields(fileId, url, curl)
+
+    return fileId
+}
+
+async function uploadFile(file) {
     if (!allowSubmit) {
         return
     }
 
     let streaming = streamEnabled()
-    let fileId = getFileId()
+    let key = loadKey()
+    let fileId = ''
+    if (randomFileIdEnabled()) {
+        fileId = await reserveAndUpdateLinkFields()
+    } else {
+        fileId = getFileId()
+    }
     let method = 'PUT'
     let path = '/' + fileId
     let url = location.protocol + '//' + location.host + path
-    let key = loadKey()
 
-    progressStart(fileId, url, path, key)
+    progressStart()
 
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
@@ -527,16 +563,13 @@ function showLoginArea() {
 
 /* Util functions */
 
-function generateAuthHMAC(key, method, path) {
-    return generateAuthHMACWithTTL(key, method, path, config.FileExpireAfter)
-}
-
 function generateAuthHMACParam(key, method, path) {
     return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(generateAuthHMAC(key, method, path)))
 }
 
 // See crypto.go/GenerateAuthHMAC
-function generateAuthHMACWithTTL(key, method, path, ttl) {
+function generateAuthHMAC(key, method, path) {
+    let ttl = 30
     let timestamp = Math.floor(new Date().getTime()/1000)
     let message = `${timestamp}:${ttl}:${method}:${path}`
     let hash = CryptoJS.HmacSHA256(message, key)
@@ -561,11 +594,7 @@ function clearKey() {
 }
 
 function getFileId() {
-    if (randomFileIdEnabled()) {
-        return Math.random().toString(36).slice(2)
-    } else {
-        return (headerFileId.value || 'default')
-    }
+    return (headerFileId.value || 'default')
 }
 
 function storeRandomFileIdEnabled(randomFileId) {
@@ -589,22 +618,5 @@ function streamEnabled() {
         return localStorage.getItem('streamEnabled') === 'true'
     } else {
         return false
-    }
-}
-
-function generateCurlCommand(url) {
-    if (config.CurlPinnedPubKey !== "") {
-        return `curl --pinnedpubkey ${config.CurlPinnedPubKey} -sSLk "${url}"`
-    } else {
-        return `curl -sSL "${url}"`
-    }
-}
-
-function maybeAddAuthParam(url, path, key) {
-    if (key) {
-        let authParam = generateAuthHMACParam(key, 'GET', path)
-        return `${url}?a=${authParam}`
-    } else {
-        return url
     }
 }

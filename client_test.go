@@ -269,6 +269,8 @@ func TestClient_ReserveSuccess(t *testing.T) {
 	assertStrEquals(t, "curl https://sup.com/hi.txt", info.Curl)
 }
 
+// TODO add TestReserveFailureTimeout
+
 func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {
 	config := NewConfig()
 	client, server := newTestClientAndServer(t, config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -31,6 +31,7 @@ const (
 	visitorRequestsPerSecondBurst = 5
 	visitorExpungeAfter           = 3 * time.Minute
 	certCommonName                = "pcopy"
+	reserveTTL                    = 10 * time.Second
 
 	headerStream            = "X-Stream"
 	headerReserve           = "X-Reserve"
@@ -399,10 +400,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if ttl > 0 {
 		expires = time.Now().Add(ttl).Unix()
 	}
-	if reserve {
-		mode = FileModeReadWrite
-		expires = time.Now().Add(10 * time.Second).Unix()
-	}
 
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	s.clipboard.DeleteFile(id)
@@ -411,8 +408,16 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	defer s.updateStatsAndExpire()
 
 	// TODO this is bad when things crash
-	if err := s.clipboard.WriteMeta(id, mode, expires, reserve); err != nil {
-		return err
+	// TODO i hate this reservation stuff
+	if reserve {
+		reservationExpires := time.Now().Add(reserveTTL).Unix()
+		if err := s.clipboard.WriteMeta(id, FileModeReadWrite, reservationExpires, true); err != nil {
+			return err
+		}
+	} else {
+		if err := s.clipboard.WriteMeta(id, mode, expires, reserve); err != nil {
+			return err
+		}
 	}
 
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
@@ -604,6 +609,7 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 	}
 
 	// Recalculate HMAC
+	// TODO this should include the query string
 	data := []byte(fmt.Sprintf("%d:%d:%s:%s", timestamp, ttlSecs, r.Method, r.URL.Path))
 	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {

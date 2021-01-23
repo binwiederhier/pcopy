@@ -198,7 +198,6 @@
         KeySalt: "{{if .Config.Key}}{{.Config.Key.Salt | encodeBase64}}{{end}}",
         KeyDerivIter: {{.KeyDerivIter}},
         KeyLenBytes: {{.KeyLenBytes}},
-        FileExpireAfter: {{.Config.FileExpireAfter.Seconds}},
         CurlPinnedPubKey: "{{.CurlPinnedPubKey}}",
         DefaultPort: {{.DefaultPort}}
     }
