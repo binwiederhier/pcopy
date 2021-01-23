@@ -329,7 +329,7 @@ function updateLinkFields(fileId, url, curl) {
     infoDirectLinkStream.href = url
     infoDirectLinkDownload.href = url
     infoCommandDirectLink.value = url
-    
+
     infoTabLinkPcopy.classList.add('tab-active')
     infoTabLinkCurl.classList.remove('tab-active')
     infoCommandLine.dataset.pcopy = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
@@ -385,28 +385,27 @@ function progressHideHeaders() {
         .forEach((el) => el.classList.add('hidden'))
 }
 
-async function reserveAndUpdateLinkFields() {
+async function req(method, path, headers, successFn, failureFn) {
     const key = loadKey()
-    const headers = {
-        'X-Reserve': 'yes'
-    }
     if (key) {
-        headers['Authorization'] = generateAuthHMAC(key, 'PUT', '/')
+        headers['Authorization'] = generateAuthHMAC(key, method, path)
     }
-    const response = await fetch(`/`, {
-        method: 'PUT',
-        headers: headers
-    })
-    if (response.status !== 200) {
-        progressFailed(response.status);
-        return;
-    }
-    let fileId = response.headers.get("X-File")
-    let url = response.headers.get('X-Url')
-    let curl = response.headers.get('X-Curl')
-    updateLinkFields(fileId, url, curl)
-
-    return fileId
+    return await fetch(path, {method: 'PUT', headers: headers})
+        .then(response => {
+            if (response.status === 200) return successFn(response)
+            else return failureFn(response)
+        })
+}
+async function reserveAndUpdateLinkFields() {
+    return await req('PUT', '/', {'X-Reserve': 'yes'},
+        (resp) => {
+            updateLinkFields(resp.headers.get("X-File"), resp.headers.get("X-Url"), resp.headers.get("X-Curl"))
+            return resp.headers.get("X-File")
+        },
+        (resp) => {
+            progressFailed(response.status)
+            throw resp.statusText
+        })
 }
 
 async function uploadFile(file) {
