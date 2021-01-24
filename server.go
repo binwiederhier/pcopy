@@ -422,8 +422,8 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Handle empty body
 	body := r.Body
-	if r.Body == nil {
-		r.Body = io.NopCloser(strings.NewReader(""))
+	if body == nil {
+		body = io.NopCloser(strings.NewReader(""))
 	}
 
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
@@ -441,7 +441,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			// TODO test short POST payload with curl "curl -dabc nopaste.net?s=1"
 			if r.Header.Get("Expect") == "" && r.ContentLength < 50*1024 {
 				buf := make([]byte, r.ContentLength)
-				_, err := io.ReadFull(r.Body, buf)
+				_, err := io.ReadFull(body, buf)
 				if err != nil {
 					return err
 				}
