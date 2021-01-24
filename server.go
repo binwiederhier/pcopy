@@ -353,11 +353,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
 
-	// Handle empty body
-	if r.Body == nil {
-		r.Body = io.NopCloser(strings.NewReader(""))
-	}
-
 	// Check if file exists
 	stat, _ := s.clipboard.Stat(id)
 	if stat == nil {
@@ -425,9 +420,14 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
+	// Handle empty body
+	body := r.Body
+	if r.Body == nil {
+		r.Body = io.NopCloser(strings.NewReader(""))
+	}
+
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
-	body := r.Body
 	if streamMode != streamModeNoStream {
 		if err := s.clipboard.MakePipe(id); err != nil {
 			return err
@@ -440,11 +440,12 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			// for anything > ~1400 bytes.
 			// TODO test short POST payload with curl "curl -dabc nopaste.net?s=1"
 			if r.Header.Get("Expect") == "" && r.ContentLength < 50*1024 {
-				b, err := io.ReadAll(r.Body)
+				buf := make([]byte, r.ContentLength)
+				_, err := io.ReadFull(r.Body, buf)
 				if err != nil {
 					return err
 				}
-				body = io.NopCloser(bytes.NewReader(b))
+				body = io.NopCloser(bytes.NewReader(buf))
 			}
 			if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
 				return err
