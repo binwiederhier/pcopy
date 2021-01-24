@@ -1,6 +1,7 @@
 package pcopy
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -426,11 +427,25 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
+	body := r.Body
 	if streamMode != streamModeNoStream {
 		if err := s.clipboard.MakePipe(id); err != nil {
 			return err
 		}
 		if streamMode == streamModeImmediateHeaders {
+			// Oh wow here comes a hack: for very short POST payloads, "curl -d.." will (obviously) not send the
+			// "Expect: 100-continue" header, so the body is immediately consumed and closed by Go's HTTP server,
+			// yielding a http.ErrBodyReadAfterClose error. To counter this behavior in streaming mode, we consume
+			// the entire request body if it is short enough (<50 KB). In practice, curl will send "Expect: 100-continue"
+			// for anything > ~1400 bytes.
+			// TODO test short POST payload with curl "curl -dabc nopaste.net?s=1"
+			if r.Header.Get("Expect") == "" && r.ContentLength < 50*1024 {
+				b, err := io.ReadAll(r.Body)
+				if err != nil {
+					return err
+				}
+				body = io.NopCloser(bytes.NewReader(b))
+			}
 			if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
 				return err
 			}
@@ -438,7 +453,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Copy file contents (with file limit & total limit)
-	if err := s.clipboard.WriteFile(id, r.Body); err != nil {
+	if err := s.clipboard.WriteFile(id, body); err != nil {
 		if err == errLimitReached {
 			return ErrHTTPPayloadTooLarge
 		} else if err == errBrokenPipe {

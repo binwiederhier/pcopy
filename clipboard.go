@@ -204,6 +204,7 @@ func (c *clipboard) WriteFile(id string, rc io.ReadCloser) error {
 			return errBrokenPipe
 		}
 		return err // most likely this is errLimitReached
+
 	}
 	if err := rc.Close(); err != nil {
 		c.DeleteFile(id)
