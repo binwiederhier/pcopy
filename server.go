@@ -39,7 +39,7 @@ const (
 	headerFileMode          = "X-Mode"
 	headerFile              = "X-File"
 	headerTTL               = "X-TTL"
-	headerURL               = "X-Url"
+	headerURL               = "X-URL"
 	headerExpires           = "X-Expires"
 	headerCurl              = "X-Curl"
 	queryParamAuth          = "a"
@@ -52,6 +52,10 @@ const (
 	formatJSON        = "json"
 	formatText        = "text"
 	formatHeadersOnly = "headersonly"
+
+	streamModeNoStream         = "0"
+	streamModeImmediateHeaders = "1"
+	streamModeDelayHeaders     = "2"
 )
 
 var (
@@ -354,7 +358,6 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Check if file exists
-	reserved := false
 	stat, _ := s.clipboard.Stat(id)
 	if stat == nil {
 		// File does not exist
@@ -380,15 +383,16 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		if m.Mode != FileModeReadWrite {
 			return ErrHTTPMethodNotAllowed
 		}
-		reserved = m.Reserved
 	}
 
 	// Read query params
-	format := s.outputFormat(r)
-	stream := s.isStream(r)
+	format := s.getOutputFormat(r)
 	reserve := s.isReserve(r)
-	earlyResponse := stream && !reserved
-	mode, err := s.getFileMode(r)
+	streamMode, err := s.getStreamMode(r)
+	if err != nil {
+		return err
+	}
+	fileMode, err := s.getFileMode(r)
 	if err != nil {
 		return err
 	}
@@ -411,22 +415,22 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// TODO i hate this reservation stuff
 	if reserve {
 		reservationExpires := time.Now().Add(reserveTTL).Unix()
-		if err := s.clipboard.WriteMeta(id, FileModeReadWrite, reservationExpires, true); err != nil {
+		if err := s.clipboard.WriteMeta(id, FileModeReadWrite, reservationExpires); err != nil {
 			return err
 		}
 	} else {
-		if err := s.clipboard.WriteMeta(id, mode, expires, reserve); err != nil {
+		if err := s.clipboard.WriteMeta(id, fileMode, expires); err != nil {
 			return err
 		}
 	}
 
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
-	if stream {
+	if streamMode != streamModeNoStream {
 		if err := s.clipboard.MakePipe(id); err != nil {
 			return err
 		}
-		if earlyResponse {
+		if streamMode == streamModeImmediateHeaders {
 			if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
 				return err
 			}
@@ -445,7 +449,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Output URL, TTL, etc.
-	if !earlyResponse {
+	if streamMode == streamModeNoStream || streamMode == streamModeDelayHeaders {
 		if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
 			s.clipboard.DeleteFile(id)
 			return err
@@ -540,19 +544,30 @@ func (s *server) getTTL(r *http.Request) (time.Duration, error) {
 	return ttl, nil
 }
 
-func (s *server) isStream(r *http.Request) bool {
-	return r.Header.Get(headerStream) == "yes" || r.URL.Query().Get(queryParamStream) == "1"
+func (s *server) getStreamMode(r *http.Request) (string, error) {
+	mode := streamModeNoStream
+	if r.URL.Query().Get(queryParamStream) != "" {
+		mode = r.URL.Query().Get(queryParamStream)
+	} else if r.Header.Get(headerStream) != "" {
+		mode = r.Header.Get(headerStream)
+	}
+	if mode != streamModeNoStream && mode != streamModeImmediateHeaders && mode != streamModeDelayHeaders {
+		return "", errInvalidStreamMode
+	}
+	return mode, nil
 }
 
 func (s *server) isReserve(r *http.Request) bool {
 	return r.Header.Get(headerReserve) == "yes" || r.URL.Query().Get(queryParamStreamReserve) == "1"
 }
 
-func (s *server) outputFormat(r *http.Request) string {
-	if r.Header.Get(headerFormat) == "json" || r.URL.Query().Get(queryParamFormat) == "json" {
-		return "json"
+func (s *server) getOutputFormat(r *http.Request) string {
+	if r.Header.Get(headerFormat) == formatJSON || r.URL.Query().Get(queryParamFormat) == formatJSON {
+		return formatJSON
+	} else if r.Header.Get(headerFormat) == formatHeadersOnly || r.URL.Query().Get(queryParamFormat) == formatHeadersOnly {
+		return formatHeadersOnly
 	}
-	return "text"
+	return formatText
 }
 
 func (s *server) auth(next handlerFnWithErr) handlerFnWithErr {
@@ -822,4 +837,5 @@ var errKeyFileMissing = errors.New("private key file missing, add 'KeyFile' to c
 var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to config or pass --certfile")
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidFileID = errors.New("invalid file id")
+var errInvalidStreamMode = errors.New("invalid stream mode")
 var errNoMatchingRoute = errors.New("no matching route")

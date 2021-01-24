@@ -181,8 +181,8 @@ function fileIdChanged(e) {
 
 /* File ID: random name checkbox */
 
-headerRandomFileId.checked = randomFileIdEnabled()
-changeRandomFileIdEnabled(randomFileIdEnabled())
+headerRandomFileId.checked = randomFileNameEnabled()
+changeRandomFileIdEnabled(randomFileNameEnabled())
 
 headerRandomFileId.addEventListener('change', (e) => { changeRandomFileIdEnabled(e.target.checked) })
 
@@ -233,41 +233,27 @@ async function save() {
         return
     }
 
-    let key = loadKey()
-    let streaming = streamEnabled()
-    let fileId = ''
-    if (randomFileIdEnabled()) {
-        fileId = await reserveAndUpdateLinkFields()
-    } else {
-        fileId = getFileId()
+    let file = getFileId()
+    let headers = {}
+    if (streamEnabled()) {
+        headers['X-Stream'] = '2'
+        try {
+            file = await reserveAndUpdateLinkFields(file)
+        } catch (e) {
+            return progressFailed(e.response.status)
+        }
     }
-    let method = 'PUT'
-    let path = '/' + fileId
-    let url = location.protocol + '//' + location.host + path
+    let body = text.value
 
     progressStart()
-
-    let xhr = new XMLHttpRequest()
-    xhr.open(method, url)
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
-
-    if (key) {
-        xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
-    }
-
-    if (streaming) {
-        xhr.setRequestHeader('X-Stream', 'yes')
-    }
-
-    xhr.addEventListener('readystatechange', function (e) {
-        if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
-            progressFinish(xhr.status)
-        } else if (xhr.readyState === 4 && xhr.status !== 200) {
-            progressFailed(xhr.status)
-        }
-    })
-
-    xhr.send(text.value)
+    req('PUT', `/${file}`, body, headers)
+        .then(response => {
+            if (response.status === 200 || response.status === 206) {
+                progressFinish(response.status, response.headers.get("X-File"), response.headers.get("X-URL"), response.headers.get("X-Curl"))
+            } else {
+                progressFailed(response.status)
+            }
+        })
 }
 
 /* Info help */
@@ -325,14 +311,14 @@ function progressStart() {
     infoArea.classList.remove("hidden")
 }
 
-function updateLinkFields(fileId, url, curl) {
+function updateLinkFields(file, url, curl) {
     infoDirectLinkStream.href = url
     infoDirectLinkDownload.href = url
     infoCommandDirectLink.value = url
 
     infoTabLinkPcopy.classList.add('tab-active')
     infoTabLinkCurl.classList.remove('tab-active')
-    infoCommandLine.dataset.pcopy = fileId === "default" ? 'ppaste' : 'ppaste ' + fileId
+    infoCommandLine.dataset.pcopy = file === "default" ? 'ppaste' : 'ppaste ' + file
     infoCommandLine.dataset.curl = curl
     infoCommandLine.value = infoCommandLine.dataset.pcopy
 }
@@ -345,7 +331,7 @@ function progressUpdate(progress) {
     }
 }
 
-function progressFinish(code) {
+function progressFinish(code, file, url, curl) {
     progressHideHeaders()
 
     if (streamEnabled()) {
@@ -356,6 +342,7 @@ function progressFinish(code) {
             infoStreamHeaderFinished.classList.remove('hidden')
         }
     } else {
+        updateLinkFields(file, url, curl)
         infoLinks.classList.remove('hidden')
         infoUploadHeaderFinished.classList.remove('hidden')
     }
@@ -385,26 +372,24 @@ function progressHideHeaders() {
         .forEach((el) => el.classList.add('hidden'))
 }
 
-async function req(method, path, headers, successFn, failureFn) {
+async function req(method, path, body, headers) {
     const key = loadKey()
     if (key) {
         headers['Authorization'] = generateAuthHMAC(key, method, path)
     }
-    return await fetch(path, {method: 'PUT', headers: headers})
-        .then(response => {
-            if (response.status === 200) return successFn(response)
-            else return failureFn(response)
-        })
+    return await fetch(path, {method: method, headers: headers, body: body})
 }
-async function reserveAndUpdateLinkFields() {
-    return await req('PUT', '/', {'X-Reserve': 'yes'},
-        (resp) => {
-            updateLinkFields(resp.headers.get("X-File"), resp.headers.get("X-Url"), resp.headers.get("X-Curl"))
-            return resp.headers.get("X-File")
-        },
-        (resp) => {
-            progressFailed(response.status)
-            throw resp.statusText
+
+async function reserveAndUpdateLinkFields(file) {
+    return await req('PUT', `/${file}`, null, {'X-Reserve': 'yes'})
+        .then(response => {
+            if (response.status === 200) {
+                updateLinkFields(response.headers.get("X-File"), response.headers.get("X-URL"), response.headers.get("X-Curl"))
+                return response.headers.get("X-File")
+            } else {
+                progressFailed(response.status)
+                throw { response }
+            }
         })
 }
 
@@ -413,14 +398,16 @@ async function uploadFile(file) {
         return
     }
 
+    let fileId = getFileId()
+    if (streamEnabled()) {
+        try {
+            fileId = await reserveAndUpdateLinkFields(fileId)
+        } catch (e) {
+            return progressFailed(e.response.status)
+        }
+    }
     let streaming = streamEnabled()
     let key = loadKey()
-    let fileId = ''
-    if (randomFileIdEnabled()) {
-        fileId = await reserveAndUpdateLinkFields()
-    } else {
-        fileId = getFileId()
-    }
     let method = 'PUT'
     let path = '/' + fileId
     let url = location.protocol + '//' + location.host + path
@@ -430,29 +417,24 @@ async function uploadFile(file) {
     let xhr = new XMLHttpRequest()
     xhr.open(method, url)
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
-
     if (key) {
         xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
     }
-
     if (streaming) {
-        xhr.setRequestHeader('X-Stream', 'yes')
+        xhr.setRequestHeader('X-Stream', '2')
     }
-
     xhr.overrideMimeType(file.type);
     xhr.upload.addEventListener("progress", function (e) {
         let progress = Math.round((e.loaded * 100.0 / e.total) || 100)
         progressUpdate(progress)
     })
-
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
-            progressFinish(xhr.status)
+            progressFinish(xhr.status, xhr.getResponseHeader("X-File"), xhr.getResponseHeader("X-URL"), xhr.getResponseHeader("X-Curl"))
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
             progressFailed(xhr.status)
         }
     })
-
     xhr.send(file)
 }
 
@@ -593,14 +575,14 @@ function clearKey() {
 }
 
 function getFileId() {
-    return (headerFileId.value || 'default')
+    return (randomFileNameEnabled()) ? "" : (headerFileId.value || 'default')
 }
 
 function storeRandomFileIdEnabled(randomFileId) {
     localStorage.setItem('randomName', randomFileId)
 }
 
-function randomFileIdEnabled() {
+function randomFileNameEnabled() {
     if (localStorage.getItem('randomName') !== null) {
         return localStorage.getItem('randomName') === 'true'
     } else {

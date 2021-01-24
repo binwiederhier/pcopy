@@ -37,13 +37,12 @@ type clipboardStats struct {
 
 // clipboardFile defines the metadata file format stored next to each file
 type clipboardFile struct {
-	ID       string    `json:"-"`
-	Size     int64     `json:"-"`
-	ModTime  time.Time `json:"-"`
-	Pipe     bool      `json:"-"`
-	Mode     string    `json:"mode"`
-	Expires  int64     `json:"expires"`
-	Reserved bool      `json:"reserved"`
+	ID      string    `json:"-"`
+	Size    int64     `json:"-"`
+	ModTime time.Time `json:"-"`
+	Pipe    bool      `json:"-"`
+	Mode    string    `json:"mode"`
+	Expires int64     `json:"expires"`
 }
 
 func newClipboard(config *Config) (*clipboard, error) {
@@ -155,15 +154,14 @@ func (c *clipboard) Stat(id string) (*clipboardFile, error) {
 	return &cf, nil
 }
 
-func (c *clipboard) WriteMeta(id string, mode string, expires int64, reserved bool) error {
+func (c *clipboard) WriteMeta(id string, mode string, expires int64) error {
 	_, metafile, err := c.getFilenames(id)
 	if err != nil {
 		return err
 	}
 	response := &clipboardFile{
-		Mode:     mode,
-		Expires:  expires,
-		Reserved: reserved,
+		Mode:    mode,
+		Expires: expires,
 	}
 	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {

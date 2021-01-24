@@ -76,7 +76,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string, ttl time.Duration, mode s
 		req.Header.Set(headerFileMode, mode)
 	}
 	if stream {
-		req.Header.Set(headerStream, "yes")
+		req.Header.Set(headerStream, streamModeDelayHeaders)
 	}
 
 	resp, err := client.Do(req)
