@@ -127,11 +127,10 @@ type routeCtx struct{}
 
 // webTemplateConfig is a struct defining all the things required to render the web root
 type webTemplateConfig struct {
-	KeyDerivIter     int
-	KeyLenBytes      int
-	CurlPinnedPubKey string
-	DefaultPort      int
-	Config           *Config
+	KeyDerivIter int
+	KeyLenBytes  int
+	DefaultPort  int
+	Config       *Config
 }
 
 // Serve starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
@@ -282,20 +281,11 @@ func (s *server) handleRoot(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
-	var err error
-	curlPinnedPubKey := ""
-	if r.TLS != nil {
-		curlPinnedPubKey, err = ReadCurlPinnedPublicKeyFromFile(s.config.CertFile)
-		if err != nil {
-			return err
-		}
-	}
 	return webTemplate.Execute(w, &webTemplateConfig{
-		KeyDerivIter:     keyDerivIter,
-		KeyLenBytes:      keyLenBytes,
-		CurlPinnedPubKey: curlPinnedPubKey,
-		DefaultPort:      DefaultPort,
-		Config:           s.config,
+		KeyDerivIter: keyDerivIter,
+		KeyLenBytes:  keyLenBytes,
+		DefaultPort:  DefaultPort,
+		Config:       s.config,
 	})
 }
 
@@ -354,31 +344,8 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	id := fields[0]
 
 	// Check if file exists
-	stat, _ := s.clipboard.Stat(id)
-	if stat == nil {
-		// File does not exist
-
-		// Check visitor file count limit
-		v := s.getVisitor(r)
-		if err := v.countLimiter.Add(1); err != nil {
-			return ErrHTTPTooManyRequests
-		}
-
-		// Check total file count limit
-		if err := s.clipboard.Add(); err != nil {
-			return ErrHTTPTooManyRequests
-		}
-	} else {
-		// File exists
-
-		// File not writable
-		m, err := s.clipboard.Stat(id)
-		if err != nil {
-			return err
-		}
-		if m.Mode != FileModeReadWrite {
-			return ErrHTTPMethodNotAllowed
-		}
+	if err := s.checkPUT(id, r.RemoteAddr); err != nil {
+		return err
 	}
 
 	// Read query params
@@ -472,6 +439,38 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
+	return nil
+}
+
+// checkPUT verifies that the PUT against the given ID is allowed. It also increases
+// clipboard count limits and visitor limits.
+func (s *server) checkPUT(id string, remoteAddr string) error {
+	stat, _ := s.clipboard.Stat(id)
+	if stat == nil {
+		// File does not exist
+
+		// Check visitor file count limit
+		v := s.getVisitor(remoteAddr)
+		if err := v.countLimiter.Add(1); err != nil {
+			return ErrHTTPTooManyRequests
+		}
+
+		// Check total file count limit
+		if err := s.clipboard.Add(); err != nil {
+			return ErrHTTPTooManyRequests
+		}
+	} else {
+		// File exists
+
+		// File not writable
+		m, err := s.clipboard.Stat(id)
+		if err != nil {
+			return err
+		}
+		if m.Mode != FileModeReadWrite {
+			return ErrHTTPMethodNotAllowed
+		}
+	}
 	return nil
 }
 
@@ -777,7 +776,7 @@ func (s *server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
 func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		v := s.getVisitor(r)
+		v := s.getVisitor(r.RemoteAddr)
 		if !v.rateLimiter.Allow() {
 			return ErrHTTPTooManyRequests
 		}
@@ -788,13 +787,13 @@ func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
 
 // getVisitor creates or retrieves a rate.Limiter for the given visitor.
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
-func (s *server) getVisitor(r *http.Request) *visitor {
+func (s *server) getVisitor(remoteAddr string) *visitor {
 	s.Lock()
 	defer s.Unlock()
 
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	ip, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		ip = r.RemoteAddr // This should not happen in real life; only in tests.
+		ip = remoteAddr // This should not happen in real life; only in tests.
 	}
 
 	v, exists := s.visitors[ip]

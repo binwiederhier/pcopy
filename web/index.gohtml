@@ -164,7 +164,7 @@
                         </div>
                     </div>
                     <div id="info-links">
-                        <p>Direct link{{if .CurlPinnedPubKey}} (<em>browsers will show warning</em>){{end}}:</p>
+                        <p>Direct link:</p>
                         <div class="code-area">
                             <input id="info-command-link" class="code-box" readonly />
                             <button id="info-command-link-copy" class="tooltip">
@@ -198,7 +198,6 @@
         KeySalt: "{{if .Config.Key}}{{.Config.Key.Salt | encodeBase64}}{{end}}",
         KeyDerivIter: {{.KeyDerivIter}},
         KeyLenBytes: {{.KeyLenBytes}},
-        CurlPinnedPubKey: "{{.CurlPinnedPubKey}}",
         DefaultPort: {{.DefaultPort}}
     }
 </script>
