@@ -156,7 +156,7 @@ func execCopy(c *cli.Context) error {
 	}
 
 	if link && !stream {
-		fmt.Fprintf(c.App.ErrWriter, pcopy.FileInfoInstructions(fileInfo))
+		fmt.Fprint(c.App.ErrWriter, pcopy.FileInfoInstructions(fileInfo))
 	}
 	return nil
 }

@@ -147,6 +147,8 @@ func Serve(config *Config) error {
 	return server.ListenAndServe()
 }
 
+// NewServer creates a new instance of a Server using the given config. It does a few sanity checks to ensure
+// the config will likely work.
 func NewServer(config *Config) (*Server, error) {
 	if config.ListenHTTPS == "" && config.ListenHTTP == "" {
 		return nil, errListenAddrMissing
@@ -171,6 +173,8 @@ func NewServer(config *Config) (*Server, error) {
 	}, nil
 }
 
+// ListenAndServe starts a HTTP and HTTPS server on the configured ports. This method
+// does not return, unless there is an error.
 func (s *Server) ListenAndServe() error {
 	listens := make([]string, 0)
 	if s.config.ListenHTTP != "" {
@@ -213,6 +217,7 @@ func (s *Server) ListenAndServe() error {
 	return err
 }
 
+// Shutdown asks the HTTP(S) server to be gracefully shut down
 func (s *Server) Shutdown() error {
 	s.Lock()
 	defer s.Unlock()

@@ -101,7 +101,7 @@ func runTestServer(t *testing.T, config *pcopy.Config) *pcopy.Server {
 	}
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			t.Fatal(err)
+			panic(err) // 'go vet' complains about 't.Fatal(err)'
 		}
 	}()
 	return server
@@ -121,18 +121,6 @@ func assertFileContent(t *testing.T, config *pcopy.Config, id string, content st
 
 func assertFdContains(t *testing.T, fd *os.File, substr string) {
 	s := readFullFD(t, fd)
-	if !strings.Contains(s, substr) {
-		t.Fatalf("expected %s to be contained in string, but it wasn't: %s", substr, s)
-	}
-}
-
-func assertStrEquals(t *testing.T, expected string, actual string) {
-	if actual != expected {
-		t.Fatalf("expected %s, got %s", expected, actual)
-	}
-}
-
-func assertStrContains(t *testing.T, s string, substr string) {
 	if !strings.Contains(s, substr) {
 		t.Fatalf("expected %s to be contained in string, but it wasn't: %s", substr, s)
 	}
