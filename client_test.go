@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -289,11 +288,7 @@ func TestClient_VerifyWithPinnedCertNoAuthSuccess(t *testing.T) {
 
 func newTestClientAndServer(t *testing.T, config *Config, handler http.Handler) (*Client, *httptest.Server) {
 	server := httptest.NewTLSServer(handler)
-	uri, err := url.ParseRequestURI(server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.ServerAddr = ExpandServerAddr(uri.Host)
+	config.ServerAddr = ExpandServerAddr(server.URL)
 
 	client, err := NewClient(config)
 	if err != nil {

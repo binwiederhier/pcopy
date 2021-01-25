@@ -41,11 +41,11 @@ help:
 check: test fmt-check vet lint staticcheck
 
 test: .PHONY
-	$(GO) test
+	$(GO) test ./...
 
 coverage:
 	mkdir -p build/coverage
-	$(GO) test -race -coverprofile=build/coverage/coverage.txt -covermode=atomic
+	$(GO) test -race -coverprofile=build/coverage/coverage.txt -covermode=atomic ./...
 	$(GO) tool cover -func build/coverage/coverage.txt
 
 coverage-upload:

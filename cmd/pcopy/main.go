@@ -9,9 +9,10 @@ import (
 )
 
 var (
-	version = "dev"
-	commit  = "unknown"
-	date    = "unknown"
+	version    = "dev"
+	commit     = "unknown"
+	date       = "unknown"
+	defaultFDs = &stdFDs{os.Stdin, os.Stdout, os.Stderr}
 )
 
 const (
@@ -19,7 +20,19 @@ const (
 	categoryServer = "Server-side commands"
 )
 
+type stdFDs struct {
+	in  *os.File
+	out *os.File
+	err *os.File
+}
+
 func main() {
+	if err := runApp(defaultFDs, os.Args...); err != nil {
+		fail(err)
+	}
+}
+
+func runApp(fds *stdFDs, args ...string) error {
 	cli.AppHelpTemplate += fmt.Sprintf(`
 Try 'pcopy COMMAND --help' for more information.
 
@@ -36,6 +49,9 @@ Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0
 		HideVersion:            true,
 		EnableBashCompletion:   true,
 		UseShortOptionHandling: true,
+		Reader:                 fds.in,
+		Writer:                 fds.out,
+		ErrWriter:              fds.err,
 		Commands: []*cli.Command{
 			// Client commands
 			cmdCopy,
@@ -52,17 +68,12 @@ Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0
 		},
 	}
 
-	var args []string
-	if os.Args[0] == "pcp" {
-		args = append([]string{os.Args[0], "copy"}, os.Args[1:]...)
-	} else if os.Args[0] == "ppaste" {
-		args = append([]string{os.Args[0], "paste"}, os.Args[1:]...)
-	} else {
-		args = os.Args
+	if args[0] == "pcp" {
+		args = append([]string{"pcopy", "copy"}, args[1:]...)
+	} else if args[0] == "ppaste" {
+		args = append([]string{"pcopy", "paste"}, args[1:]...)
 	}
-	if err := app.Run(args); err != nil {
-		fail(err)
-	}
+	return app.Run(args)
 }
 
 // parseAndLoadConfig is a helper to load the config file either from the given filename, or if that is empty, determine
@@ -95,12 +106,6 @@ func eprint(a ...interface{}) {
 
 func eprintln(a ...interface{}) {
 	if _, err := fmt.Fprintln(os.Stderr, a...); err != nil {
-		fail(err)
-	}
-}
-
-func eprintf(format string, a ...interface{}) {
-	if _, err := fmt.Fprintf(os.Stderr, format, a...); err != nil {
 		fail(err)
 	}
 }

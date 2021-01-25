@@ -174,6 +174,10 @@ func TestExpandServerAddr_ExpandAllTheThings(t *testing.T) {
 	}
 }
 
+func TestExpandServerAddr_Expand4431(t *testing.T) {
+	assertStrEquals(t, "https://myhost:4431", ExpandServerAddr("https://myhost:4431"))
+}
+
 func TestExpandServerAddr_ExpandProto(t *testing.T) {
 	actual := ExpandServerAddr("myhost:1234")
 	expected := "https://myhost:1234"

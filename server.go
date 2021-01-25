@@ -77,12 +77,14 @@ var (
 	webStaticFs embed.FS
 )
 
-// server is the main HTTP server struct. It's the one with all the good stuff.
-type server struct {
+// Server is the main HTTP server struct. It's the one with all the good stuff.
+type Server struct {
 	config    *Config
 	clipboard *clipboard
 	visitors  map[string]*visitor
 	routes    []route
+	srvHTTP   *http.Server
+	srvHTTPS  *http.Server
 	sync.Mutex
 }
 
@@ -137,15 +139,15 @@ type webTemplateConfig struct {
 // verify, ...), as well as the actual clipboard functionality (GET/PUT/POST). It also starts a background process
 // to prune old
 func Serve(config *Config) error {
-	server, err := newServer(config)
+	server, err := NewServer(config)
 	if err != nil {
 		return err
 	}
 	go server.serverManager()
-	return server.listenAndServe()
+	return server.ListenAndServe()
 }
 
-func newServer(config *Config) (*server, error) {
+func NewServer(config *Config) (*Server, error) {
 	if config.ListenHTTPS == "" && config.ListenHTTP == "" {
 		return nil, errListenAddrMissing
 	}
@@ -161,7 +163,7 @@ func newServer(config *Config) (*server, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &server{
+	return &Server{
 		config:    config,
 		clipboard: clipboard,
 		visitors:  make(map[string]*visitor),
@@ -169,7 +171,7 @@ func newServer(config *Config) (*server, error) {
 	}, nil
 }
 
-func (s *server) listenAndServe() error {
+func (s *Server) ListenAndServe() error {
 	listens := make([]string, 0)
 	if s.config.ListenHTTP != "" {
 		listens = append(listens, fmt.Sprintf("%s/http", s.config.ListenHTTP))
@@ -183,19 +185,26 @@ func (s *server) listenAndServe() error {
 		log.Printf("Listening on %s\n", strings.Join(listens, " "))
 	}
 
-	http.HandleFunc("/", s.handle)
+	handler := http.NewServeMux()
+	handler.HandleFunc("/", s.handle)
 
 	errChan := make(chan error)
 	if s.config.ListenHTTP != "" {
+		s.Lock()
+		s.srvHTTP = &http.Server{Addr: s.config.ListenHTTP, Handler: handler}
+		s.Unlock()
 		go func() {
-			if err := http.ListenAndServe(s.config.ListenHTTP, nil); err != nil {
+			if err := s.srvHTTP.ListenAndServe(); err != nil {
 				errChan <- err
 			}
 		}()
 	}
 	if s.config.ListenHTTPS != "" {
+		s.Lock()
+		s.srvHTTPS = &http.Server{Addr: s.config.ListenHTTPS, Handler: handler}
+		s.Unlock()
 		go func() {
-			if err := http.ListenAndServeTLS(s.config.ListenHTTPS, s.config.CertFile, s.config.KeyFile, nil); err != nil {
+			if err := s.srvHTTPS.ListenAndServeTLS(s.config.CertFile, s.config.KeyFile); err != nil {
 				errChan <- err
 			}
 		}()
@@ -204,7 +213,23 @@ func (s *server) listenAndServe() error {
 	return err
 }
 
-func (s *server) routeList() []route {
+func (s *Server) Shutdown() error {
+	s.Lock()
+	defer s.Unlock()
+	if s.srvHTTP != nil {
+		if err := s.srvHTTP.Shutdown(context.Background()); err != nil {
+			return err
+		}
+	}
+	if s.srvHTTPS != nil {
+		if err := s.srvHTTPS.Shutdown(context.Background()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) routeList() []route {
 	s.Lock()
 	defer s.Unlock()
 	if s.routes != nil {
@@ -226,7 +251,7 @@ func (s *server) routeList() []route {
 	return s.routes
 }
 
-func (s *server) handle(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	for _, route := range s.routeList() {
 		matches := route.regex.FindStringSubmatch(r.URL.Path)
 		if len(matches) > 0 && r.Method == route.method {
@@ -251,7 +276,7 @@ func (s *server) handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 
 	salt := ""
@@ -268,19 +293,19 @@ func (s *server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 	return json.NewEncoder(w).Encode(response)
 }
 
-func (s *server) handleVerify(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
 	return nil
 }
 
-func (s *server) handleRoot(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) error {
 	if strings.HasPrefix(r.Header.Get("User-Agent"), "curl/") {
 		return s.handleCurlRoot(w, r)
 	}
 	return s.onlyIfWebUI(s.redirectHTTPS(s.handleWebRoot))(w, r)
 }
 
-func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 	return webTemplate.Execute(w, &webTemplateConfig{
 		KeyDerivIter: keyDerivIter,
 		KeyLenBytes:  keyLenBytes,
@@ -289,17 +314,17 @@ func (s *server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-func (s *server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
 	return curlTemplate.Execute(w, &webTemplateConfig{Config: s.config})
 }
 
-func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 	r.URL.Path = "/web" + r.URL.Path // This is a hack to get the embedded path
 	http.FileServer(http.FS(webStaticFs)).ServeHTTP(w, r)
 	return nil
 }
 
-func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
 	stat, err := s.clipboard.Stat(id)
@@ -319,7 +344,7 @@ func (s *server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 	return s.clipboard.ReadFile(id, newSniffWriter(w))
 }
 
-func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
 	stat, err := s.clipboard.Stat(id)
@@ -333,12 +358,12 @@ func (s *server) handleClipboardHead(w http.ResponseWriter, r *http.Request) err
 	return s.writeFileInfoOutput(w, id, stat.Expires, ttl, formatHeadersOnly)
 }
 
-func (s *server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
 	ctx := context.WithValue(r.Context(), routeCtx{}, []string{randomFileID()})
 	return s.handleClipboardPut(w, r.WithContext(ctx))
 }
 
-func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) error {
 	// Parse request: file ID, stream
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
@@ -444,7 +469,7 @@ func (s *server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 // checkPUT verifies that the PUT against the given ID is allowed. It also increases
 // clipboard count limits and visitor limits.
-func (s *server) checkPUT(id string, remoteAddr string) error {
+func (s *Server) checkPUT(id string, remoteAddr string) error {
 	stat, _ := s.clipboard.Stat(id)
 	if stat == nil {
 		// File does not exist
@@ -474,7 +499,7 @@ func (s *server) checkPUT(id string, remoteAddr string) error {
 	return nil
 }
 
-func (s *server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
+func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
 	url, err := s.config.GenerateClipURL(id, ttl) // TODO this is horrible
 	if err != nil {
 		return err
@@ -525,7 +550,7 @@ func (s *server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 	return nil
 }
 
-func (s *server) getFileMode(r *http.Request) (string, error) {
+func (s *Server) getFileMode(r *http.Request) (string, error) {
 	mode := s.config.FileModesAllowed[0]
 	if r.Header.Get(headerFileMode) != "" {
 		mode = r.Header.Get(headerFileMode)
@@ -540,7 +565,7 @@ func (s *server) getFileMode(r *http.Request) (string, error) {
 	return "", ErrHTTPBadRequest
 }
 
-func (s *server) getTTL(r *http.Request) (time.Duration, error) {
+func (s *Server) getTTL(r *http.Request) (time.Duration, error) {
 	var err error
 	var ttl time.Duration
 	if r.URL.Query().Get(queryParamTTL) != "" {
@@ -559,7 +584,7 @@ func (s *server) getTTL(r *http.Request) (time.Duration, error) {
 	return ttl, nil
 }
 
-func (s *server) getStreamMode(r *http.Request) (string, error) {
+func (s *Server) getStreamMode(r *http.Request) (string, error) {
 	mode := streamModeNoStream
 	if r.URL.Query().Get(queryParamStream) != "" {
 		mode = r.URL.Query().Get(queryParamStream)
@@ -572,11 +597,11 @@ func (s *server) getStreamMode(r *http.Request) (string, error) {
 	return mode, nil
 }
 
-func (s *server) isReserve(r *http.Request) bool {
+func (s *Server) isReserve(r *http.Request) bool {
 	return r.Header.Get(headerReserve) == "yes" || r.URL.Query().Get(queryParamStreamReserve) == "1"
 }
 
-func (s *server) getOutputFormat(r *http.Request) string {
+func (s *Server) getOutputFormat(r *http.Request) string {
 	if r.Header.Get(headerFormat) == formatJSON || r.URL.Query().Get(queryParamFormat) == formatJSON {
 		return formatJSON
 	} else if r.Header.Get(headerFormat) == formatHeadersOnly || r.URL.Query().Get(queryParamFormat) == formatHeadersOnly {
@@ -585,7 +610,7 @@ func (s *server) getOutputFormat(r *http.Request) string {
 	return formatText
 }
 
-func (s *server) auth(next handlerFnWithErr) handlerFnWithErr {
+func (s *Server) auth(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if err := s.authorize(r); err != nil {
 			return err
@@ -594,7 +619,7 @@ func (s *server) auth(next handlerFnWithErr) handlerFnWithErr {
 	}
 }
 
-func (s *server) authorize(r *http.Request) error {
+func (s *Server) authorize(r *http.Request) error {
 	if s.config.Key == nil {
 		return nil
 	}
@@ -619,7 +644,7 @@ func (s *server) authorize(r *http.Request) error {
 	}
 }
 
-func (s *server) authorizeHmac(r *http.Request, matches []string) error {
+func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
 		log.Printf("%s - %s %s - hmac timestamp conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
@@ -670,7 +695,7 @@ func (s *server) authorizeHmac(r *http.Request, matches []string) error {
 	return nil
 }
 
-func (s *server) authorizeBasic(r *http.Request, matches []string) error {
+func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	userPassBytes, err := base64.StdEncoding.DecodeString(matches[1])
 	if err != nil {
 		log.Printf("%s - %s %s - basic base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
@@ -694,7 +719,7 @@ func (s *server) authorizeBasic(r *http.Request, matches []string) error {
 	return nil
 }
 
-func (s *server) serverManager() {
+func (s *Server) serverManager() {
 	ticker := time.NewTicker(managerTickerInterval)
 	for {
 		s.updateStatsAndExpire()
@@ -702,7 +727,7 @@ func (s *server) serverManager() {
 	}
 }
 
-func (s *server) updateStatsAndExpire() {
+func (s *Server) updateStatsAndExpire() {
 	s.Lock()
 	defer s.Unlock()
 
@@ -726,7 +751,7 @@ func (s *server) updateStatsAndExpire() {
 	}
 }
 
-func (s *server) printStats(stats *clipboardStats) {
+func (s *Server) printStats(stats *clipboardStats) {
 	var countLimit, sizeLimit string
 	if s.config.ClipboardCountLimit == 0 {
 		countLimit = "no limit"
@@ -742,7 +767,7 @@ func (s *server) printStats(stats *clipboardStats) {
 		stats.NumFiles, countLimit, BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
 }
 
-func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
+func (s *Server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if !s.config.WebUI {
 			return ErrHTTPBadRequest
@@ -752,7 +777,7 @@ func (s *server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
 	}
 }
 
-func (s *server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
+func (s *Server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		if r.TLS == nil && s.config.ListenHTTPS != "" {
 			newURL := r.URL
@@ -774,7 +799,7 @@ func (s *server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
 
 // limit wraps all HTTP endpoints and limits API use to a certain number of requests per second.
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
-func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
+func (s *Server) limit(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		v := s.getVisitor(r.RemoteAddr)
 		if !v.rateLimiter.Allow() {
@@ -787,7 +812,7 @@ func (s *server) limit(next handlerFnWithErr) handlerFnWithErr {
 
 // getVisitor creates or retrieves a rate.Limiter for the given visitor.
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
-func (s *server) getVisitor(remoteAddr string) *visitor {
+func (s *Server) getVisitor(remoteAddr string) *visitor {
 	s.Lock()
 	defer s.Unlock()
 
@@ -811,7 +836,7 @@ func (s *server) getVisitor(remoteAddr string) *visitor {
 	return v
 }
 
-func (s *server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
+func (s *Server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
 	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
 	w.Write([]byte(http.StatusText(code)))

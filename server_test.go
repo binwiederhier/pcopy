@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 func TestServer_NewServerInvalidListenAddr(t *testing.T) {
 	config := NewConfig()
 	config.ListenHTTPS = ""
-	_, err := newServer(config)
+	_, err := NewServer(config)
 	if err == nil {
 		t.Fatalf("expected error, got none")
 	}
@@ -36,7 +36,7 @@ func TestServer_NewServerInvalidKeyFile(t *testing.T) {
 	config := NewConfig()
 	config.KeyFile = ""
 	config.CertFile = "something"
-	_, err := newServer(config)
+	_, err := NewServer(config)
 	if err == nil {
 		t.Fatalf("expected error, got none")
 	}
@@ -46,7 +46,7 @@ func TestServer_NewServerInvalidCertFile(t *testing.T) {
 	config := NewConfig()
 	config.KeyFile = "something"
 	config.CertFile = ""
-	_, err := newServer(config)
+	_, err := NewServer(config)
 	if err == nil {
 		t.Fatalf("expected error, got none")
 	}
@@ -677,8 +677,8 @@ func TestServer_ReservedWordsFailure(t *testing.T) {
 	assertStatus(t, rr, http.StatusBadRequest)
 }
 
-func newTestServer(t *testing.T, config *Config) *server {
-	server, err := newServer(config)
+func newTestServer(t *testing.T, config *Config) *Server {
+	server, err := NewServer(config)
 	if err != nil {
 		t.Fatal(err)
 	}

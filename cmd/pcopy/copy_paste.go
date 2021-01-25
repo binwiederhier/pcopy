@@ -105,11 +105,11 @@ func execCopy(c *cli.Context) error {
 	if readonly && readwrite {
 		return cli.Exit("error: either --read-only or --read-write are allowed, not both", 1)
 	}
-	mode := ""
+	fileMode := ""
 	if readonly {
-		mode = pcopy.FileModeReadOnly
+		fileMode = pcopy.FileModeReadOnly
 	} else if readwrite {
-		mode = pcopy.FileModeReadWrite
+		fileMode = pcopy.FileModeReadWrite
 	}
 
 	if random {
@@ -126,42 +126,42 @@ func execCopy(c *cli.Context) error {
 	}
 
 	if link && stream {
-		eprintf(pcopy.FileInfoInstructions(fileInfo))
-		eprintln()
-		eprintln("# Streaming contents: upload will hold until you start downloading using any of the commands above.")
+		fmt.Fprint(c.App.ErrWriter, pcopy.FileInfoInstructions(fileInfo))
+		fmt.Fprintln(c.App.ErrWriter)
+		fmt.Fprintln(c.App.ErrWriter, "# Streaming contents: upload will hold until you start downloading using any of the commands above.")
 	}
 
 	if len(files) > 0 {
-		fileInfo, err = client.CopyFiles(files, id, ttl, mode, stream)
+		fileInfo, err = client.CopyFiles(files, id, ttl, fileMode, stream)
 		if err != nil {
-			return handleCopyError(err)
+			return handleCopyError(c.App.ErrWriter, err)
 		}
 	} else {
-		stat, err := os.Stdin.Stat()
+		stat, err := c.App.Reader.(*os.File).Stat()
 		if err != nil {
 			return err
 		}
 
 		var reader io.ReadCloser
 		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			reader = os.Stdin
+			reader, _ = c.App.Reader.(*os.File)
 		} else {
-			reader = createInteractiveReader()
+			reader = createInteractiveReader(c.App.Reader, c.App.ErrWriter)
 		}
 
-		fileInfo, err = client.Copy(reader, id, ttl, mode, stream)
+		fileInfo, err = client.Copy(reader, id, ttl, fileMode, stream)
 		if err != nil {
-			return handleCopyError(err)
+			return handleCopyError(c.App.ErrWriter, err)
 		}
 	}
 
 	if link && !stream {
-		eprintf(pcopy.FileInfoInstructions(fileInfo))
+		fmt.Fprintf(c.App.ErrWriter, pcopy.FileInfoInstructions(fileInfo))
 	}
 	return nil
 }
 
-func handleCopyError(err error) error {
+func handleCopyError(errWriter io.Writer, err error) error {
 	if err == pcopy.ErrHTTPPartialContent {
 		eprintln(" (interrupted by client)")
 		return nil // This is not really an error!
@@ -177,12 +177,12 @@ func handleCopyError(err error) error {
 	return err
 }
 
-func createInteractiveReader() io.ReadCloser {
-	eprintln("(Reading from STDIN, use Ctrl-D will send)")
-	eprintln()
+func createInteractiveReader(reader io.Reader, errWriter io.Writer) io.ReadCloser {
+	fmt.Fprintln(errWriter, "(Reading from STDIN, use Ctrl-D will send)")
+	fmt.Fprintln(errWriter)
 
 	lines := make([]string, 0)
-	scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text()+"\n")
 	}
@@ -204,7 +204,7 @@ func execPaste(c *cli.Context) error {
 			return err
 		}
 	} else {
-		if err := client.Paste(os.Stdout, id); err != nil {
+		if err := client.Paste(c.App.Writer, id); err != nil {
 			return err
 		}
 	}
@@ -242,7 +242,9 @@ func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string, error) {
 		config.CertFile = certFile
 	}
 	if !quiet {
-		config.ProgressFunc = progressOutput
+		config.ProgressFunc = func(processed int64, total int64, done bool) {
+			progressOutput(c.App.ErrWriter, processed, total, done)
+		}
 	}
 	if os.Getenv("PCOPY_KEY") != "" {
 		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
@@ -293,7 +295,7 @@ func parseClipboardAndID(clipboardAndID string, configFileOverride string) (stri
 
 var previousProgressLen int
 
-func progressOutput(processed int64, total int64, done bool) {
+func progressOutput(errWriter io.Writer, processed int64, total int64, done bool) {
 	if done {
 		if previousProgressLen > 0 {
 			progress := fmt.Sprintf("%s (100%%)", pcopy.BytesToHuman(processed))
@@ -301,7 +303,7 @@ func progressOutput(processed int64, total int64, done bool) {
 			if len(progress) < previousProgressLen {
 				progressWithSpaces += strings.Repeat(" ", previousProgressLen-len(progress))
 			}
-			eprintf("\r%s\r\n", progressWithSpaces)
+			fmt.Fprintf(errWriter, "\r%s\r\n", progressWithSpaces)
 		}
 	} else {
 		var progress string
@@ -315,7 +317,7 @@ func progressOutput(processed int64, total int64, done bool) {
 		if len(progress) < previousProgressLen {
 			progressWithSpaces += strings.Repeat(" ", previousProgressLen-len(progress))
 		}
-		eprintf("\r%s", progressWithSpaces)
+		fmt.Fprintf(errWriter, "\r%s", progressWithSpaces)
 		previousProgressLen = len(progress)
 	}
 }
