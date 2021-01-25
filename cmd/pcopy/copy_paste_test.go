@@ -99,10 +99,10 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	var info map[string]interface{}
 	json.Unmarshal([]byte(out), &info)
 
-	fileId := info["file"].(string)
+	fileID := info["file"].(string)
 	curlGET := info["curl"].(string)
 
-	file := filepath.Join(config.ClipboardDir, fileId)
+	file := filepath.Join(config.ClipboardDir, fileID)
 	stat, _ := os.Stat(file)
 	if stat.Mode()&os.ModeNamedPipe == 0 {
 		t.Fatalf("expected %s to be a pipe, but it's not", file)
