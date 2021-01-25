@@ -1,11 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestCLI_Copy(t *testing.T) {
@@ -62,7 +68,7 @@ func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	defer server.Shutdown()
 
 	var stdout bytes.Buffer
-	cmdCurlPOST := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s?f=json", "https://plep.nopaste.net"))
+	cmdCurlPOST := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s?f=json", config.ServerAddr))
 	cmdCurlPOST.Stdout = &stdout
 	cmdCurlPOST.Run()
 
@@ -75,4 +81,74 @@ func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	cmdCurlGET.Run()
 
 	assertStrEquals(t, stdout.String(), "abc")
+}
+
+func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
+	// This tests #46: curl POST with streaming and short payloads does not work (curl -dabc http://...?s=1)
+
+	_, config := newTestConfig(t)
+	server := runTestServer(t, config)
+	defer server.Shutdown()
+
+	// Streaming enabled (s=1), note that "stdbuf -oL" is required to flush buffers after every line
+	cmdCurlPOST := exec.Command("stdbuf", "-oL", "curl", "-sSLk", "-dabc", fmt.Sprintf("%s?s=1&f=json", config.ServerAddr))
+	stdoutPipe, _ := cmdCurlPOST.StdoutPipe()
+	cmdCurlPOST.Start()
+
+	out := waitForOutput(t, stdoutPipe, 1*time.Second, 100*time.Millisecond)
+	var info map[string]interface{}
+	json.Unmarshal([]byte(out), &info)
+
+	fileId := info["file"].(string)
+	curlGET := info["curl"].(string)
+
+	file := filepath.Join(config.ClipboardDir, fileId)
+	stat, _ := os.Stat(file)
+	if stat.Mode()&os.ModeNamedPipe == 0 {
+		t.Fatalf("expected %s to be a pipe, but it's not", file)
+	}
+
+	// Now GET it
+	var stdout bytes.Buffer
+	cmdCurlGET := exec.Command("sh", "-c", curlGET)
+	cmdCurlGET.Stdout = &stdout
+	cmdCurlGET.Run()
+
+	assertStrEquals(t, stdout.String(), "abc")
+	stat, _ = os.Stat(file)
+	if stat != nil {
+		t.Fatalf("expected %s to not exist anymore, but it does", file)
+	}
+}
+
+func waitForOutput(t *testing.T, rc io.ReadCloser, waitFirstLine time.Duration, waitRest time.Duration) string {
+	reader := bufio.NewReader(rc)
+	lines := make(chan string)
+	go func() {
+		for {
+			line, err := reader.ReadString('\n')
+			if err == nil {
+				lines <- line
+			} else if err == io.EOF {
+				close(lines)
+				break
+			}
+		}
+	}()
+	output := make([]string, 0)
+	wait := waitFirstLine
+loop:
+	for {
+		select {
+		case line := <-lines:
+			output = append(output, line)
+			wait = waitRest
+		case <-time.After(wait):
+			break loop
+		}
+	}
+	if len(output) == 0 {
+		t.Fatalf("waiting for output timed out")
+	}
+	return strings.Join(output, "\n")
 }
