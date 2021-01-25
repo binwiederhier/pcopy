@@ -125,3 +125,15 @@ func assertFdContains(t *testing.T, fd *os.File, substr string) {
 		t.Fatalf("expected %s to be contained in string, but it wasn't: %s", substr, s)
 	}
 }
+
+func assertStrEquals(t *testing.T, expected string, actual string) {
+	if actual != expected {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+}
+
+func assertStrContains(t *testing.T, s string, substr string) {
+	if !strings.Contains(s, substr) {
+		t.Fatalf("expected %s to be contained in string, but it wasn't: %s", substr, s)
+	}
+}

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"testing"
@@ -43,20 +45,34 @@ func TestCLI_CopyPaste(t *testing.T) {
 func TestCurl_CopyPOSTSuccess(t *testing.T) {
 	_, config := newTestConfig(t)
 	server := runTestServer(t, config)
+	defer server.Shutdown()
 
-	fds, cmd := commandWithTempFDs(t, "curl", "-sSLk", "-dabc", fmt.Sprintf("%s/howdy?f=json", config.ServerAddr))
+	var stdout bytes.Buffer
+	cmd := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s/howdy?f=json", config.ServerAddr))
+	cmd.Stdout = &stdout
 	cmd.Run()
-	server.Shutdown()
 
 	assertFileContent(t, config, "howdy", "abc")
-	assertFdContains(t, fds.out, `"url":"https://localhost:12345/howdy"`) // json
+	assertStrContains(t, stdout.String(), `"url":"https://localhost:12345/howdy"`) // json
 }
 
-func commandWithTempFDs(t *testing.T, name string, args ...string) (*stdFDs, *exec.Cmd) {
-	fds := tempFDs(t)
-	cmd := exec.Command(name, args...)
-	cmd.Stdin = fds.in
-	cmd.Stdout = fds.out
-	cmd.Stderr = fds.err
-	return fds, cmd
+func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
+	_, config := newTestConfig(t)
+	server := runTestServer(t, config)
+	defer server.Shutdown()
+
+	var stdout bytes.Buffer
+	cmdCurlPOST := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s?f=json", "https://plep.nopaste.net"))
+	cmdCurlPOST.Stdout = &stdout
+	cmdCurlPOST.Run()
+
+	var info map[string]interface{}
+	json.Unmarshal([]byte(stdout.String()), &info)
+
+	stdout.Reset()
+	cmdCurlGET := exec.Command("sh", "-c", info["curl"].(string))
+	cmdCurlGET.Stdout = &stdout
+	cmdCurlGET.Run()
+
+	assertStrEquals(t, stdout.String(), "abc")
 }
