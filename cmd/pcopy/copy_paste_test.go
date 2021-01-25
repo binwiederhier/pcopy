@@ -73,7 +73,7 @@ func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	cmdCurlPOST.Run()
 
 	var info map[string]interface{}
-	json.Unmarshal([]byte(stdout.String()), &info)
+	json.Unmarshal(stdout.Bytes(), &info)
 
 	stdout.Reset()
 	cmdCurlGET := exec.Command("sh", "-c", info["curl"].(string))
