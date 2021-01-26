@@ -158,27 +158,23 @@ func Serve(config *Config) error {
 func ServeMany(configs []*Config) error {
 	var err error
 
+	if len(configs) == 0 {
+		return errInvalidNumberOfConfigs
+	}
+
 	handler := http.NewServeMux()
 	servers := make([]*Server, len(configs))
 	tlsConfig := &tls.Config{Certificates: make([]tls.Certificate, len(configs))}
-	listenHTTP := ""
-	listenHTTPS := ""
 
 	for i, config := range configs {
 		dnsNames := make([]string, 0)
-		if config.ListenHTTP != "" {
-			if listenHTTP == "" {
-				listenHTTP = config.ListenHTTP
-			} else if listenHTTP != config.ListenHTTP {
-				return errors.New("config setting 'ListenHTTP' must be identical in all config files")
-			}
+		if config.ListenHTTP != configs[0].ListenHTTP {
+			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
+		}
+		if config.ListenHTTPS != configs[0].ListenHTTPS {
+			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
 		}
 		if config.ListenHTTPS != "" {
-			if listenHTTPS == "" {
-				listenHTTPS = config.ListenHTTPS
-			} else if listenHTTPS != config.ListenHTTPS {
-				return errors.New("config setting 'ListenHTTPS' must be identical in all config files")
-			}
 			tlsConfig.Certificates[i], err = tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
 			if err != nil {
 				return err
@@ -204,27 +200,27 @@ func ServeMany(configs []*Config) error {
 	}
 
 	listens := make([]string, 0)
-	if listenHTTP != "" {
-		listens = append(listens, fmt.Sprintf("%s/http", listenHTTP))
+	if configs[0].ListenHTTP != "" {
+		listens = append(listens, fmt.Sprintf("%s/http", configs[0].ListenHTTP))
 	}
-	if listenHTTPS != "" {
-		listens = append(listens, fmt.Sprintf("%s/https", listenHTTPS))
+	if configs[0].ListenHTTPS != "" {
+		listens = append(listens, fmt.Sprintf("%s/https", configs[0].ListenHTTPS))
 	}
 	log.Printf("Listening on %s (%d clipboards)\n", strings.Join(listens, " "), len(configs))
 
 	errChan := make(chan error)
-	if listenHTTP != "" {
-		srvHTTP := &http.Server{Addr: listenHTTP, Handler: handler}
+	if configs[0].ListenHTTP != "" {
+		srvHTTP := &http.Server{Addr: configs[0].ListenHTTP, Handler: handler}
 		go func() {
 			if err := srvHTTP.ListenAndServe(); err != nil {
 				errChan <- err
 			}
 		}()
 	}
-	if listenHTTPS != "" {
-		srvHTTPS := &http.Server{Addr: listenHTTPS, Handler: handler}
+	if configs[0].ListenHTTPS != "" {
+		srvHTTPS := &http.Server{Addr: configs[0].ListenHTTPS, Handler: handler}
 		go func() {
-			listener, err := tls.Listen("tcp", listenHTTPS, tlsConfig)
+			listener, err := tls.Listen("tcp", configs[0].ListenHTTPS, tlsConfig)
 			if err != nil {
 				errChan <- err
 			}
@@ -976,4 +972,5 @@ var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidFileID = errors.New("invalid file id")
 var errInvalidStreamMode = errors.New("invalid stream mode")
+var errInvalidNumberOfConfigs = errors.New("invalid number of configs, need at least one")
 var errNoMatchingRoute = errors.New("no matching route")
