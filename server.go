@@ -157,56 +157,18 @@ func Serve(config *Config) error {
 // If more than one config is passed, the "ListenAddr" configuration setting must be identical for all of them.
 func ServeMany(configs []*Config) error {
 	var err error
-
-	if len(configs) == 0 {
-		return errInvalidNumberOfConfigs
+	if err := checkConfigs(configs); err != nil {
+		return err
 	}
-
-	handler := http.NewServeMux()
-	servers := make([]*Server, len(configs))
-	tlsConfig := &tls.Config{Certificates: make([]tls.Certificate, len(configs))}
-
-	for i, config := range configs {
-		dnsNames := make([]string, 0)
-		if config.ListenHTTP != configs[0].ListenHTTP {
-			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
-		}
-		if config.ListenHTTPS != configs[0].ListenHTTPS {
-			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
-		}
-		if config.ListenHTTPS != "" {
-			tlsConfig.Certificates[i], err = tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
-			if err != nil {
-				return err
-			}
-			cert, err := LoadCertFromFile(config.CertFile)
-			if err != nil {
-				return err
-			}
-			dnsNames = append(dnsNames, cert.DNSNames...)
-		}
-		servers[i], err = NewServer(config)
-		if err != nil {
-			return err
-		}
-		serverURL, err := url.ParseRequestURI(ExpandServerAddr(config.ServerAddr))
-		if err != nil {
-			return err
-		}
-		dnsNames = appendStringIfMissing(dnsNames, serverURL.Hostname())
-		for _, dnsName := range dnsNames {
-			handler.HandleFunc(fmt.Sprintf("%s/", dnsName), servers[i].handle)
-		}
+	servers, err := createServers(configs)
+	if err != nil {
+		return err
 	}
-
-	listens := make([]string, 0)
-	if configs[0].ListenHTTP != "" {
-		listens = append(listens, fmt.Sprintf("%s/http", configs[0].ListenHTTP))
+	handler, err := createHandler(servers)
+	if err != nil {
+		return err
 	}
-	if configs[0].ListenHTTPS != "" {
-		listens = append(listens, fmt.Sprintf("%s/https", configs[0].ListenHTTPS))
-	}
-	log.Printf("Listening on %s (%d clipboards)\n", strings.Join(listens, " "), len(configs))
+	printListenInfo(configs)
 
 	errChan := make(chan error)
 	if configs[0].ListenHTTP != "" {
@@ -220,12 +182,22 @@ func ServeMany(configs []*Config) error {
 	if configs[0].ListenHTTPS != "" {
 		srvHTTPS := &http.Server{Addr: configs[0].ListenHTTPS, Handler: handler}
 		go func() {
+			tlsConfig := &tls.Config{Certificates: make([]tls.Certificate, len(configs))}
+			for i, config := range configs {
+				tlsConfig.Certificates[i], err = tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+				if err != nil {
+					errChan <- err
+					return
+				}
+			}
 			listener, err := tls.Listen("tcp", configs[0].ListenHTTPS, tlsConfig)
 			if err != nil {
 				errChan <- err
+				return
 			}
 			if err := srvHTTPS.Serve(listener); err != nil {
 				errChan <- err
+				return
 			}
 		}()
 	}
@@ -234,6 +206,56 @@ func ServeMany(configs []*Config) error {
 	}
 	err = <-errChan
 	return err
+}
+
+func printListenInfo(configs []*Config) {
+	listens := make([]string, 0)
+	if configs[0].ListenHTTP != "" {
+		listens = append(listens, fmt.Sprintf("%s/http", configs[0].ListenHTTP))
+	}
+	if configs[0].ListenHTTPS != "" {
+		listens = append(listens, fmt.Sprintf("%s/https", configs[0].ListenHTTPS))
+	}
+	log.Printf("Listening on %s (%d clipboard(s))\n", strings.Join(listens, " "), len(configs))
+}
+
+func createHandler(servers []*Server) (*http.ServeMux, error) {
+	handler := http.NewServeMux()
+	for i, server := range servers {
+		serverURL, err := url.ParseRequestURI(ExpandServerAddr(server.config.ServerAddr))
+		if err != nil {
+			return nil, err
+		}
+		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), servers[i].handle)
+	}
+	return handler, nil
+}
+
+func createServers(configs []*Config) ([]*Server, error) {
+	servers := make([]*Server, len(configs))
+	for i, config := range configs {
+		var err error
+		servers[i], err = NewServer(config)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return servers, nil
+}
+
+func checkConfigs(configs []*Config) error {
+	if len(configs) == 0 {
+		return errInvalidNumberOfConfigs
+	}
+	for _, config := range configs {
+		if config.ListenHTTP != configs[0].ListenHTTP {
+			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
+		}
+		if config.ListenHTTPS != configs[0].ListenHTTPS {
+			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
+		}
+	}
+	return nil
 }
 
 // NewServer creates a new instance of a Server using the given config. It does a few sanity checks to ensure
