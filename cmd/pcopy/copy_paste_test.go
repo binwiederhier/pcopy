@@ -13,8 +13,8 @@ import (
 
 func TestCLI_Copy(t *testing.T) {
 	filename, config := newTestConfig(t)
-	server := runTestServer(t, config)
-	defer server.Close()
+	serverRouter := runTestServerRouter(t, config)
+	defer serverRouter.Stop()
 
 	app, stdin, _, stderr := newTestApp()
 	stdin.WriteString("test stdin")
@@ -32,8 +32,8 @@ func TestCLI_Copy(t *testing.T) {
 
 func TestCLI_CopyPaste(t *testing.T) {
 	filename, config := newTestConfig(t)
-	server := runTestServer(t, config)
-	defer server.Close()
+	serverRouter := runTestServerRouter(t, config)
+	defer serverRouter.Stop()
 
 	copyApp, copyStdin, _, copyStderr := newTestApp()
 	copyStdin.WriteString("this is a test string")
@@ -51,8 +51,8 @@ func TestCLI_CopyPaste(t *testing.T) {
 
 func TestCLI_CopyPasteStream(t *testing.T) {
 	filename, config := newTestConfig(t)
-	server := runTestServer(t, config)
-	defer server.Close()
+	serverRouter := runTestServerRouter(t, config)
+	defer serverRouter.Stop()
 
 	// Copy
 	copyApp, copyStdin, _, copyStderr := newTestApp()
@@ -98,8 +98,8 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 
 func TestCurl_CopyPOSTSuccess(t *testing.T) {
 	_, config := newTestConfig(t)
-	server := runTestServer(t, config)
-	defer server.Close()
+	serverRouter := runTestServerRouter(t, config)
+	defer serverRouter.Stop()
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s/howdy?f=json", config.ServerAddr))
@@ -112,8 +112,8 @@ func TestCurl_CopyPOSTSuccess(t *testing.T) {
 
 func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	_, config := newTestConfig(t)
-	server := runTestServer(t, config)
-	defer server.Close()
+	serverRouter := runTestServerRouter(t, config)
+	defer serverRouter.Stop()
 
 	var stdout bytes.Buffer
 	cmdCurlPOST := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s?f=json", config.ServerAddr))
@@ -135,8 +135,8 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	// This tests #46: curl POST with streaming and short payloads does not work (curl -dabc http://...?s=1)
 
 	_, config := newTestConfig(t)
-	server := runTestServer(t, config)
-	defer server.Close()
+	serverRouter := runTestServerRouter(t, config)
+	defer serverRouter.Stop()
 
 	// Streaming enabled (s=1), note that "stdbuf -oL" is required to flush buffers after every line
 	cmdCurlPOST := exec.Command("stdbuf", "-oL", "curl", "-sSLk", "-dabc", fmt.Sprintf("%s?s=1&f=json", config.ServerAddr))

@@ -60,7 +60,7 @@ func execServe(c *cli.Context) error {
 		}
 		configs[i] = config
 	}
-	return pcopy.ServeMany(configs)
+	return pcopy.Serve(configs...)
 }
 
 func parseServeConfig(filename, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) (*pcopy.Config, error) {

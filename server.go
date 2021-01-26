@@ -6,7 +6,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
-	"crypto/tls"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -17,7 +16,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -85,8 +83,6 @@ type Server struct {
 	clipboard *clipboard
 	visitors  map[string]*visitor
 	routes    []route
-	srvHTTP   *http.Server
-	srvHTTPS  *http.Server
 	sync.Mutex
 }
 
@@ -137,127 +133,6 @@ type webTemplateConfig struct {
 	Config       *Config
 }
 
-// Serve starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
-// verify, ...), as well as the actual clipboard functionality (GET/PUT/POST). It also starts a background process
-// to prune old
-func Serve(config *Config) error {
-	server, err := NewServer(config)
-	if err != nil {
-		return err
-	}
-	go server.serverManager()
-	return server.ListenAndServe()
-}
-
-// ServeMany starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
-// verify, ...), as well as the actual clipboard functionality (GET/PUT/POST). It also starts a background process
-// to prune old.
-//
-// The function supports many configs, multiplexing based on the HTTP "Host:" header to the individual Server instances.
-// If more than one config is passed, the "ListenAddr" configuration setting must be identical for all of them.
-func ServeMany(configs []*Config) error {
-	var err error
-	if err := checkConfigs(configs); err != nil {
-		return err
-	}
-	servers, err := createServers(configs)
-	if err != nil {
-		return err
-	}
-	handler, err := createHandler(servers)
-	if err != nil {
-		return err
-	}
-	printListenInfo(configs)
-
-	errChan := make(chan error)
-	if configs[0].ListenHTTP != "" {
-		srvHTTP := &http.Server{Addr: configs[0].ListenHTTP, Handler: handler}
-		go func() {
-			if err := srvHTTP.ListenAndServe(); err != nil {
-				errChan <- err
-			}
-		}()
-	}
-	if configs[0].ListenHTTPS != "" {
-		srvHTTPS := &http.Server{Addr: configs[0].ListenHTTPS, Handler: handler}
-		go func() {
-			tlsConfig := &tls.Config{Certificates: make([]tls.Certificate, len(configs))}
-			for i, config := range configs {
-				tlsConfig.Certificates[i], err = tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
-				if err != nil {
-					errChan <- err
-					return
-				}
-			}
-			listener, err := tls.Listen("tcp", configs[0].ListenHTTPS, tlsConfig)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			if err := srvHTTPS.Serve(listener); err != nil {
-				errChan <- err
-				return
-			}
-		}()
-	}
-	for _, server := range servers {
-		go server.serverManager()
-	}
-	err = <-errChan
-	return err
-}
-
-func printListenInfo(configs []*Config) {
-	listens := make([]string, 0)
-	if configs[0].ListenHTTP != "" {
-		listens = append(listens, fmt.Sprintf("%s/http", configs[0].ListenHTTP))
-	}
-	if configs[0].ListenHTTPS != "" {
-		listens = append(listens, fmt.Sprintf("%s/https", configs[0].ListenHTTPS))
-	}
-	log.Printf("Listening on %s (%d clipboard(s))\n", strings.Join(listens, " "), len(configs))
-}
-
-func createHandler(servers []*Server) (*http.ServeMux, error) {
-	handler := http.NewServeMux()
-	for i, server := range servers {
-		serverURL, err := url.ParseRequestURI(ExpandServerAddr(server.config.ServerAddr))
-		if err != nil {
-			return nil, err
-		}
-		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), servers[i].handle)
-	}
-	return handler, nil
-}
-
-func createServers(configs []*Config) ([]*Server, error) {
-	servers := make([]*Server, len(configs))
-	for i, config := range configs {
-		var err error
-		servers[i], err = NewServer(config)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return servers, nil
-}
-
-func checkConfigs(configs []*Config) error {
-	if len(configs) == 0 {
-		return errInvalidNumberOfConfigs
-	}
-	for _, config := range configs {
-		if config.ListenHTTP != configs[0].ListenHTTP {
-			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
-		}
-		if config.ListenHTTPS != configs[0].ListenHTTPS {
-			return errors.New("config setting 'ListenHTTP' must be identical in all config files")
-		}
-	}
-	return nil
-}
-
 // NewServer creates a new instance of a Server using the given config. It does a few sanity checks to ensure
 // the config will likely work.
 func NewServer(config *Config) (*Server, error) {
@@ -282,67 +157,6 @@ func NewServer(config *Config) (*Server, error) {
 		visitors:  make(map[string]*visitor),
 		routes:    nil,
 	}, nil
-}
-
-// ListenAndServe starts a HTTP and HTTPS server on the configured ports. This method
-// does not return, unless there is an error.
-func (s *Server) ListenAndServe() error {
-	listens := make([]string, 0)
-	if s.config.ListenHTTP != "" {
-		listens = append(listens, fmt.Sprintf("%s/http", s.config.ListenHTTP))
-	}
-	if s.config.ListenHTTPS != "" {
-		listens = append(listens, fmt.Sprintf("%s/https", s.config.ListenHTTPS))
-	}
-	if s.config.Key == nil {
-		log.Printf("Listening on %s (UNPROTECTED CLIPBOARD)\n", strings.Join(listens, " "))
-	} else {
-		log.Printf("Listening on %s\n", strings.Join(listens, " "))
-	}
-
-	handler := http.NewServeMux()
-	handler.HandleFunc("/", s.handle)
-
-	errChan := make(chan error)
-	if s.config.ListenHTTP != "" {
-		s.Lock()
-		s.srvHTTP = &http.Server{Addr: s.config.ListenHTTP, Handler: handler}
-		s.Unlock()
-		go func() {
-			if err := s.srvHTTP.ListenAndServe(); err != nil {
-				errChan <- err
-			}
-		}()
-	}
-	if s.config.ListenHTTPS != "" {
-		s.Lock()
-		s.srvHTTPS = &http.Server{Addr: s.config.ListenHTTPS, Handler: handler}
-		s.Unlock()
-		go func() {
-			if err := s.srvHTTPS.ListenAndServeTLS(s.config.CertFile, s.config.KeyFile); err != nil {
-				errChan <- err
-			}
-		}()
-	}
-	err := <-errChan
-	return err
-}
-
-// Close immediately shuts down the HTTP(S) server. This is not a graceful shutdown.
-func (s *Server) Close() error {
-	s.Lock()
-	defer s.Unlock()
-	if s.srvHTTP != nil {
-		if err := s.srvHTTP.Close(); err != nil {
-			return err
-		}
-	}
-	if s.srvHTTPS != nil {
-		if err := s.srvHTTPS.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *Server) routeList() []route {
@@ -994,5 +808,4 @@ var errCertFileMissing = errors.New("certificate file missing, add 'CertFile' to
 var errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 var errInvalidFileID = errors.New("invalid file id")
 var errInvalidStreamMode = errors.New("invalid stream mode")
-var errInvalidNumberOfConfigs = errors.New("invalid number of configs, need at least one")
 var errNoMatchingRoute = errors.New("no matching route")
