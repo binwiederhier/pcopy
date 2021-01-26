@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 )
@@ -36,7 +37,7 @@ func execLink(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	eprint(pcopy.FileInfoInstructions(info))
+	fmt.Fprint(c.App.ErrWriter, pcopy.FileInfoInstructions(info))
 	return nil
 }
 

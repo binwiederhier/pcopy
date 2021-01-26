@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
+	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
 	"io"
 	"io/ioutil"
@@ -10,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // This only contains helpers so far
@@ -17,46 +21,6 @@ import (
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
 	os.Exit(m.Run())
-}
-
-func tempFDs(t *testing.T) *stdFDs {
-	var err error
-	dir := t.TempDir()
-	stdin, err := os.OpenFile(filepath.Join(dir, "stdin"), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stdout, err := os.OpenFile(filepath.Join(dir, "stdout"), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stderr, err := os.OpenFile(filepath.Join(dir, "stderr"), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &stdFDs{
-		in:  stdin,
-		out: stdout,
-		err: stderr,
-	}
-}
-
-func tempFDsWithSTDIN(t *testing.T, writeToSTDIN string) *stdFDs {
-	fds := tempFDs(t)
-	fds.in.WriteString(writeToSTDIN)
-	fds.in.Seek(0, 0)
-	return fds
-}
-
-func readFullFD(t *testing.T, fd *os.File) string {
-	if _, err := fd.Seek(0, 0); err != nil {
-		t.Fatal(err)
-	}
-	b, err := io.ReadAll(fd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(b)
 }
 
 func newTestConfig(t *testing.T) (string, *pcopy.Config) {
@@ -107,6 +71,47 @@ func runTestServer(t *testing.T, config *pcopy.Config) *pcopy.Server {
 	return server
 }
 
+func newTestApp() (*cli.App, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
+	var stdin, stdout, stderr bytes.Buffer
+	app := newApp()
+	app.Reader = &stdin
+	app.Writer = &stdout
+	app.ErrWriter = &stderr
+	return app, &stdin, &stdout, &stderr
+}
+
+func waitForOutput(t *testing.T, rc io.ReadCloser, waitFirstLine time.Duration, waitRest time.Duration) string {
+	reader := bufio.NewReader(rc)
+	lines := make(chan string)
+	go func() {
+		for {
+			line, err := reader.ReadString('\n')
+			if err == nil {
+				lines <- line
+			} else if err == io.EOF {
+				close(lines)
+				break
+			}
+		}
+	}()
+	output := make([]string, 0)
+	wait := waitFirstLine
+loop:
+	for {
+		select {
+		case line := <-lines:
+			output = append(output, line)
+			wait = waitRest
+		case <-time.After(wait):
+			break loop
+		}
+	}
+	if len(output) == 0 {
+		t.Fatalf("waiting for output timed out")
+	}
+	return strings.Join(output, "\n")
+}
+
 // FIXME: Duplicate code, move to package or use assert library
 func assertFileContent(t *testing.T, config *pcopy.Config, id string, content string) {
 	filename := filepath.Join(config.ClipboardDir, id)
@@ -116,13 +121,6 @@ func assertFileContent(t *testing.T, config *pcopy.Config, id string, content st
 	}
 	if string(actualContent) != content {
 		t.Fatalf("expected %s, got %s", content, actualContent)
-	}
-}
-
-func assertFdContains(t *testing.T, fd *os.File, substr string) {
-	s := readFullFD(t, fd)
-	if !strings.Contains(s, substr) {
-		t.Fatalf("expected %s to be contained in string, but it wasn't: %s", substr, s)
 	}
 }
 

@@ -217,17 +217,17 @@ func (s *Server) ListenAndServe() error {
 	return err
 }
 
-// Shutdown asks the HTTP(S) server to be gracefully shut down
-func (s *Server) Shutdown() error {
+// Close immediately shuts down the HTTP(S) server. This is not a graceful shutdown.
+func (s *Server) Close() error {
 	s.Lock()
 	defer s.Unlock()
 	if s.srvHTTP != nil {
-		if err := s.srvHTTP.Shutdown(context.Background()); err != nil {
+		if err := s.srvHTTP.Close(); err != nil {
 			return err
 		}
 	}
 	if s.srvHTTPS != nil {
-		if err := s.srvHTTPS.Shutdown(context.Background()); err != nil {
+		if err := s.srvHTTPS.Close(); err != nil {
 			return err
 		}
 	}

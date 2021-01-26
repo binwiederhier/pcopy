@@ -23,7 +23,7 @@ Examples:
 }
 
 func execKeygen(c *cli.Context) error {
-	eprint("Enter Password: ")
+	fmt.Fprint(c.App.ErrWriter, "Enter Password: ")
 	password, err := term.ReadPassword(syscall.Stdin)
 	if err != nil {
 		return err
@@ -34,6 +34,6 @@ func execKeygen(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Printf("\rKey %s\n", pcopy.EncodeKey(key))
+	fmt.Fprintf(c.App.Writer, "\rKey %s\n", pcopy.EncodeKey(key))
 	return nil
 }

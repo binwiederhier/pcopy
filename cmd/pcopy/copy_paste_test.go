@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -17,41 +14,92 @@ import (
 func TestCLI_Copy(t *testing.T) {
 	filename, config := newTestConfig(t)
 	server := runTestServer(t, config)
+	defer server.Close()
 
-	fds := tempFDsWithSTDIN(t, "test stdin")
-	if err := runApp(fds, "pcp", "-c", filename); err != nil {
+	app, stdin, _, stderr := newTestApp()
+	stdin.WriteString("test stdin")
+
+	if err := runApp(app, "pcp", "-c", filename); err != nil {
+		println(stderr.String())
 		t.Fatal(err)
 	}
-	server.Shutdown()
 
 	assertFileContent(t, config, "default", "test stdin")
-	assertFdContains(t, fds.err, "Direct link (valid for 7d")
-	assertFdContains(t, fds.err, "curl -sSLk --pinnedpubkey")
-	assertFdContains(t, fds.err, "https://localhost:12345/default")
+	assertStrContains(t, stderr.String(), "Direct link (valid for 7d")
+	assertStrContains(t, stderr.String(), "curl -sSLk --pinnedpubkey")
+	assertStrContains(t, stderr.String(), "https://localhost:12345/default")
 }
 
 func TestCLI_CopyPaste(t *testing.T) {
 	filename, config := newTestConfig(t)
 	server := runTestServer(t, config)
+	defer server.Close()
 
-	copyFDs := tempFDsWithSTDIN(t, "this is a test string")
-	if err := runApp(copyFDs, "pcp", "-c", filename, "somefile"); err != nil {
+	copyApp, copyStdin, _, copyStderr := newTestApp()
+	copyStdin.WriteString("this is a test string")
+	if err := runApp(copyApp, "pcp", "-c", filename, "somefile"); err != nil {
 		t.Fatal(err)
 	}
-	pasteFDs := tempFDs(t)
-	if err := runApp(pasteFDs, "ppaste", "-c", filename, "somefile"); err != nil {
+	pasteApp, _, pasteStdout, _ := newTestApp()
+	if err := runApp(pasteApp, "ppaste", "-c", filename, "somefile"); err != nil {
 		t.Fatal(err)
 	}
-	server.Shutdown()
 
-	assertFdContains(t, copyFDs.err, "https://localhost:12345/somefile")
-	assertFdContains(t, pasteFDs.out, "this is a test string")
+	assertStrContains(t, copyStderr.String(), "https://localhost:12345/somefile")
+	assertStrContains(t, pasteStdout.String(), "this is a test string")
+}
+
+func TestCLI_CopyPasteStream(t *testing.T) {
+	filename, config := newTestConfig(t)
+	server := runTestServer(t, config)
+	defer server.Close()
+
+	// Copy
+	copyApp, copyStdin, _, copyStderr := newTestApp()
+	copyErrChan := make(chan error)
+	go func() {
+		copyStdin.WriteString("this is a test string\n")
+		if err := runApp(copyApp, "pcp", "--stream", "-c", filename, "mystream"); err != nil {
+			copyErrChan <- err
+			return
+		}
+		assertStrContains(t, copyStderr.String(), "https://localhost:12345/mystream")
+	}()
+
+	// Wait for pipe to be created
+	success := false
+	for i := 0; i < 20; i++ {
+		stat, _ := os.Stat(filepath.Join(config.ClipboardDir, "mystream"))
+		if stat != nil && stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
+			success = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !success {
+		t.Fatalf("waiting for pipe timed out")
+	}
+
+	// Awkwardly check for copy error, since we cannot call t.Fatal in a goroutine
+	select {
+	case err := <-copyErrChan:
+		t.Fatal(err)
+	default:
+	}
+
+	// Paste
+	pasteApp, _, pasteStdout, _ := newTestApp()
+	if err := runApp(pasteApp, "ppaste", "-c", filename, "mystream"); err != nil {
+		t.Fatal(err)
+	}
+
+	assertStrContains(t, pasteStdout.String(), "this is a test string")
 }
 
 func TestCurl_CopyPOSTSuccess(t *testing.T) {
 	_, config := newTestConfig(t)
 	server := runTestServer(t, config)
-	defer server.Shutdown()
+	defer server.Close()
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s/howdy?f=json", config.ServerAddr))
@@ -65,7 +113,7 @@ func TestCurl_CopyPOSTSuccess(t *testing.T) {
 func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	_, config := newTestConfig(t)
 	server := runTestServer(t, config)
-	defer server.Shutdown()
+	defer server.Close()
 
 	var stdout bytes.Buffer
 	cmdCurlPOST := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s?f=json", config.ServerAddr))
@@ -88,7 +136,7 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 
 	_, config := newTestConfig(t)
 	server := runTestServer(t, config)
-	defer server.Shutdown()
+	defer server.Close()
 
 	// Streaming enabled (s=1), note that "stdbuf -oL" is required to flush buffers after every line
 	cmdCurlPOST := exec.Command("stdbuf", "-oL", "curl", "-sSLk", "-dabc", fmt.Sprintf("%s?s=1&f=json", config.ServerAddr))
@@ -119,36 +167,4 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	if stat != nil {
 		t.Fatalf("expected %s to not exist anymore, but it does", file)
 	}
-}
-
-func waitForOutput(t *testing.T, rc io.ReadCloser, waitFirstLine time.Duration, waitRest time.Duration) string {
-	reader := bufio.NewReader(rc)
-	lines := make(chan string)
-	go func() {
-		for {
-			line, err := reader.ReadString('\n')
-			if err == nil {
-				lines <- line
-			} else if err == io.EOF {
-				close(lines)
-				break
-			}
-		}
-	}()
-	output := make([]string, 0)
-	wait := waitFirstLine
-loop:
-	for {
-		select {
-		case line := <-lines:
-			output = append(output, line)
-			wait = waitRest
-		case <-time.After(wait):
-			break loop
-		}
-	}
-	if len(output) == 0 {
-		t.Fatalf("waiting for output timed out")
-	}
-	return strings.Join(output, "\n")
 }

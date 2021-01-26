@@ -9,10 +9,9 @@ import (
 )
 
 var (
-	version    = "dev"
-	commit     = "unknown"
-	date       = "unknown"
-	defaultFDs = &stdFDs{os.Stdin, os.Stdout, os.Stderr}
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
 )
 
 const (
@@ -20,19 +19,13 @@ const (
 	categoryServer = "Server-side commands"
 )
 
-type stdFDs struct {
-	in  *os.File
-	out *os.File
-	err *os.File
-}
-
 func main() {
-	if err := runApp(defaultFDs, os.Args...); err != nil {
+	if err := runApp(newApp(), os.Args...); err != nil {
 		fail(err)
 	}
 }
 
-func runApp(fds *stdFDs, args ...string) error {
+func newApp() *cli.App {
 	cli.AppHelpTemplate += fmt.Sprintf(`
 Try 'pcopy COMMAND --help' for more information.
 
@@ -40,7 +33,7 @@ pcopy %s (%s), runtime %s, built at %s
 Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0
 `, version, commit[:7], runtime.Version(), date)
 
-	app := &cli.App{
+	return &cli.App{
 		Name:                   "pcopy",
 		Usage:                  "copy/paste across machines",
 		UsageText:              "pcopy COMMAND [OPTION..] [ARG..]",
@@ -49,9 +42,9 @@ Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0
 		HideVersion:            true,
 		EnableBashCompletion:   true,
 		UseShortOptionHandling: true,
-		Reader:                 fds.in,
-		Writer:                 fds.out,
-		ErrWriter:              fds.err,
+		Reader:                 os.Stdin,
+		Writer:                 os.Stdout,
+		ErrWriter:              os.Stderr,
 		Commands: []*cli.Command{
 			// Client commands
 			cmdCopy,
@@ -67,7 +60,9 @@ Copyright (C) 2021 Philipp C. Heckel, distributed under the Apache License 2.0
 			cmdKeygen,
 		},
 	}
+}
 
+func runApp(app *cli.App, args ...string) error {
 	if args[0] == "pcp" {
 		args = append([]string{"pcopy", "copy"}, args[1:]...)
 	} else if args[0] == "ppaste" {
@@ -96,18 +91,6 @@ func parseAndLoadConfig(filename string, clipboard string) (string, *pcopy.Confi
 		return "", pcopy.NewConfig(), nil
 	}
 	return filename, config, nil
-}
-
-func eprint(a ...interface{}) {
-	if _, err := fmt.Fprint(os.Stderr, a...); err != nil {
-		fail(err)
-	}
-}
-
-func eprintln(a ...interface{}) {
-	if _, err := fmt.Fprintln(os.Stderr, a...); err != nil {
-		fail(err)
-	}
 }
 
 func fail(err error) {

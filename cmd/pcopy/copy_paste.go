@@ -137,14 +137,22 @@ func execCopy(c *cli.Context) error {
 			return handleCopyError(c.App.ErrWriter, err)
 		}
 	} else {
-		stat, err := c.App.Reader.(*os.File).Stat()
-		if err != nil {
-			return err
+		mode := os.FileMode(0)
+		if stdin, ok := c.App.Reader.(*os.File); ok {
+			stat, err := stdin.Stat()
+			if err != nil {
+				return err
+			}
+			mode = stat.Mode()
 		}
 
 		var reader io.ReadCloser
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			reader, _ = c.App.Reader.(*os.File)
+		if (mode & os.ModeCharDevice) == 0 {
+			var ok bool
+			reader, ok = c.App.Reader.(io.ReadCloser)
+			if !ok {
+				reader = io.NopCloser(c.App.Reader)
+			}
 		} else {
 			reader = createInteractiveReader(c.App.Reader, c.App.ErrWriter)
 		}
@@ -163,15 +171,15 @@ func execCopy(c *cli.Context) error {
 
 func handleCopyError(errWriter io.Writer, err error) error {
 	if err == pcopy.ErrHTTPPartialContent {
-		eprintln(" (interrupted by client)")
+		fmt.Fprintln(errWriter, " (interrupted by client)")
 		return nil // This is not really an error!
 	}
 	if err == pcopy.ErrHTTPPayloadTooLarge {
-		eprint("\r")
+		fmt.Fprint(errWriter, "\r")
 		return cli.Exit("error: file too large, or clipboard full", 1)
 	}
 	if err == pcopy.ErrHTTPTooManyRequests {
-		eprint("\r")
+		fmt.Fprint(errWriter, "\r")
 		return cli.Exit("error: too many files in clipboard, or rate limit reached", 1)
 	}
 	return err
