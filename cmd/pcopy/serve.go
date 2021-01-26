@@ -12,7 +12,7 @@ var cmdServe = &cli.Command{
 	Action:   execServe,
 	Category: categoryServer,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
+		&cli.StringSliceFlag{Name: "config", Aliases: []string{"c"}, Usage: "load config file from `FILE`"},
 		&cli.StringFlag{Name: "listen-https", Aliases: []string{"l"}, Usage: "set bind address for HTTPS connections to `[ADDR]:PORT`"},
 		&cli.StringFlag{Name: "listen-http", Aliases: []string{"L"}, Usage: "set bind address for HTTP connections to `[ADDR]:PORT`"},
 		&cli.StringFlag{Name: "server", Aliases: []string{"S"}, Usage: "set server address to be advertised to clients to `ADDR[:PORT]` (default port: 2586)"},
@@ -36,7 +36,7 @@ To override or specify the remote server key, you may pass the PCOPY_KEY variabl
 }
 
 func execServe(c *cli.Context) error {
-	configFileOverride := c.String("config")
+	configFiles := c.StringSlice("config")
 	listenHTTPS := c.String("listen-https")
 	listenHTTP := c.String("listen-http")
 	serverAddr := c.String("server")
@@ -44,10 +44,30 @@ func execServe(c *cli.Context) error {
 	certFile := c.String("cert")
 	clipboardDir := c.String("dir")
 
+	// TODO this is weird
+	if len(configFiles) == 0 {
+		config, err := parseServeConfig("", listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
+		if err != nil {
+			return err
+		}
+		return pcopy.Serve(config)
+	}
+	configs := make([]*pcopy.Config, len(configFiles))
+	for i, filename := range configFiles {
+		config, err := parseServeConfig(filename, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
+		if err != nil {
+			return err
+		}
+		configs[i] = config
+	}
+	return pcopy.ServeMany(configs)
+}
+
+func parseServeConfig(filename, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) (*pcopy.Config, error) {
 	// Load config
-	configFile, config, err := parseAndLoadConfig(configFileOverride, "server")
+	configFile, config, err := parseAndLoadConfig(filename, "server")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Load defaults
@@ -82,9 +102,8 @@ func execServe(c *cli.Context) error {
 	if os.Getenv("PCOPY_KEY") != "" {
 		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-
-	return pcopy.Serve(config)
+	return config, nil
 }

@@ -104,6 +104,15 @@ ppaste %s
 `, DurationToHuman(info.TTL), info.Expires.String(), info.URL, id, info.Curl)
 }
 
+func appendStringIfMissing(slice []string, s string) []string {
+	for _, e := range slice {
+		if e == s {
+			return slice
+		}
+	}
+	return append(slice, s)
+}
+
 // commonPrefix determines the longest common prefix across a list of paths.
 // The given paths can be files or directories.
 func commonPrefix(paths []string) string {

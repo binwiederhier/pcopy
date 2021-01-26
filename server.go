@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
+	"crypto/tls"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -16,6 +17,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -145,6 +147,97 @@ func Serve(config *Config) error {
 	}
 	go server.serverManager()
 	return server.ListenAndServe()
+}
+
+// ServeMany starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
+// verify, ...), as well as the actual clipboard functionality (GET/PUT/POST). It also starts a background process
+// to prune old.
+//
+// The function supports many configs, multiplexing based on the HTTP "Host:" header to the individual Server instances.
+// If more than one config is passed, the "ListenAddr" configuration setting must be identical for all of them.
+func ServeMany(configs []*Config) error {
+	var err error
+
+	handler := http.NewServeMux()
+	servers := make([]*Server, len(configs))
+	tlsConfig := &tls.Config{Certificates: make([]tls.Certificate, len(configs))}
+	listenHTTP := ""
+	listenHTTPS := ""
+
+	for i, config := range configs {
+		dnsNames := make([]string, 0)
+		if config.ListenHTTP != "" {
+			if listenHTTP == "" {
+				listenHTTP = config.ListenHTTP
+			} else if listenHTTP != config.ListenHTTP {
+				return errors.New("config setting 'ListenHTTP' must be identical in all config files")
+			}
+		}
+		if config.ListenHTTPS != "" {
+			if listenHTTPS == "" {
+				listenHTTPS = config.ListenHTTPS
+			} else if listenHTTPS != config.ListenHTTPS {
+				return errors.New("config setting 'ListenHTTPS' must be identical in all config files")
+			}
+			tlsConfig.Certificates[i], err = tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+			if err != nil {
+				return err
+			}
+			cert, err := LoadCertFromFile(config.CertFile)
+			if err != nil {
+				return err
+			}
+			dnsNames = append(dnsNames, cert.DNSNames...)
+		}
+		servers[i], err = NewServer(config)
+		if err != nil {
+			return err
+		}
+		serverURL, err := url.ParseRequestURI(ExpandServerAddr(config.ServerAddr))
+		if err != nil {
+			return err
+		}
+		dnsNames = appendStringIfMissing(dnsNames, serverURL.Hostname())
+		for _, dnsName := range dnsNames {
+			handler.HandleFunc(fmt.Sprintf("%s/", dnsName), servers[i].handle)
+		}
+	}
+
+	listens := make([]string, 0)
+	if listenHTTP != "" {
+		listens = append(listens, fmt.Sprintf("%s/http", listenHTTP))
+	}
+	if listenHTTPS != "" {
+		listens = append(listens, fmt.Sprintf("%s/https", listenHTTPS))
+	}
+	log.Printf("Listening on %s (%d clipboards)\n", strings.Join(listens, " "), len(configs))
+
+	errChan := make(chan error)
+	if listenHTTP != "" {
+		srvHTTP := &http.Server{Addr: listenHTTP, Handler: handler}
+		go func() {
+			if err := srvHTTP.ListenAndServe(); err != nil {
+				errChan <- err
+			}
+		}()
+	}
+	if listenHTTPS != "" {
+		srvHTTPS := &http.Server{Addr: listenHTTPS, Handler: handler}
+		go func() {
+			listener, err := tls.Listen("tcp", listenHTTPS, tlsConfig)
+			if err != nil {
+				errChan <- err
+			}
+			if err := srvHTTPS.Serve(listener); err != nil {
+				errChan <- err
+			}
+		}()
+	}
+	for _, server := range servers {
+		go server.serverManager()
+	}
+	err = <-errChan
+	return err
 }
 
 // NewServer creates a new instance of a Server using the given config. It does a few sanity checks to ensure
