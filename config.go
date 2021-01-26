@@ -170,7 +170,7 @@ func (c *Config) GenerateURL(path string, ttl time.Duration) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		url = fmt.Sprintf("%s?%s=%s", url, queryParamAuth, base64.StdEncoding.EncodeToString([]byte(auth)))
+		url = fmt.Sprintf("%s?%s=%s", url, queryParamAuth, base64.RawURLEncoding.EncodeToString([]byte(auth)))
 	}
 	return url, nil
 }

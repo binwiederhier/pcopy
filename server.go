@@ -631,7 +631,7 @@ func (s *Server) authorize(r *http.Request) error {
 
 	auth := r.Header.Get("Authorization")
 	if encodedQueryAuth, ok := r.URL.Query()[queryParamAuth]; ok && len(encodedQueryAuth) > 0 {
-		queryAuth, err := base64.StdEncoding.DecodeString(encodedQueryAuth[0])
+		queryAuth, err := base64.RawURLEncoding.DecodeString(encodedQueryAuth[0])
 		if err != nil {
 			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
 			return ErrHTTPUnauthorized
