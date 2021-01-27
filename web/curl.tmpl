@@ -39,10 +39,10 @@ OPTIONS:
     -T FILE       uploads file FILE to the server
     -d DATA       uploads DATA to the server
     -u :PASS      use password PASS for basic auth against server
-{{if .Config.WebUI}}
+
 WEB UI:
   {{$url}}
-{{end}}
+
 LIMITS:
   Total clipboard size limit: {{if .Config.ClipboardSizeLimit}}{{.Config.ClipboardSizeLimit | bytesToHuman }}{{else}}no limit{{end}}
   Total number of files: {{if .Config.ClipboardCountLimit}} max. {{.Config.ClipboardCountLimit }} files{{else}}no limit{{end}}
