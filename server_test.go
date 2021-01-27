@@ -677,7 +677,7 @@ func newTestServerConfig(t *testing.T) *Config {
 	config := NewConfig()
 	tempDir := t.TempDir()
 
-	key, cert, err := GenerateKeyAndCert()
+	key, cert, err := GenerateKeyAndCert("localhost")
 	if err != nil {
 		t.Fatal(err)
 	}

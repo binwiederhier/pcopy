@@ -27,7 +27,7 @@ func newTestConfig(t *testing.T) (string, *pcopy.Config) {
 	config := pcopy.NewConfig()
 	tempDir := t.TempDir()
 
-	key, cert, err := pcopy.GenerateKeyAndCert()
+	key, cert, err := pcopy.GenerateKeyAndCert("localhost")
 	if err != nil {
 		t.Fatal(err)
 	}
