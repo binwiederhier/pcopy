@@ -170,7 +170,7 @@ func (s *Server) routeList() []route {
 		newRoute("GET", "/", s.handleRoot),
 		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
-		newRoute("GET", "/static/.+", s.onlyIfWebUI(s.handleStatic)),
+		newRoute("GET", "/static/.+", s.handleStatic),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
 		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
@@ -232,7 +232,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) error {
 	if strings.HasPrefix(r.Header.Get("User-Agent"), "curl/") {
 		return s.handleCurlRoot(w, r)
 	}
-	return s.onlyIfWebUI(s.redirectHTTPS(s.handleWebRoot))(w, r)
+	return s.redirectHTTPS(s.handleWebRoot)(w, r)
 }
 
 func (s *Server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
@@ -695,16 +695,6 @@ func (s *Server) printStats(stats *clipboardStats) {
 	}
 	log.Printf("files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
 		stats.NumFiles, countLimit, BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
-}
-
-func (s *Server) onlyIfWebUI(next handlerFnWithErr) handlerFnWithErr {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		if !s.config.WebUI {
-			return ErrHTTPBadRequest
-		}
-
-		return next(w, r)
-	}
 }
 
 func (s *Server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {

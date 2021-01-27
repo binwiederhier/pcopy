@@ -3,8 +3,11 @@ package main
 import (
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy"
+	"log"
 	"os"
 )
+
+const defaultServerClipboardName = "server"
 
 var cmdServe = &cli.Command{
 	Name:     "serve",
@@ -23,7 +26,7 @@ var cmdServe = &cli.Command{
 	Description: `Start pcopy server and listen for incoming requests.
 
 The command will load a the clipboard config from ~/.config/pcopy/server.conf or
-/etc/pcopy/server.conf. Config options can be overridden using the command line options.
+/etc/pcopy/server.conf (if root). Config options can be overridden using the command line options.
 
 To generate a new config file, you may want to use the 'pcopy setup' command.
 
@@ -36,7 +39,7 @@ To override or specify the remote server key, you may pass the PCOPY_KEY variabl
 }
 
 func execServe(c *cli.Context) error {
-	configFiles := c.StringSlice("config")
+	files := c.StringSlice("config")
 	listenHTTPS := c.String("listen-https")
 	listenHTTP := c.String("listen-http")
 	serverAddr := c.String("server")
@@ -44,43 +47,66 @@ func execServe(c *cli.Context) error {
 	certFile := c.String("cert")
 	clipboardDir := c.String("dir")
 
-	// TODO this is weird
-	if len(configFiles) == 0 {
-		config, err := parseServeConfig("", listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
-		if err != nil {
-			return err
-		}
-		return pcopy.Serve(config)
+	var err error
+	var configs []*pcopy.Config
+	if len(files) == 0 {
+		configs, err = loadDefaultServerConfigWithOverrides(listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
+	} else {
+		configs, err = loadServerConfigsFromFilesWithOverrides(files, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
 	}
-	configs := make([]*pcopy.Config, len(configFiles))
-	for i, filename := range configFiles {
-		config, err := parseServeConfig(filename, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
-		if err != nil {
-			return err
-		}
-		configs[i] = config
+	if err != nil {
+		return err
+	}
+	if len(configs) == 0 {
+		return cli.Exit("No valid config files found. Exiting", 1)
 	}
 	return pcopy.Serve(configs...)
 }
 
-func parseServeConfig(filename, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) (*pcopy.Config, error) {
-	// Load config
-	configFile, config, err := parseAndLoadConfig(filename, "server")
+func loadDefaultServerConfigWithOverrides(listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) ([]*pcopy.Config, error) {
+	store := pcopy.NewConfigStore()
+	filename := store.FileFromName(defaultServerClipboardName)
+
+	var err error
+	var config *pcopy.Config
+	if stat, _ := os.Stat(filename); stat != nil {
+		log.Printf("Loading config from %s", filename)
+		config, err = pcopy.LoadConfigFromFile(filename)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		log.Printf("No server config file found, using command line arguments")
+		config = pcopy.NewConfig()
+	}
+	config, err = maybeOverrideOptions(config, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
 	if err != nil {
 		return nil, err
 	}
+	return []*pcopy.Config{config}, nil
+}
 
-	// Load defaults
-	if configFile != "" {
-		if config.KeyFile == "" {
-			config.KeyFile = pcopy.DefaultKeyFile(configFile, true)
+func loadServerConfigsFromFilesWithOverrides(files []string, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) ([]*pcopy.Config, error) {
+	configs := make([]*pcopy.Config, 0)
+	for _, filename := range files {
+		if _, err := os.Stat(filename); err != nil {
+			return nil, err
 		}
-		if config.CertFile == "" {
-			config.CertFile = pcopy.DefaultCertFile(configFile, true)
+		log.Printf("Loading config from %s", filename)
+		config, err := pcopy.LoadConfigFromFile(filename)
+		if err != nil {
+			return nil, err
 		}
+		config, err = maybeOverrideOptions(config, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
+		if err != nil {
+			return nil, err
+		}
+		configs = append(configs, config)
 	}
+	return configs, nil
+}
 
-	// Command line overrides
+func maybeOverrideOptions(config *pcopy.Config, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) (*pcopy.Config, error) {
 	if listenHTTPS != "" {
 		config.ListenHTTPS = listenHTTPS
 	}
@@ -100,6 +126,7 @@ func parseServeConfig(filename, listenHTTPS, listenHTTP, serverAddr, keyFile, ce
 		config.CertFile = certFile
 	}
 	if os.Getenv("PCOPY_KEY") != "" {
+		var err error
 		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
 		if err != nil {
 			return nil, err

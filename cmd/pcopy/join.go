@@ -104,7 +104,6 @@ func execJoin(c *cli.Context) error {
 	config := &pcopy.Config{
 		ServerAddr: serverAddr,
 		Key:        key, // May be nil, but that's ok
-		WebUI:      pcopy.DefaultWebUI,
 	}
 	if err := config.WriteFile(configFile); err != nil {
 		return err

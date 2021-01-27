@@ -71,7 +71,6 @@ func execSetup(c *cli.Context) error {
 	if setup.serviceUser == defaultServiceUser {
 		setup.askService()
 	}
-	setup.askWebUI()
 	setup.askConfirm()
 
 	// Do stuff
@@ -200,14 +199,6 @@ func (s *wizard) readLine() string {
 		fail(err)
 	}
 	return strings.TrimSpace(line)
-}
-
-func (s *wizard) askWebUI() {
-	fmt.Println("The Web UI allows uploading files and text snippets.")
-	fmt.Print("Enable Web UI? [Y/n] ")
-	answer := strings.ToLower(s.readLine())
-	s.config.WebUI = answer == "y" || answer == ""
-	fmt.Println()
 }
 
 func (s *wizard) askService() {

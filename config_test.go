@@ -11,54 +11,54 @@ import (
 )
 
 func TestLoadRawConfig_WithCommentSuccess(t *testing.T) {
-	config, err := loadRawConfig(strings.NewReader(`WebUI true
-# WebUI false`))
+	config, err := loadRawConfig(strings.NewReader(`SomeFlag true
+# SomeFlag false`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config["WebUI"] != "true" {
-		t.Fatalf("expected %s, got %s", "true", config["WebUI"])
+	if config["SomeFlag"] != "true" {
+		t.Fatalf("expected %s, got %s", "true", config["SomeFlag"])
 	}
 }
 
 func TestLoadRawConfig_OverrideSuccess(t *testing.T) {
-	config, err := loadRawConfig(strings.NewReader(`WebUI true
-WebUI false`))
+	config, err := loadRawConfig(strings.NewReader(`SomeFlag true
+SomeFlag false`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config["WebUI"] != "false" {
-		t.Fatalf("expected %s, got %s", "false", config["WebUI"])
+	if config["SomeFlag"] != "false" {
+		t.Fatalf("expected %s, got %s", "false", config["SomeFlag"])
 	}
 }
 
 func TestLoadRawConfig_TrimTrailingSpaceSuccess(t *testing.T) {
-	config, err := loadRawConfig(strings.NewReader(`WebUI "true"    `))
+	config, err := loadRawConfig(strings.NewReader(`SomeFlag "true"    `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config["WebUI"] != `"true"` {
-		t.Fatalf("expected %s, got %s", "", config["WebUI"])
+	if config["SomeFlag"] != `"true"` {
+		t.Fatalf("expected %s, got %s", "", config["SomeFlag"])
 	}
 }
 
 func TestLoadRawConfig_EmptyValue1Success(t *testing.T) {
-	config, err := loadRawConfig(strings.NewReader(`WebUI`))
+	config, err := loadRawConfig(strings.NewReader(`SomeFlag`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v, ok := config["WebUI"]; !ok || v != "" {
-		t.Fatalf("expected %s, got %s (ok: %t)", "", config["WebUI"], ok)
+	if v, ok := config["SomeFlag"]; !ok || v != "" {
+		t.Fatalf("expected %s, got %s (ok: %t)", "", config["SomeFlag"], ok)
 	}
 }
 
 func TestLoadRawConfig_EmptyValue2Success(t *testing.T) {
-	config, err := loadRawConfig(strings.NewReader(`WebUI   `)) // Trailing spaces on empty value
+	config, err := loadRawConfig(strings.NewReader(`SomeFlag   `)) // Trailing spaces on empty value
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v, ok := config["WebUI"]; !ok || v != "" {
-		t.Fatalf("expected %s, got %s (ok: %t)", "", config["WebUI"], ok)
+	if v, ok := config["SomeFlag"]; !ok || v != "" {
+		t.Fatalf("expected %s, got %s (ok: %t)", "", config["SomeFlag"], ok)
 	}
 }
 
@@ -70,8 +70,8 @@ func TestLoadConfig_EmptyFileSuccess(t *testing.T) {
 	if config.ClipboardDir != DefaultClipboardDir {
 		t.Fatalf("expected %s, got %s", DefaultClipboardDir, config.ClipboardDir)
 	}
-	if !config.WebUI {
-		t.Fatalf("expected %t, got %t", true, config.WebUI)
+	if config.ListenHTTPS != fmt.Sprintf(":%d", DefaultPort) {
+		t.Fatalf("expected %s, got %s", fmt.Sprintf(":%d", DefaultPort), config.ListenHTTPS)
 	}
 }
 
@@ -110,7 +110,6 @@ ClipboardSizeLimit 10M
 ClipboardCountLimit 101
 FileSizeLimit 123k
 FileExpireAfter 10d
-WebUI false
 `, keyFile, certFile, dir)))
 	if err != nil {
 		t.Fatal(err)
@@ -126,7 +125,6 @@ WebUI false
 	assertInt64Equals(t, 101, int64(config.ClipboardCountLimit))
 	assertInt64Equals(t, 123*1024, config.FileSizeLimit)
 	assertInt64Equals(t, 10*24, int64(config.FileExpireAfter.Hours()))
-	assertBoolEquals(t, false, config.WebUI)
 }
 
 func TestParseDuration_ZeroSuccess(t *testing.T) {
@@ -268,7 +266,6 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config.ClipboardSizeLimit = 9876
 	config.FileSizeLimit = 777
 	config.FileExpireAfter = time.Hour
-	config.WebUI = false
 
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	if err := config.WriteFile(filename); err != nil {
@@ -290,7 +287,6 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	assertStrContains(t, contents, "ClipboardSizeLimit 9876")
 	assertStrContains(t, contents, "FileSizeLimit 777")
 	assertStrContains(t, contents, "FileExpireAfter 1h")
-	assertStrContains(t, contents, "WebUI false")
 }
 
 func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
@@ -316,7 +312,6 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 	assertStrContains(t, contents, "# ClipboardSizeLimit")
 	assertStrContains(t, contents, "# FileSizeLimit")
 	assertStrContains(t, contents, "FileExpireAfter 7d")
-	assertStrContains(t, contents, "# WebUI")
 }
 
 func TestConfig_LoadConfigFromFileFailedDueToMissingCert(t *testing.T) {

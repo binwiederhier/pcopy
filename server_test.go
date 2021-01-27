@@ -108,19 +108,7 @@ func TestServer_HandleCurlRoot(t *testing.T) {
 	assertStrContains(t, rr.Body.String(), "This is is the curl-endpoint for pcopy")
 }
 
-func TestServer_HandleWebRootNoGUI(t *testing.T) {
-	config := newTestServerConfig(t)
-	config.WebUI = false
-	server := newTestServer(t, config)
-
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
-	server.handle(rr, req)
-
-	assertStatus(t, rr, http.StatusBadRequest)
-}
-
-func TestServer_HandleWebRootWithGUI(t *testing.T) {
+func TestServer_HandleWebRoot(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 
@@ -135,7 +123,7 @@ func TestServer_HandleWebRootWithGUI(t *testing.T) {
 	}
 }
 
-func TestServer_HandleWebRootRedirectHTTPSWithGUI(t *testing.T) {
+func TestServer_HandleWebRootRedirectHTTPS(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.ListenHTTP = ":9876"
 	server := newTestServer(t, config)
@@ -149,7 +137,7 @@ func TestServer_HandleWebRootRedirectHTTPSWithGUI(t *testing.T) {
 	assertStrEquals(t, "https://localhost:12345/", rr.Header().Get("Location"))
 }
 
-func TestServer_HandleWebStaticResourceWithGUI(t *testing.T) {
+func TestServer_HandleWebStaticResource(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
 

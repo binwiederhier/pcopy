@@ -119,12 +119,3 @@
 # Default: rw ro
 #
 {{if .FileModesAllowed}}FileModesAllowed {{stringsJoin .FileModesAllowed " "}}{{else}}# FileModesAllowed rw ro{{end}}
-
-# If set to true, a simple web UI is served that allows uploading files and text snippets.
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  Boolean (true/false)
-# Default: true
-#
-{{if .WebUI}}# WebUI true{{else}}WebUI false{{end}}

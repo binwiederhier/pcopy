@@ -59,9 +59,6 @@ const (
 	// DefaultFileCountPerVisitorLimit defines the default max number of files per visitor in a given period of time
 	DefaultFileCountPerVisitorLimit = 50
 
-	// DefaultWebUI defines if the Web UI is enabled by default
-	DefaultWebUI = true
-
 	// FileModeReadWrite allows files to be overwritten
 	FileModeReadWrite = "rw"
 
@@ -106,7 +103,6 @@ type Config struct {
 	FileModesAllowed         []string
 	FileCountPerVisitorLimit int
 	ProgressFunc             ProgressFunc
-	WebUI                    bool
 }
 
 // ProgressFunc is callback that is called during copy/paste operations to indicate progress to the user.
@@ -136,7 +132,6 @@ func NewConfig() *Config {
 		FileModesAllowed:         strings.Split(DefaultFileModesAllowed, " "),
 		FileCountPerVisitorLimit: DefaultFileCountPerVisitorLimit,
 		ProgressFunc:             nil,
-		WebUI:                    DefaultWebUI,
 	}
 }
 
@@ -256,6 +251,12 @@ func LoadConfigFromFile(filename string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if config.KeyFile == "" {
+		config.KeyFile = DefaultKeyFile(filename, true)
+	}
+	if config.CertFile == "" {
+		config.CertFile = DefaultCertFile(filename, true)
+	}
 	return config, nil
 }
 
@@ -295,7 +296,7 @@ func CollapseServerAddr(serverAddr string) string {
 }
 
 // DefaultCertFile returns the default path to the certificate file, relative to the config file. If mustExist is
-// true, the function returns an empty string.
+// true, the function returns an empty string if the file does not exist.
 func DefaultCertFile(configFile string, mustExist bool) string {
 	return defaultFileWithNewExt(suffixCert, configFile, mustExist)
 }
@@ -444,14 +445,6 @@ func loadConfig(reader io.Reader) (*Config, error) {
 			}
 		}
 		config.FileModesAllowed = modes
-	}
-
-	webUI, ok := raw["WebUI"]
-	if ok {
-		config.WebUI, err = strconv.ParseBool(webUI)
-		if err != nil {
-			return nil, fmt.Errorf("invalid config value for 'WebUI': %w", err)
-		}
 	}
 
 	return config, nil
