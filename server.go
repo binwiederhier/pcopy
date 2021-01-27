@@ -31,7 +31,6 @@ const (
 	visitorRequestsPerSecond      = 2
 	visitorRequestsPerSecondBurst = 5
 	visitorExpungeAfter           = 3 * time.Minute
-	certCommonName                = "pcopy"
 	reserveTTL                    = 10 * time.Second
 
 	headerStream            = "X-Stream"

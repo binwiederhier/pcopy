@@ -172,7 +172,7 @@ func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration)
 
 // GenerateKeyAndCert generates a ECDSA P-256 key, and a self-signed certificate.
 // It returns both as PEM-encoded values.
-func GenerateKeyAndCert() (string, string, error) {
+func GenerateKeyAndCert(hostname string) (string, string, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return "", "", err
@@ -187,8 +187,8 @@ func GenerateKeyAndCert() (string, string, error) {
 
 	cert := x509.Certificate{
 		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: certCommonName},
-		DNSNames:     []string{certCommonName},
+		Subject:      pkix.Name{CommonName: hostname},
+		DNSNames:     []string{hostname},
 		NotBefore:    time.Now().Add(certNotBeforeAge),
 		NotAfter:     time.Now().Add(certNotAfterAge),
 	}

@@ -15,7 +15,6 @@ import (
 // It runs the actual HTTP(S) servers and delegates based on the configured hostname.
 type ServerRouter struct {
 	servers  []*Server
-	handler  http.Handler
 	srvHTTP  []*http.Server
 	srvHTTPS []*http.Server
 	mu       sync.Mutex
@@ -48,11 +47,7 @@ func NewServerRouter(configs ...*Config) (*ServerRouter, error) {
 	if err != nil {
 		return nil, err
 	}
-	handler, err := createHandler(servers)
-	if err != nil {
-		return nil, err
-	}
-	return &ServerRouter{servers: servers, handler: handler}, nil
+	return &ServerRouter{servers: servers}, nil
 }
 
 /*
@@ -66,17 +61,14 @@ func (r *ServerRouter) Start() error {
 	r.mu.Lock()
 
 	var err error
-	r.srvHTTP, err = r.createHTTPServers(r.servers)
+	r.srvHTTP, err = r.createHTTPServers()
 	if err != nil {
 		return err
 	}
-	httpsServers, err := r.createHTTPSServerSpecs(r.servers)
+	r.srvHTTPS, err = r.createHTTPSServers()
 	if err != nil {
 		return err
 	}
-
-	log.Printf("%#v\n", r.srvHTTP)
-	log.Printf("%#v\n", httpsServers)
 	r.printListenInfo()
 
 	errChan := make(chan error)
@@ -87,14 +79,14 @@ func (r *ServerRouter) Start() error {
 			}
 		}(s)
 	}
-	for _, s := range httpsServers {
-		go func(s *httpsServerSpec) {
-			listener, err := tls.Listen("tcp", s.server.Addr, s.tlsConfig)
+	for _, s := range r.srvHTTPS {
+		go func(s *http.Server) {
+			listener, err := tls.Listen("tcp", s.Addr, s.TLSConfig)
 			if err != nil {
 				errChan <- err
 				return
 			}
-			if err := s.server.Serve(listener); err != nil {
+			if err := s.Serve(listener); err != nil {
 				errChan <- err
 			}
 		}(s)
@@ -130,91 +122,86 @@ func (r *ServerRouter) Stop() error {
 
 func (r *ServerRouter) printListenInfo() {
 	listens := make([]string, 0)
-	if r.servers[0].config.ListenHTTP != "" {
-		listens = append(listens, fmt.Sprintf("%s/http", r.servers[0].config.ListenHTTP))
+	for _, s := range r.srvHTTP {
+		listens = append(listens, fmt.Sprintf("%s/http", s.Addr))
 	}
-	if r.servers[0].config.ListenHTTPS != "" {
-		listens = append(listens, fmt.Sprintf("%s/https", r.servers[0].config.ListenHTTPS))
+	for _, s := range r.srvHTTPS {
+		listens = append(listens, fmt.Sprintf("%s/https", s.Addr))
 	}
 	log.Printf("Listening on %s (%d clipboard(s))\n", strings.Join(listens, " "), len(r.servers))
 }
 
-type httpsServerSpec struct {
-	server    *http.Server
-	tlsConfig *tls.Config
-}
+func (r *ServerRouter) createHTTPServers() ([]*http.Server, error) {
+	serversPerPort := make(map[string]int, 0)
+	for _, s := range r.servers {
+		serversPerPort[s.config.ListenHTTP]++
+	}
 
-func (r *ServerRouter) createHTTPSServerSpecs(servers []*Server) ([]*httpsServerSpec, error) {
-	var ok bool
-	var spec *httpsServerSpec
-	listenSpecs := make(map[string]*httpsServerSpec, 0)
-	for _, s := range servers {
-		if s.config.ListenHTTPS == "" {
+	servers := make(map[string]*http.Server, 0)
+	for _, s := range r.servers {
+		if s.config.ListenHTTP == "" {
 			continue
 		}
-		if spec, ok = listenSpecs[s.config.ListenHTTPS]; !ok {
-			spec = &httpsServerSpec{
-				server:    &http.Server{Addr: s.config.ListenHTTPS, Handler: http.NewServeMux()},
-				tlsConfig: &tls.Config{Certificates: make([]tls.Certificate, 0)},
-			}
-			listenSpecs[s.config.ListenHTTPS] = spec
+		server, ok := servers[s.config.ListenHTTP]
+		if !ok {
+			server = &http.Server{Addr: s.config.ListenHTTP, Handler: http.NewServeMux()}
+			servers[s.config.ListenHTTP] = server
 		}
 		serverURL, err := url.ParseRequestURI(ExpandServerAddr(s.config.ServerAddr))
 		if err != nil {
 			return nil, err
 		}
-		handler := spec.server.Handler.(*http.ServeMux)
-		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), s.handle)
+		handler := server.Handler.(*http.ServeMux)
+		if serversPerPort[s.config.ListenHTTP] == 1 {
+			handler.HandleFunc("/", s.handle)
+		} else {
+			handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), s.handle)
+		}
+	}
+	serversList := make([]*http.Server, 0)
+	for _, s := range servers {
+		serversList = append(serversList, s)
+	}
+	return serversList, nil
+}
 
+func (r *ServerRouter) createHTTPSServers() ([]*http.Server, error) {
+	serversPerPort := make(map[string]int, 0)
+	for _, s := range r.servers {
+		serversPerPort[s.config.ListenHTTPS]++
+	}
+
+	servers := make(map[string]*http.Server, 0)
+	for _, s := range r.servers {
+		if s.config.ListenHTTPS == "" {
+			continue
+		}
+		server, ok := servers[s.config.ListenHTTPS]
+		if !ok {
+			server = &http.Server{Addr: s.config.ListenHTTPS, Handler: http.NewServeMux(), TLSConfig: &tls.Config{Certificates: make([]tls.Certificate, 0)}}
+			servers[s.config.ListenHTTPS] = server
+		}
+		serverURL, err := url.ParseRequestURI(ExpandServerAddr(s.config.ServerAddr))
+		if err != nil {
+			return nil, err
+		}
 		cert, err := tls.LoadX509KeyPair(s.config.CertFile, s.config.KeyFile)
 		if err != nil {
 			return nil, err
 		}
-		spec.tlsConfig.Certificates = append(spec.tlsConfig.Certificates, cert)
+		server.TLSConfig.Certificates = append(server.TLSConfig.Certificates, cert)
+		handler := server.Handler.(*http.ServeMux)
+		if serversPerPort[s.config.ListenHTTPS] == 1 {
+			handler.HandleFunc("/", s.handle)
+		} else {
+			handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), s.handle)
+		}
 	}
-	specs := make([]*httpsServerSpec, 0)
-	for _, spec := range listenSpecs {
-		specs = append(specs, spec)
-	}
-	return specs, nil
-}
-
-func (r *ServerRouter) createHTTPServers(servers []*Server) ([]*http.Server, error) {
-	var ok bool
-	var httpServer *http.Server
-	listenHTTPServers := make(map[string]*http.Server, 0)
+	serversList := make([]*http.Server, 0)
 	for _, s := range servers {
-		if s.config.ListenHTTP == "" {
-			continue
-		}
-		if httpServer, ok = listenHTTPServers[s.config.ListenHTTP]; !ok {
-			httpServer = &http.Server{Addr: s.config.ListenHTTP, Handler: http.NewServeMux()}
-			listenHTTPServers[s.config.ListenHTTP] = httpServer
-		}
-		serverURL, err := url.ParseRequestURI(ExpandServerAddr(s.config.ServerAddr))
-		if err != nil {
-			return nil, err
-		}
-		handler := httpServer.Handler.(*http.ServeMux)
-		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), s.handle)
+		serversList = append(serversList, s)
 	}
-	httpServers := make([]*http.Server, 0)
-	for _, s := range listenHTTPServers {
-		httpServers = append(httpServers, s)
-	}
-	return httpServers, nil
-}
-
-func createHandler(servers []*Server) (*http.ServeMux, error) {
-	handler := http.NewServeMux()
-	for i, server := range servers {
-		serverURL, err := url.ParseRequestURI(ExpandServerAddr(server.config.ServerAddr))
-		if err != nil {
-			return nil, err
-		}
-		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), servers[i].handle)
-	}
-	return handler, nil
+	return serversList, nil
 }
 
 func createServers(configs []*Config) ([]*Server, error) {

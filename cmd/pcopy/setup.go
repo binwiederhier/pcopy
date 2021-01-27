@@ -8,6 +8,7 @@ import (
 	"golang.org/x/term"
 	"heckel.io/pcopy"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
@@ -270,7 +271,11 @@ func (s *wizard) writeConfigFile() {
 }
 
 func (s *wizard) writeKeyAndCert() {
-	pemKey, pemCert, err := pcopy.GenerateKeyAndCert()
+	serverURL, err := url.ParseRequestURI(pcopy.ExpandServerAddr(s.config.ServerAddr))
+	if err != nil {
+		fail(err)
+	}
+	pemKey, pemCert, err := pcopy.GenerateKeyAndCert(serverURL.Hostname())
 	if err != nil {
 		fail(err)
 	}
