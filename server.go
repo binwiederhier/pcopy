@@ -82,7 +82,7 @@ type Server struct {
 	visitors    map[string]*visitor
 	routes      []route
 	managerChan chan bool
-	sync.Mutex
+	mu          sync.Mutex
 }
 
 // visitor represents an API user, and its associated rate.Limiter used for rate limiting
@@ -186,8 +186,8 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routeList() []route {
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.routes != nil {
 		return s.routes
 	}
@@ -653,13 +653,13 @@ func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 // StartManager will start the server manager background process that will update the stats and expire
 // files for which the TTL has been reached. This method exits immediately and will spin up a goroutine.
 func (s *Server) StartManager() {
-	s.Lock()
+	s.mu.Lock()
 	if s.managerChan != nil {
-		s.Unlock()
+		s.mu.Unlock()
 		return
 	}
 	s.managerChan = make(chan bool)
-	s.Unlock()
+	s.mu.Unlock()
 
 	go func() {
 		ticker := time.NewTicker(s.config.ManagerInterval)
@@ -668,9 +668,9 @@ func (s *Server) StartManager() {
 			select {
 			case <-ticker.C:
 			case <-s.managerChan:
-				s.Lock()
+				s.mu.Lock()
 				s.managerChan = nil
-				s.Unlock()
+				s.mu.Unlock()
 				return
 			}
 		}
@@ -679,17 +679,16 @@ func (s *Server) StartManager() {
 
 // StopManager will stop the existing manager goroutine if one is running.
 func (s *Server) StopManager() {
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.managerChan != nil {
 		close(s.managerChan)
-		s.managerChan = nil
 	}
 }
 
 func (s *Server) updateStatsAndExpire() {
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	// Expire visitors from rate visitors map
 	for ip, v := range s.visitors {
@@ -763,8 +762,8 @@ func (s *Server) limit(next handlerFnWithErr) handlerFnWithErr {
 // getVisitor creates or retrieves a rate.Limiter for the given visitor.
 // This function was taken from https://www.alexedwards.net/blog/how-to-rate-limit-http-requests (MIT).
 func (s *Server) getVisitor(remoteAddr string) *visitor {
-	s.Lock()
-	defer s.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	ip, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
