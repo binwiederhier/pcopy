@@ -13,17 +13,17 @@ After installing the pcopy server, you can use the `pcopy` command line tool to 
 paste on any connected machine to STDOUT (`ppaste > file.txt`). If you don't have pcopy installed, you can also use its
 super simple REST API to copy/paste, e.g. via `curl`.
 
-The optional web UI allows you to paste text or upload files (even if they are gigabytes in size), and generates 
+The web UI allows you to paste text or upload files (even if they are gigabytes in size), and generates 
 temporary links you can share with others. 
 
 **Features:**
 * 📋 Copy/paste across computers (via STDIN/STDOUT)
-* 🔒 HTTPS-only secure server (via cert-pinning)
+* 🔒 HTTPS secure server (via cert-pinning)
 * 🔑 Clipboards can be password-protected, or they can be open for everyone
 * 📚 Support for multiple clipboards (e.g. personal, work, ...)
 * 🌎 Simple [Web UI](#web-ui-for-uploading-text-snippets-or-large-files) for uploading text snippets or large files
 * 🔗 Direct temporary links to clipboard content (with TTL/expiration) 
-* 💻 No-install `curl`-compatible clipboard usage
+* 💻 No-install `curl`-compatible clipboard usage (e.g. `curl nopaste.net`)
 
 To see what else pcopy can do, check out the **[live demo](#demo)** or the **[videos](#videos)**.
 
@@ -43,13 +43,13 @@ sudo apt install pcopy
 
 **Debian/Ubuntu** (*manual install*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.11/pcopy_0.4.11_amd64.deb
-dpkg -i pcopy_0.4.11_amd64.deb
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.5.0/pcopy_0.5.0_amd64.deb
+dpkg -i pcopy_0.5.0_amd64.deb
 ```
 
 **Fedora/RHEL/CentOS:**
 ```bash
-rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.4.11/pcopy_0.4.11_amd64.rpm
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.5.0/pcopy_0.5.0_amd64.rpm
 ```
 
 **Docker** (*see [detailed instructions](#docker-usage)*)**:**
@@ -66,8 +66,8 @@ go1.16beta1 get -u heckel.io/pcopy/cmd/pcopy
 
 **Manual install** (*any x86_64-based Linux*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.4.11/pcopy_0.4.11_linux_x86_64.tar.gz
-sudo tar -C /usr/bin -zxf pcopy_0.4.11_linux_x86_64.tar.gz pcopy
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.5.0/pcopy_0.5.0_linux_x86_64.tar.gz
+sudo tar -C /usr/bin -zxf pcopy_0.5.0_linux_x86_64.tar.gz pcopy
 ```
 
 After installation, you may want to check out the [Bash/ZSH autocomplete instructions](#bashzsh-autocompletion).
@@ -135,27 +135,31 @@ You may then later reference that alias in `pcp <alias>:..` and `ppaste <alias>:
 To list all your connected clipboards, simple type:
 ```bash
 $ pcopy list
-Clipboard Server address Config file
---------- -------------- ---------------------------
-work      10.0.160.67    ~/.config/pcopy/work.conf
-default   heckel.io      ~/.config/pcopy/default.conf
+Clipboard Server address   Config file
+--------- --------------- ----------------------------
+work      10.0.160.67     ~/.config/pcopy/work.conf
+default   nopaste.net:443 ~/.config/pcopy/default.conf
 ```
 ### Web UI for uploading text snippets or large files
-pcopy comes with an optional Web UI. You can check out the [demo](#demo).   
-*(Note: The Web UI is very basic, not mobile friendly and a work in progress. Please help!)*
+pcopy comes with a Web UI. You can check out the [demo](#demo).   
+*(Note: I am not a web guy. I could use some help here!)*
 
 ![Web UI](assets/demo-webui.gif)
 
 ### `curl`-compatible usage 
-If you don't want to install `pcopy` on a server, you can use simple HTTP GET/PUT/POSTs, e.g. via `curl`. Use `-u :<password>`
-to provide the clipboard password (if any). Here's an example for the [demo clipboard](#demo):
+If you don't want to install `pcopy` on a server, you can use simple HTTP GET/PUT/POSTs, e.g. via `curl`. There's an entire
+`curl` help page available too if you just type `curl <hostname>`. You may use `-u :<password>` to provide the clipboard
+ password (if any). Here's an example for the [demo clipboard](#demo):
 ```bash
+# Show curl help page
+curl nopaste.net
+
 # Copy/upload to clipboard (POST/PUT both work)
-curl -u:demo -d Howdy https://heckel.io:2586/hi-there
-curl -u:demo -T germany.jpg https://heckel.io:2586/germany
+curl -d Howdy nopaste.net/hi-there
+curl -T germany.jpg https://nopaste.net/germany
 
 # Paste/download from clipboard
-curl -u:demo https://heckel.io:2586/hi-there
+curl https://nopaste.net/hi-there
 ```
 
 ### Streaming contents (without storing them on server)
@@ -176,9 +180,15 @@ You can generate temporary links to clipboard entries with `pcopy link`. You can
 can download the clipboard content without downloading the client or using any command line tools:
 
 ```bash
-$ pcopy link --ttl 1h hi-there
-# Temporary download link for file 'default' in clipboard 'default'
-https://heckel.io:2586/hi-there?a=SE1BQyAxNjA5MTg0MjY1IDM2MDA...
+$ pcopy link hi-there
+# Direct link (valid for 2d, expires 2021-01-29 22:35:09 -0500 EST)
+https://nopaste.net/hi-there?a=SE1BQyAxNjA5MTg0MjY1IDM2MDA...
+
+# Paste via pcopy (you may need a prefix)
+ppaste hi-there 
+
+# Paste via curl
+curl -sSL 'https://nopaste.net/hi-there?a=SE1BQyAxNjA5MTg0MjY1IDM2MDA...'
 ```
 
 ### Limiting clipboard usage
@@ -235,13 +245,17 @@ for p in pcopy pcp ppaste; do echo "PROG=$p source ~/.config/pcopy/autocomplete_
 ```
 
 ## Demo
-I have a **demo clipboard** (password: *demo*) running that you can play with:
+I run a small nopaste service on **[nopaste.net](https://nopaste.net)** that you can play with. It has quite a few 
+limits in place, but you'll be able to get a feel for it:
 
-- To join via the command line: `pcopy join heckel.io` (see [join instructions](#join-an-existing-clipboard))
-- Or use the [web UI](https://heckel.io:2586) (this is *work in progress*, I'm not a web designer, please help!)
+- To join via the command line: `pcopy join nopaste.net:443` (see [join instructions](#join-an-existing-clipboard))
+- Or use the [web UI](https://nopaste.net) (this is *work in progress*, I'm not a web designer, please help!)
 - Or simply use `curl` (see [curl usage](#curl-compatible-usage)) 
 
-*(The demo clipboard is limited to 100 MB total, 1 MB per file, 100 files. Clipboard contents time out after 5 minutes.)*
+**Limits:**   
+Since [nopaste.net](https://nopaste.net) is publicly available, I put quite strict limits in place. It is limited to 
+2 GB total, 500 KB per file, 10,000 files. Files expire after 2 days. Also, overwriting files is disabled (which, if
+you use it as a personal clipboard, is quite nonesensical, but it makes sense for a nopaste).
 
 I also made a couple [more videos](#videos) to show what else pcopy can do.
 
