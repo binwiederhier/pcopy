@@ -250,7 +250,7 @@ limits in place, but you'll be able to get a feel for it:
 
 - To join via the command line: `pcopy join nopaste.net:443` (see [join instructions](#join-an-existing-clipboard))
 - Or use the [web UI](https://nopaste.net) (this is *work in progress*, I'm not a web designer, please help!)
-- Or simply use `curl` (see [curl usage](#curl-compatible-usage)) 
+- Or simply type `curl nopaste.net` (see [curl usage](#curl-compatible-usage)) 
 
 **Limits:**   
 Since [nopaste.net](https://nopaste.net) is publicly available, I put quite strict limits in place. It is limited to 
