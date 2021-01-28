@@ -110,6 +110,7 @@ ClipboardSizeLimit 10M
 ClipboardCountLimit 101
 FileSizeLimit 123k
 FileExpireAfter 10d
+FileModesAllowed ro rw
 `, keyFile, certFile, dir)))
 	if err != nil {
 		t.Fatal(err)
@@ -125,6 +126,8 @@ FileExpireAfter 10d
 	assertInt64Equals(t, 101, int64(config.ClipboardCountLimit))
 	assertInt64Equals(t, 123*1024, config.FileSizeLimit)
 	assertInt64Equals(t, 10*24, int64(config.FileExpireAfter.Hours()))
+	assertStrEquals(t, "ro", config.FileModesAllowed[0])
+	assertStrEquals(t, "rw", config.FileModesAllowed[1])
 }
 
 func TestParseDuration_ZeroSuccess(t *testing.T) {
@@ -258,6 +261,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config := NewConfig()
 	config.ServerAddr = "some-host.com"
 	config.ListenHTTPS = ":8888"
+	config.ListenHTTP = ":8889"
 	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	config.CertFile = "some cert file"
 	config.KeyFile = "some key file"
@@ -266,6 +270,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config.ClipboardSizeLimit = 9876
 	config.FileSizeLimit = 777
 	config.FileExpireAfter = time.Hour
+	config.FileModesAllowed = []string{"ro", "rw"}
 
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	if err := config.WriteFile(filename); err != nil {
@@ -278,7 +283,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	}
 	contents := string(b)
 	assertStrContains(t, contents, "ServerAddr some-host.com")
-	assertStrContains(t, contents, "ListenAddr :8888")
+	assertStrContains(t, contents, "ListenAddr :8888/https :8889/http")
 	assertStrContains(t, contents, "Key c29tZSBzYWx0:MTYgYnl0ZXMgZXhhY3RseQ==")
 	assertStrContains(t, contents, "CertFile some cert file")
 	assertStrContains(t, contents, "KeyFile some key file")
@@ -287,6 +292,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	assertStrContains(t, contents, "ClipboardSizeLimit 9876")
 	assertStrContains(t, contents, "FileSizeLimit 777")
 	assertStrContains(t, contents, "FileExpireAfter 1h")
+	assertStrContains(t, contents, "FileModesAllowed ro rw")
 }
 
 func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
@@ -311,21 +317,73 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 	assertStrContains(t, contents, "# ClipboardCountLimit")
 	assertStrContains(t, contents, "# ClipboardSizeLimit")
 	assertStrContains(t, contents, "# FileSizeLimit")
-	assertStrContains(t, contents, "FileExpireAfter 7d")
+	assertStrContains(t, contents, "# FileExpireAfter 7d")
+	assertStrContains(t, contents, "# FileModesAllowed rw ro")
 }
 
 func TestConfig_LoadConfigFromFileFailedDueToMissingCert(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
-	contents := `ListenAddr :1234
-CertFile some.crt
-`
-	if err := ioutil.WriteFile(filename, []byte(contents), 0700); err != nil {
-		t.Fatal(err)
-	}
+	contents := "CertFile some.crt"
+	ioutil.WriteFile(filename, []byte(contents), 0700)
 
 	_, err := LoadConfigFromFile(filename)
 	if err == nil {
 		t.Fatalf("expected error due to missing cert, got none")
+	}
+}
+
+func TestConfig_LoadConfigFromFileFailedDueToMissingKey(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "some.conf")
+	contents := "KeyFile some.key"
+	ioutil.WriteFile(filename, []byte(contents), 0700)
+
+	_, err := LoadConfigFromFile(filename)
+	if err == nil {
+		t.Fatalf("expected error due to missing key, got none")
+	}
+}
+
+func TestConfig_LoadConfigFromFileFailedDueToInvalidClipboardSizeLimit(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "some.conf")
+	contents := "ClipboardSizeLimit invalid-value"
+	ioutil.WriteFile(filename, []byte(contents), 0700)
+
+	_, err := LoadConfigFromFile(filename)
+	if err == nil {
+		t.Fatalf("expected error due to invalid clipboard size limit, got none")
+	}
+}
+
+func TestConfig_LoadConfigFromFileFailedDueToInvalidClipboardCountLimit(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "some.conf")
+	contents := "ClipboardCountLimit invalid-value"
+	ioutil.WriteFile(filename, []byte(contents), 0700)
+
+	_, err := LoadConfigFromFile(filename)
+	if err == nil {
+		t.Fatalf("expected error due to invalid clipboard count limit, got none")
+	}
+}
+
+func TestConfig_LoadConfigFromFileFailedDueToInvalidFileMode1(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "some.conf")
+	contents := "FileModesAllowed this is an invalid number"
+	ioutil.WriteFile(filename, []byte(contents), 0700)
+
+	_, err := LoadConfigFromFile(filename)
+	if err == nil {
+		t.Fatalf("expected error due to invalid file modes, got none")
+	}
+}
+
+func TestConfig_LoadConfigFromFileFailedDueToInvalidFileMode2(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "some.conf")
+	contents := "FileModesAllowed rw ro123"
+	ioutil.WriteFile(filename, []byte(contents), 0700)
+
+	_, err := LoadConfigFromFile(filename)
+	if err == nil {
+		t.Fatalf("expected error due to invalid file modes, got none")
 	}
 }
 

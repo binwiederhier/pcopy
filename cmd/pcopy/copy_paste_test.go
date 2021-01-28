@@ -16,11 +16,12 @@ func TestCLI_Copy(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
+	waitForPortUp(t, "12345")
+
 	app, stdin, _, stderr := newTestApp()
 	stdin.WriteString("test stdin")
 
 	if err := runApp(app, "pcp", "-c", filename); err != nil {
-		println(stderr.String())
 		t.Fatal(err)
 	}
 
@@ -34,6 +35,8 @@ func TestCLI_CopyPaste(t *testing.T) {
 	filename, config := newTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
+
+	waitForPortUp(t, "12345")
 
 	copyApp, copyStdin, _, copyStderr := newTestApp()
 	copyStdin.WriteString("this is a test string")
@@ -53,6 +56,8 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 	filename, config := newTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
+
+	waitForPortUp(t, "12345")
 
 	// Copy
 	copyApp, copyStdin, _, copyStderr := newTestApp()
@@ -101,6 +106,8 @@ func TestCurl_CopyPOSTSuccess(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
+	waitForPortUp(t, "12345")
+
 	var stdout bytes.Buffer
 	cmd := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s/howdy?f=json", config.ServerAddr))
 	cmd.Stdout = &stdout
@@ -114,6 +121,8 @@ func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	_, config := newTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
+
+	waitForPortUp(t, "12345")
 
 	var stdout bytes.Buffer
 	cmdCurlPOST := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s?f=json", config.ServerAddr))
@@ -137,6 +146,8 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	_, config := newTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
+
+	waitForPortUp(t, "12345")
 
 	// Streaming enabled (s=1), note that "stdbuf -oL" is required to flush buffers after every line
 	cmdCurlPOST := exec.Command("stdbuf", "-oL", "curl", "-sSLk", "-dabc", fmt.Sprintf("%s?s=1&f=json", config.ServerAddr))

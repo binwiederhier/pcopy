@@ -24,7 +24,7 @@
 # Default: :2586
 # Example: :443/https :80/http
 #
-{{if and .ListenHTTPS .ListenHTTP}}ListenAddr {{.ListenHTTPS}}/HTTPS {{.ListenHTTP}}/HTTP{{else if .ListenHTTPS}}ListenAddr {{.ListenHTTPS}}{{else if .ListenHTTP}}ListenAddr {{.ListenHTTP}}/HTTP{{else}}# ListenAddr :2586{{end}}
+{{if and .ListenHTTPS .ListenHTTP}}ListenAddr {{.ListenHTTPS}}/https {{.ListenHTTP}}/http{{else if .ListenHTTPS}}ListenAddr {{.ListenHTTPS}}/https{{else if .ListenHTTP}}ListenAddr {{.ListenHTTP}}/http{{else}}# ListenAddr :2586/https{{end}}
 
 # If a key is defined, clients need to auth whenever they want copy/paste values
 # to the clipboard. A key is derived from a password and can be generated using
@@ -67,7 +67,7 @@
 # Format:  /some/folder
 # Default: /var/cache/pcopy
 #
-{{if .ClipboardDir}}ClipboardDir {{.ClipboardDir}}{{else}}# ClipboardDir /var/cache/pcopy{{end}}
+{{if or (eq "/var/cache/pcopy" .ClipboardDir) (not .ClipboardDir)}}# ClipboardDir /var/cache/pcopy{{else}}ClipboardDir {{.ClipboardDir}}{{end}}
 
 # Maximum total size of the entire clipboard (sum of all files). Zero disables this setting.
 #
@@ -104,7 +104,8 @@
 # Format:  <number>(dhms)
 # Default: 7d
 #
-{{if .FileExpireAfter}}FileExpireAfter {{.FileExpireAfter | durationToHuman}}{{else}}# FileExpireAfter 7d{{end}}
+{{$fileExpireAfterStr := durationToHuman .FileExpireAfter -}}
+{{if eq "7d" $fileExpireAfterStr}}# FileExpireAfter 7d{{else}}FileExpireAfter {{$fileExpireAfterStr}}{{end}}
 
 # Modes that are allowed to be set by the client for uploaded files, read-write ("rw") and read-only ("ro).
 # If both modes are set, the client can chose. If no mode is set by the client, the first mode is used as
@@ -118,4 +119,5 @@
 # Format:  rw|ro [rw|ro]
 # Default: rw ro
 #
-{{if .FileModesAllowed}}FileModesAllowed {{stringsJoin .FileModesAllowed " "}}{{else}}# FileModesAllowed rw ro{{end}}
+{{$fileModesAllowedStr := stringsJoin .FileModesAllowed " " -}}
+{{if or (eq "rw ro" $fileModesAllowedStr) (not .FileModesAllowed)}}# FileModesAllowed rw ro{{else}}FileModesAllowed {{$fileModesAllowedStr}}{{end}}

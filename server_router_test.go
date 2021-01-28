@@ -11,6 +11,13 @@ import (
 	"time"
 )
 
+func TestServerRouter_InvalidConfigNoConfigs(t *testing.T) {
+	_, err := NewServerRouter()
+	if err != errInvalidNumberOfConfigs {
+		t.Fatal("expected errInvalidNumberOfConfigs, got different or no error")
+	}
+}
+
 func TestServerRouter_StartStopSimple(t *testing.T) {
 	config := newTestServerConfig(t)
 	config.ServerAddr = "https://localhost:11443"

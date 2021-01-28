@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -133,5 +134,20 @@ func assertStrEquals(t *testing.T, expected string, actual string) {
 func assertStrContains(t *testing.T, s string, substr string) {
 	if !strings.Contains(s, substr) {
 		t.Fatalf("expected %s to be contained in string, but it wasn't: %s", substr, s)
+	}
+}
+
+func waitForPortUp(t *testing.T, port string) {
+	success := false
+	for i := 0; i < 20; i++ {
+		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("localhost", port), 50*time.Millisecond)
+		if conn != nil {
+			success = true
+			conn.Close()
+			break
+		}
+	}
+	if !success {
+		t.Fatalf("Failed waiting for port %s to be UP", port)
 	}
 }

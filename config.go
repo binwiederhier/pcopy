@@ -365,11 +365,6 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		}
 	}
 
-	listenHTTP, ok := raw["ListenHTTP"]
-	if ok {
-		config.ListenHTTP = listenHTTP
-	}
-
 	serverAddr, ok := raw["ServerAddr"]
 	if ok {
 		config.ServerAddr = ExpandServerAddr(serverAddr)
