@@ -58,17 +58,17 @@ func newTestConfig(t *testing.T) (string, *pcopy.Config) {
 	return filename, config
 }
 
-func runTestServerRouter(t *testing.T, config *pcopy.Config) *pcopy.ServerRouter {
-	server, err := pcopy.NewServerRouter(config)
+func startTestServerRouter(t *testing.T, config *pcopy.Config) *pcopy.ServerRouter {
+	router, err := pcopy.NewServerRouter(config)
 	if err != nil {
 		t.Fatal(err)
 	}
 	go func() {
-		if err := server.Start(); err != nil && err != http.ErrServerClosed {
+		if err := router.Start(); err != nil && err != http.ErrServerClosed {
 			panic(err) // 'go vet' complains about 't.Fatal(err)'
 		}
 	}()
-	return server
+	return router
 }
 
 func newTestApp() (*cli.App, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {

@@ -13,7 +13,7 @@ import (
 
 func TestCLI_Copy(t *testing.T) {
 	filename, config := newTestConfig(t)
-	serverRouter := runTestServerRouter(t, config)
+	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
 	app, stdin, _, stderr := newTestApp()
@@ -32,7 +32,7 @@ func TestCLI_Copy(t *testing.T) {
 
 func TestCLI_CopyPaste(t *testing.T) {
 	filename, config := newTestConfig(t)
-	serverRouter := runTestServerRouter(t, config)
+	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
 	copyApp, copyStdin, _, copyStderr := newTestApp()
@@ -51,7 +51,7 @@ func TestCLI_CopyPaste(t *testing.T) {
 
 func TestCLI_CopyPasteStream(t *testing.T) {
 	filename, config := newTestConfig(t)
-	serverRouter := runTestServerRouter(t, config)
+	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
 	// Copy
@@ -98,7 +98,7 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 
 func TestCurl_CopyPOSTSuccess(t *testing.T) {
 	_, config := newTestConfig(t)
-	serverRouter := runTestServerRouter(t, config)
+	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
 	var stdout bytes.Buffer
@@ -112,7 +112,7 @@ func TestCurl_CopyPOSTSuccess(t *testing.T) {
 
 func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	_, config := newTestConfig(t)
-	serverRouter := runTestServerRouter(t, config)
+	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
 	var stdout bytes.Buffer
@@ -135,7 +135,7 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	// This tests #46: curl POST with streaming and short payloads does not work (curl -dabc http://...?s=1)
 
 	_, config := newTestConfig(t)
-	serverRouter := runTestServerRouter(t, config)
+	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
 	// Streaming enabled (s=1), note that "stdbuf -oL" is required to flush buffers after every line

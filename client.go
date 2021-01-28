@@ -386,19 +386,19 @@ func (c *Client) newHTTPClient(cert *x509.Certificate) (*http.Client, error) {
 	if c.httpClient != nil { // For testing only!
 		return c.httpClient, nil
 	} else if cert != nil {
-		return c.newHTTPClientWithPinnedCert(cert)
+		return newHTTPClientWithPinnedCert(cert)
 	} else if c.config.CertFile != "" {
 		cert, err := LoadCertFromFile(c.config.CertFile)
 		if err != nil {
 			return nil, err
 		}
-		return c.newHTTPClientWithPinnedCert(cert)
+		return newHTTPClientWithPinnedCert(cert)
 	} else {
 		return &http.Client{}, nil
 	}
 }
 
-func (c *Client) newHTTPClientWithPinnedCert(pinned *x509.Certificate) (*http.Client, error) {
+func newHTTPClientWithPinnedCert(pinned *x509.Certificate) (*http.Client, error) {
 	verifyCertFn := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		for _, r := range rawCerts {
 			if bytes.Equal(pinned.Raw, r) {

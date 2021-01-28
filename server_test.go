@@ -704,10 +704,14 @@ func newTestServer(t *testing.T, config *Config) *Server {
 }
 
 func newTestServerConfig(t *testing.T) *Config {
+	return newTestServerConfigWithHostname(t, "localhost")
+}
+
+func newTestServerConfigWithHostname(t *testing.T, hostname string) *Config {
 	config := NewConfig()
 	tempDir := t.TempDir()
 
-	key, cert, err := GenerateKeyAndCert("localhost")
+	key, cert, err := GenerateKeyAndCert(hostname)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -725,7 +729,7 @@ func newTestServerConfig(t *testing.T) *Config {
 		t.Fatal(err)
 	}
 
-	config.ServerAddr = "localhost:12345"
+	config.ServerAddr = fmt.Sprintf("%s:12345", hostname)
 	config.ListenHTTPS = ":12345"
 	config.ClipboardDir = clipboardDir
 	config.KeyFile = keyFile
