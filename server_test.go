@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -58,7 +59,7 @@ func TestServer_HandleInfoUnprotected(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/info", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertResponse(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":""}`)
 }
@@ -69,7 +70,7 @@ func TestServer_HandleVerify(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/verify", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 }
 
@@ -80,7 +81,7 @@ func TestServer_HandleInfoProtected(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/info", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertResponse(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":"c29tZSBzYWx0"}`)
 }
@@ -91,7 +92,7 @@ func TestServer_HandleDoesNotExist(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/some path that can't be a clipboard id", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertStatus(t, rr, http.StatusNotFound)
 }
@@ -103,7 +104,7 @@ func TestServer_HandleCurlRoot(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.Header.Set("User-Agent", "curl/1.2.3")
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertStrContains(t, rr.Body.String(), "This is is the curl-endpoint for pcopy")
 }
@@ -115,7 +116,7 @@ func TestServer_HandleWebRoot(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.TLS = &tls.ConnectionState{} // No redirect
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertStatus(t, rr, http.StatusOK)
 	if !strings.Contains(rr.Body.String(), "<html") {
@@ -131,7 +132,7 @@ func TestServer_HandleWebRootRedirectHTTPS(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
 	req.Host = "localhost"
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertStatus(t, rr, http.StatusFound)
 	assertStrEquals(t, "https://localhost:12345/", rr.Header().Get("Location"))
@@ -143,7 +144,7 @@ func TestServer_HandleWebStaticResource(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/static/js/app.js", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertStatus(t, rr, http.StatusOK)
 	if !strings.Contains(rr.Body.String(), "getElementById") {
@@ -162,7 +163,7 @@ func TestServer_HandleClipboardGetExists(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-exists", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertResponse(t, rr, http.StatusOK, "hi there")
 }
 
@@ -181,7 +182,7 @@ func TestServer_HandleClipboardGetExistsWithAuthParam(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-exists-again?a="+hmacOverrideParam, nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertResponse(t, rr, http.StatusOK, "hi there again")
 }
 
@@ -194,7 +195,7 @@ func TestServer_HandleClipboardGetExistsWithAuthParamFailure(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-exists-again?a=invalid"+hmacOverrideParam, nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusUnauthorized)
 }
 
@@ -204,7 +205,7 @@ func TestServer_HandleClipboardGetDoesntExist(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-does-not-exist", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusNotFound)
 }
 
@@ -215,7 +216,7 @@ func TestServer_HandleClipboardPut(t *testing.T) {
 	content := "this is a new thing"
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/new-thing", strings.NewReader(content))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "new-thing", content)
 }
@@ -226,7 +227,7 @@ func TestServer_HandleClipboardPutRandom(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/", strings.NewReader("this is a thing"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	assertStatus(t, rr, http.StatusOK)
 
@@ -242,17 +243,17 @@ func TestServer_HandleClipboardPutUntilVisitorLimitReached(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/", strings.NewReader("this is a thing"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/", strings.NewReader("this is a another thing"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/", strings.NewReader("this is a yet another thing"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusTooManyRequests)
 }
 
@@ -262,7 +263,7 @@ func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/../invalid-id", strings.NewReader("hi"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
 	assertNotExists(t, config, "/../invalid-id")
 }
@@ -273,7 +274,7 @@ func TestServer_HandleClipboardPutGetSuccess(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/you-cant-always?t=4d", strings.NewReader("get what you want"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
 	expires, _ := strconv.Atoi(rr.Header().Get("X-Expires"))
@@ -291,7 +292,7 @@ func TestServer_HandleClipboardPutGetSuccess(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("GET", "/you-cant-always", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertResponse(t, rr, http.StatusOK, "get what you want")
 }
 
@@ -302,7 +303,7 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/you-cant-always?f=json", strings.NewReader("get what you want"))
 	req.Header.Set("X-TTL", "2m")
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
 	var info httpResponseFileInfo
@@ -322,7 +323,7 @@ func TestServer_HandleClipboardPutWithTooLargeTTL(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL")) // TODO X-TTL is inconsistent: request expects a human format, response is seconds
@@ -336,13 +337,13 @@ func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/too-large", strings.NewReader("more than 10 bytes"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusRequestEntityTooLarge)
 	assertNotExists(t, config, "too-large")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("GET", "/too-large", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusNotFound)
 }
 
@@ -353,19 +354,19 @@ func TestServer_HandleClipboardPutManySmallFailed(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("lalala"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "another one")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file3", strings.NewReader("yet another one"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusTooManyRequests)
 	assertNotExists(t, config, "file3")
 }
@@ -377,20 +378,20 @@ func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("lalala"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "another one")
 
 	// Overwrite file 2 should succeed
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("overwriting file 2"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "overwriting file 2")
 }
@@ -402,14 +403,14 @@ func TestServer_HandleClipboardPutOverwriteFailure(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file2", "another one")
 
 	// Overwrite file 2 should fail
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("overwriting file 2 fails"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusMethodNotAllowed)
 }
 
@@ -420,7 +421,7 @@ func TestServer_HandleClipboardPutReadWriteFailure(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file2?m=rw", strings.NewReader("another one"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
 }
 
@@ -431,12 +432,12 @@ func TestServer_HandleClipboardPutReadOnlyDisallowOverwriteSuccess(t *testing.T)
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
 	req.Header.Set("X-Mode", "ro")
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusMethodNotAllowed)
 }
 
@@ -447,13 +448,13 @@ func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("7 bytes"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "file1", "7 bytes")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("4 bytes"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusRequestEntityTooLarge)
 	assertNotExists(t, config, "file2")
 }
@@ -467,7 +468,7 @@ func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
 	go func() {
 		rr1 := httptest.NewRecorder()
 		req, _ := http.NewRequest("PUT", "/file1?s=1", strings.NewReader(payload))
-		server.handle(rr1, req)
+		server.Handle(rr1, req)
 		assertStatus(t, rr1, http.StatusOK)
 	}()
 
@@ -479,7 +480,7 @@ func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/file1", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertResponse(t, rr, http.StatusOK, payload)
 
 	stat, _ = os.Stat(filename)
@@ -498,14 +499,14 @@ func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
 		// Reserve
 		rr1 := httptest.NewRecorder()
 		req, _ := http.NewRequest("PUT", "/file1?r=1", nil)
-		server.handle(rr1, req)
+		server.Handle(rr1, req)
 		assertStatus(t, rr1, http.StatusOK)
 		assertFileContent(t, config, "file1", "")
 
 		// Stream
 		rr1 = httptest.NewRecorder()
 		req, _ = http.NewRequest("PUT", "/file1?s=1", strings.NewReader(payload))
-		server.handle(rr1, req)
+		server.Handle(rr1, req)
 		assertStatus(t, rr1, http.StatusOK)
 	}()
 
@@ -517,7 +518,7 @@ func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/file1", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertResponse(t, rr, http.StatusOK, payload)
 
 	stat, _ = os.Stat(filename)
@@ -530,11 +531,11 @@ func TestServer_HandleClipboardHeadSuccess(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/abc", strings.NewReader("this is a thing"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("HEAD", "/abc", nil)
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 
 	assertStrEquals(t, "abc", rr.Header().Get("X-File"))
@@ -646,7 +647,7 @@ func TestServer_ExpireSuccess(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/new-thing", strings.NewReader("something"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusOK)
 	assertFileContent(t, config, "new-thing", "something")
 
@@ -661,8 +662,37 @@ func TestServer_ReservedWordsFailure(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/robots.txt", strings.NewReader("something"))
-	server.handle(rr, req)
+	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusBadRequest)
+}
+
+func TestServer_StartStopManager(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.ManagerInterval = 100 * time.Millisecond
+	server := newTestServer(t, config)
+
+	server.StartManager()
+	time.Sleep(10 * time.Millisecond)
+
+	server.clipboard.WriteFile("testfile", io.NopCloser(strings.NewReader("this is a test")))
+	server.clipboard.WriteMeta("testfile", FileModeReadWrite, time.Now().Unix())
+
+	cf, _ := server.clipboard.Stat("testfile")
+	assertStrEquals(t, "testfile", cf.ID)
+
+	time.Sleep(100 * time.Millisecond)
+	cf, _ = server.clipboard.Stat("testfile")
+	if cf != nil {
+		t.Fatalf("expected testfile to have disappeared, but it did not")
+	}
+
+	server.StopManager()
+	server.clipboard.WriteFile("testfile2", io.NopCloser(strings.NewReader("this is another test")))
+	server.clipboard.WriteMeta("testfile2", FileModeReadWrite, time.Now().Unix())
+
+	time.Sleep(110 * time.Millisecond)
+	cf, _ = server.clipboard.Stat("testfile2")
+	assertStrEquals(t, "testfile2", cf.ID)
 }
 
 func newTestServer(t *testing.T, config *Config) *Server {

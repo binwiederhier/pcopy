@@ -65,11 +65,12 @@ const (
 	// FileModeReadOnly ensures that files cannot be overwritten
 	FileModeReadOnly = "ro"
 
-	systemConfigDir = "/etc/pcopy"
-	userConfigDir   = "~/.config/pcopy"
-	suffixConf      = ".conf"
-	suffixKey       = ".key"
-	suffixCert      = ".crt"
+	systemConfigDir        = "/etc/pcopy"
+	userConfigDir          = "~/.config/pcopy"
+	suffixConf             = ".conf"
+	suffixKey              = ".key"
+	suffixCert             = ".crt"
+	defaultManagerInterval = 30 * time.Second
 )
 
 var (
@@ -103,6 +104,7 @@ type Config struct {
 	FileModesAllowed         []string
 	FileCountPerVisitorLimit int
 	ProgressFunc             ProgressFunc
+	ManagerInterval          time.Duration
 }
 
 // ProgressFunc is callback that is called during copy/paste operations to indicate progress to the user.
@@ -132,6 +134,7 @@ func NewConfig() *Config {
 		FileModesAllowed:         strings.Split(DefaultFileModesAllowed, " "),
 		FileCountPerVisitorLimit: DefaultFileCountPerVisitorLimit,
 		ProgressFunc:             nil,
+		ManagerInterval:          defaultManagerInterval,
 	}
 }
 

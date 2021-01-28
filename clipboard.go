@@ -59,16 +59,18 @@ func newClipboard(config *Config) (*clipboard, error) {
 	}, nil
 }
 
+// DeleteFile removes the file with the given ID from the clipboard, including its metadata file
 func (c *clipboard) DeleteFile(id string) error {
 	file, metafile, err := c.getFilenames(id)
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(metafile); err != nil {
-		return err
-	}
-	if err := os.Remove(file); err != nil {
-		return err
+	err1 := os.Remove(metafile)
+	err2 := os.Remove(file)
+	if err1 != nil {
+		return err1
+	} else if err2 != nil {
+		return err2
 	}
 	return nil
 }

@@ -80,6 +80,10 @@ func (r *ServerRouter) Start() error {
 		}(s)
 	}
 
+	for _, s := range r.servers {
+		s.StartManager()
+	}
+
 	r.mu.Unlock()
 	err = <-errChan
 	return err
@@ -95,6 +99,9 @@ func (r *ServerRouter) Stop() error {
 				return err
 			}
 		}
+	}
+	for _, s := range r.servers {
+		s.StopManager()
 	}
 	r.httpServers = nil
 	return nil
@@ -125,12 +132,12 @@ func (r *ServerRouter) printListenInfo() {
 }
 
 func (r *ServerRouter) createHTTPServers() ([]*http.Server, error) {
-	serversPerPort := make(map[string]int, 0)
+	serversPerPort := make(map[string]int)
 	for _, s := range r.servers {
 		serversPerPort[s.config.ListenHTTP]++
 		serversPerPort[s.config.ListenHTTPS]++
 	}
-	servers := make(map[string]*http.Server, 0)
+	servers := make(map[string]*http.Server)
 	for _, s := range r.servers {
 		if s.config.ListenHTTP != "" {
 			if _, err := r.createServerOrAddHandler(servers, serversPerPort, s, s.config.ListenHTTP); err != nil {
@@ -171,9 +178,9 @@ func (r *ServerRouter) createServerOrAddHandler(servers map[string]*http.Server,
 	}
 	handler := server.Handler.(*http.ServeMux)
 	if serversPerPort[listen] == 1 {
-		handler.HandleFunc("/", s.handle)
+		handler.HandleFunc("/", s.Handle)
 	} else {
-		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), s.handle)
+		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), s.Handle)
 	}
 	return server, nil
 }

@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	managerTickerInterval         = 30 * time.Second
 	defaultMaxAuthAge             = time.Minute
 	noAuthRequestAge              = 0
 	visitorRequestsPerSecond      = 2
@@ -78,10 +77,11 @@ var (
 
 // Server is the main HTTP server struct. It's the one with all the good stuff.
 type Server struct {
-	config    *Config
-	clipboard *clipboard
-	visitors  map[string]*visitor
-	routes    []route
+	config      *Config
+	clipboard   *clipboard
+	visitors    map[string]*visitor
+	routes      []route
+	managerChan chan bool
 	sync.Mutex
 }
 
@@ -158,29 +158,9 @@ func NewServer(config *Config) (*Server, error) {
 	}, nil
 }
 
-func (s *Server) routeList() []route {
-	s.Lock()
-	defer s.Unlock()
-	if s.routes != nil {
-		return s.routes
-	}
-
-	s.routes = []route{
-		newRoute("GET", "/", s.handleRoot),
-		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
-		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
-		newRoute("GET", "/static/.+", s.handleStatic),
-		newRoute("GET", "/info", s.limit(s.handleInfo)),
-		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
-		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
-		newRoute("HEAD", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardHead))),
-		newRoute("PUT", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
-		newRoute("POST", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
-	}
-	return s.routes
-}
-
-func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
+// Handle is the delegating handler function for a clipboard's server. It uses the routeList to find a matching route
+// and delegates to it.
+func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 	for _, route := range s.routeList() {
 		matches := route.regex.FindStringSubmatch(r.URL.Path)
 		if len(matches) > 0 && r.Method == route.method {
@@ -203,6 +183,28 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.fail(w, r, http.StatusBadRequest, errNoMatchingRoute)
 	}
+}
+
+func (s *Server) routeList() []route {
+	s.Lock()
+	defer s.Unlock()
+	if s.routes != nil {
+		return s.routes
+	}
+
+	s.routes = []route{
+		newRoute("GET", "/", s.handleRoot),
+		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
+		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
+		newRoute("GET", "/static/.+", s.handleStatic),
+		newRoute("GET", "/info", s.limit(s.handleInfo)),
+		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
+		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
+		newRoute("HEAD", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardHead))),
+		newRoute("PUT", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
+		newRoute("POST", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
+	}
+	return s.routes
 }
 
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
@@ -648,11 +650,40 @@ func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	return nil
 }
 
-func (s *Server) serverManager() {
-	ticker := time.NewTicker(managerTickerInterval)
-	for {
-		s.updateStatsAndExpire()
-		<-ticker.C
+// StartManager will start the server manager background process that will update the stats and expire
+// files for which the TTL has been reached. This method exits immediately and will spin up a goroutine.
+func (s *Server) StartManager() {
+	s.Lock()
+	if s.managerChan != nil {
+		s.Unlock()
+		return
+	}
+	s.managerChan = make(chan bool)
+	s.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(s.config.ManagerInterval)
+		for {
+			s.updateStatsAndExpire()
+			select {
+			case <-ticker.C:
+			case <-s.managerChan:
+				s.Lock()
+				s.managerChan = nil
+				s.Unlock()
+				return
+			}
+		}
+	}()
+}
+
+// StopManager will stop the existing manager goroutine if one is running.
+func (s *Server) StopManager() {
+	s.Lock()
+	defer s.Unlock()
+	if s.managerChan != nil {
+		close(s.managerChan)
+		s.managerChan = nil
 	}
 }
 
