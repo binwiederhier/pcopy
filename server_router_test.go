@@ -83,7 +83,7 @@ func newHTTPClientWithPinnedCertAndIP(pinnedCert *x509.Certificate, pinnedAddr s
 	return client
 }
 
-func startTestServerRouter(t *testing.T, configs... *Config) *ServerRouter {
+func startTestServerRouter(t *testing.T, configs ...*Config) *ServerRouter {
 	server, err := NewServerRouter(configs...)
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +99,7 @@ func startTestServerRouter(t *testing.T, configs... *Config) *ServerRouter {
 func waitForPortUp(t *testing.T, port string) {
 	success := false
 	for i := 0; i < 20; i++ {
-		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("", port), 20 * time.Millisecond)
+		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("", port), 20*time.Millisecond)
 		if conn != nil {
 			success = true
 			conn.Close()
@@ -114,7 +114,7 @@ func waitForPortUp(t *testing.T, port string) {
 func waitForPortDown(t *testing.T, port string) {
 	success := false
 	for i := 0; i < 20; i++ {
-		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("", port), 20 * time.Millisecond)
+		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("", port), 20*time.Millisecond)
 		if conn == nil {
 			success = true
 			break
