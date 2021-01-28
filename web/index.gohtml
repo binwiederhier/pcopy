@@ -198,7 +198,8 @@
         KeySalt: "{{if .Config.Key}}{{.Config.Key.Salt | encodeBase64}}{{end}}",
         KeyDerivIter: {{.KeyDerivIter}},
         KeyLenBytes: {{.KeyLenBytes}},
-        DefaultPort: {{.DefaultPort}}
+        DefaultPort: {{.DefaultPort}},
+        FileSizeLimit: {{.Config.FileSizeLimit}}
     }
 </script>
 <script src="static/vendor/crypto-js.min.js"></script>

@@ -398,6 +398,15 @@ async function uploadFile(file) {
         return
     }
 
+    if (file.size > config.FileSizeLimit) {
+        // Let's fake a "request entity too large" error to avoid trying to upload a file that would
+        // fail the upload anyway due to the server-size limits. It also avoids a bug(?) in Firefox that doesn't
+        // properly trigger a "readystatechange" event for the 413 for really large payloads.
+        // See https://gist.github.com/binwiederhier/627f146d1959799be207ad8c17a8f345
+        progressFailed(413)
+        return
+    }
+
     let fileId = getFileId()
     if (streamEnabled()) {
         try {
@@ -415,19 +424,6 @@ async function uploadFile(file) {
     progressStart()
 
     let xhr = new XMLHttpRequest()
-    xhr.open(method, url)
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
-    if (key) {
-        xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
-    }
-    if (streaming) {
-        xhr.setRequestHeader('X-Stream', '2')
-    }
-    xhr.overrideMimeType(file.type);
-    xhr.upload.addEventListener("progress", function (e) {
-        let progress = Math.round((e.loaded * 100.0 / e.total) || 100)
-        progressUpdate(progress)
-    })
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
             progressFinish(xhr.status, xhr.getResponseHeader("X-File"), xhr.getResponseHeader("X-URL"), xhr.getResponseHeader("X-Curl"))
@@ -435,6 +431,19 @@ async function uploadFile(file) {
             progressFailed(xhr.status)
         }
     })
+    xhr.upload.addEventListener("progress", function (e) {
+        let progress = Math.round((e.loaded * 100.0 / e.total) || 100)
+        progressUpdate(progress)
+    })
+    xhr.open(method, url)
+    xhr.overrideMimeType(file.type)
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
+    if (key) {
+        xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
+    }
+    if (streaming) {
+        xhr.setRequestHeader('X-Stream', '2')
+    }
     xhr.send(file)
 }
 
