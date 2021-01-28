@@ -164,7 +164,7 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 	for _, route := range s.routeList() {
 		matches := route.regex.FindStringSubmatch(r.URL.Path)
 		if len(matches) > 0 && r.Method == route.method {
-			log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+			log.Printf("[%s] %s - %s %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 			ctx := context.WithValue(r.Context(), routeCtx{}, matches[1:])
 			if err := route.handler(w, r.WithContext(ctx)); err != nil {
 				if err == errInvalidFileID {
@@ -208,7 +208,7 @@ func (s *Server) routeList() []route {
 }
 
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+	log.Printf("[%s] %s - %s %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 
 	salt := ""
 	if s.config.Key != nil {
@@ -225,7 +225,7 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) error {
-	log.Printf("%s - %s %s", r.RemoteAddr, r.Method, r.RequestURI)
+	log.Printf("[%s] %s - %s %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 	return nil
 }
 
@@ -559,7 +559,7 @@ func (s *Server) authorize(r *http.Request) error {
 	if encodedQueryAuth, ok := r.URL.Query()[queryParamAuth]; ok && len(encodedQueryAuth) > 0 {
 		queryAuth, err := base64.RawURLEncoding.DecodeString(encodedQueryAuth[0])
 		if err != nil {
-			log.Printf("%s - %s %s - cannot decode query auth override", r.RemoteAddr, r.Method, r.RequestURI)
+			log.Printf("[%s], %s - %s %s - cannot decode query auth override", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 			return ErrHTTPUnauthorized
 		}
 		auth = string(queryAuth)
@@ -570,7 +570,7 @@ func (s *Server) authorize(r *http.Request) error {
 	} else if m := authBasicRegex.FindStringSubmatch(auth); m != nil {
 		return s.authorizeBasic(r, m)
 	} else {
-		log.Printf("%s - %s %s - auth header missing", r.RemoteAddr, r.Method, r.RequestURI)
+		log.Printf("[%s] %s - %s %s - auth header missing", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
 }
@@ -578,19 +578,19 @@ func (s *Server) authorize(r *http.Request) error {
 func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
-		log.Printf("%s - %s %s - hmac timestamp conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		log.Printf("[%s] %s - %s %s - hmac timestamp conversion: %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
 
 	ttlSecs, err := strconv.Atoi(matches[2])
 	if err != nil {
-		log.Printf("%s - %s %s - hmac ttl conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		log.Printf("[%s] %s - %s %s - hmac ttl conversion: %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
 
 	hash, err := base64.StdEncoding.DecodeString(matches[3])
 	if err != nil {
-		log.Printf("%s - %s %s - hmac base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		log.Printf("[%s] %s - %s %s - hmac base64 conversion: %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
 
@@ -599,14 +599,14 @@ func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
 	data := []byte(fmt.Sprintf("%d:%d:%s:%s", timestamp, ttlSecs, r.Method, r.URL.Path))
 	hm := hmac.New(sha256.New, s.config.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
-		log.Printf("%s - %s %s - hmac calculation: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		log.Printf("[%s] %s - %s %s - hmac calculation: %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
 	rehash := hm.Sum(nil)
 
 	// Compare HMAC in constant time (to prevent timing attacks)
 	if subtle.ConstantTimeCompare(hash, rehash) != 1 {
-		log.Printf("%s - %s %s - hmac invalid", r.RemoteAddr, r.Method, r.RequestURI)
+		log.Printf("[%s] %s - %s %s - hmac invalid", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
 
@@ -618,7 +618,7 @@ func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
 	if maxAge > 0 {
 		age := time.Since(time.Unix(int64(timestamp), 0))
 		if age > maxAge {
-			log.Printf("%s - %s %s - hmac request age mismatch", r.RemoteAddr, r.Method, r.RequestURI)
+			log.Printf("[%s] %s - %s %s - hmac request age mismatch", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 			return ErrHTTPUnauthorized
 		}
 	}
@@ -629,13 +629,13 @@ func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
 func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	userPassBytes, err := base64.StdEncoding.DecodeString(matches[1])
 	if err != nil {
-		log.Printf("%s - %s %s - basic base64 conversion: %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		log.Printf("[%s] %s - %s %s - basic base64 conversion: %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
 
 	userPassParts := strings.Split(string(userPassBytes), ":")
 	if len(userPassParts) != 2 {
-		log.Printf("%s - %s %s - basic invalid user/pass format", r.RemoteAddr, r.Method, r.RequestURI)
+		log.Printf("[%s] %s - %s %s - basic invalid user/pass format", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
 	passwordBytes := []byte(userPassParts[1])
@@ -643,7 +643,7 @@ func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	// Compare HMAC in constant time (to prevent timing attacks)
 	key := DeriveKey(passwordBytes, s.config.Key.Salt)
 	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
-		log.Printf("%s - %s %s - basic invalid", r.RemoteAddr, r.Method, r.RequestURI)
+		log.Printf("[%s] %s - %s %s - basic invalid", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
 
@@ -699,12 +699,12 @@ func (s *Server) updateStatsAndExpire() {
 
 	// Walk clipboard to update size/count limiters, and expire/delete files
 	if err := s.clipboard.Expire(); err != nil {
-		log.Printf("cannot expire clipboard entries: %s", err.Error())
+		log.Printf("[%s] cannot expire clipboard entries: %s", CollapseServerAddr(s.config.ServerAddr), err.Error())
 	}
 
 	stats, err := s.clipboard.Stats()
 	if err != nil {
-		log.Printf("cannot get stats from clipboard: %s", err.Error())
+		log.Printf("[%s] cannot get stats from clipboard: %s", CollapseServerAddr(s.config.ServerAddr), err.Error())
 	} else {
 		s.printStats(stats)
 	}
@@ -722,8 +722,8 @@ func (s *Server) printStats(stats *clipboardStats) {
 	} else {
 		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.config.ClipboardSizeLimit))
 	}
-	log.Printf("files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
-		stats.NumFiles, countLimit, BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
+	log.Printf("[%s] files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
+		CollapseServerAddr(s.config.ServerAddr), stats.NumFiles, countLimit, BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
 }
 
 func (s *Server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
@@ -786,7 +786,7 @@ func (s *Server) getVisitor(remoteAddr string) *visitor {
 }
 
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
-	log.Printf("%s - %s %s - %s", r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+	log.Printf("[%s] %s - %s %s - %s", CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
 	w.Write([]byte(http.StatusText(code)))
 }
