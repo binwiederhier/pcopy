@@ -27,6 +27,9 @@ const (
 	// This is a server-only setting.
 	DefaultServerConfigFile = "/etc/pcopy/server.conf"
 
+	// DefaultClipboardName defines the default name of the clipboard as it appears in the Web UI
+	DefaultClipboardName = "pcopy"
+
 	// DefaultClipboardDir defines the default location to store the clipboard contents at. This setting is only
 	// relevant for the server.
 	DefaultClipboardDir = "/var/cache/pcopy"
@@ -102,6 +105,7 @@ type Config struct {
 	Key                      *Key
 	KeyFile                  string
 	CertFile                 string
+	ClipboardName            string
 	ClipboardDir             string
 	ClipboardSizeLimit       int64
 	ClipboardCountLimit      int
@@ -132,6 +136,7 @@ func NewConfig() *Config {
 		Key:                      nil,
 		KeyFile:                  "",
 		CertFile:                 "",
+		ClipboardName:            DefaultClipboardName,
 		ClipboardDir:             DefaultClipboardDir,
 		ClipboardSizeLimit:       DefaultClipboardSizeLimit,
 		ClipboardCountLimit:      DefaultClipboardCountLimit,
@@ -402,6 +407,11 @@ func loadConfig(reader io.Reader) (*Config, error) {
 			return nil, err
 		}
 		config.CertFile = certFile
+	}
+
+	clipboardName, ok := raw["ClipboardName"]
+	if ok {
+		config.ClipboardName = clipboardName
 	}
 
 	clipboardDir, ok := raw["ClipboardDir"]

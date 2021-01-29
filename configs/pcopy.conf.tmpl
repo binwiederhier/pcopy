@@ -24,7 +24,7 @@
 # Default: :2586
 # Example: :443/https :80/http
 #
-{{if and .ListenHTTPS .ListenHTTP}}ListenAddr {{.ListenHTTPS}}/https {{.ListenHTTP}}/http{{else if .ListenHTTPS}}ListenAddr {{.ListenHTTPS}}/https{{else if .ListenHTTP}}ListenAddr {{.ListenHTTP}}/http{{else}}# ListenAddr :2586/https{{end}}
+{{if and (eq ":2586" .ListenHTTPS) (eq "" .ListenHTTP)}}# ListenAddr :2586/https{{else if and .ListenHTTPS .ListenHTTP}}ListenAddr {{.ListenHTTPS}}/https {{.ListenHTTP}}/http{{else if .ListenHTTPS}}ListenAddr {{.ListenHTTPS}}/https{{else if .ListenHTTP}}ListenAddr {{.ListenHTTP}}/http{{else}}# ListenAddr :2586/https{{end}}
 
 # If a key is defined, clients need to auth whenever they want copy/paste values
 # to the clipboard. A key is derived from a password and can be generated using
@@ -58,6 +58,16 @@
 # Default: Config path, but with .key extension
 #
 {{if .KeyFile}}KeyFile {{.KeyFile}}{{else}}# KeyFile{{end}}
+
+# Name of the clipboard as it is shown in the Web UI. This value is only used in the UI.
+# Make sure it's not too long, or things may look ugly.
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  <string>
+# Default: pcopy
+#
+{{if or (eq "pcopy" .ClipboardName) (not .ClipboardName)}}# ClipboardName pcopy{{else}}ClipboardName {{.ClipboardName}}{{end}}
 
 # Path to the directory in which the clipboard resides. If not set, this defaults to
 # the path /var/cache/pcopy.

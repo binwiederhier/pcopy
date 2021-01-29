@@ -3,6 +3,7 @@ package pcopy
 import (
 	"encoding/base64"
 	"fmt"
+	htmltemplate "html/template"
 	"math/rand"
 	"os"
 	"path"
@@ -21,6 +22,7 @@ var (
 		"bytesToHuman":     BytesToHuman,
 		"durationToHuman":  DurationToHuman,
 		"stringsJoin":      strings.Join,
+		"htmlEscape":       htmltemplate.HTMLEscapeString,
 	}
 )
 

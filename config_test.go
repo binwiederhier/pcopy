@@ -105,6 +105,7 @@ ServerAddr hi.com
 Key Osz6osE1fRRirA==:XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I=
 KeyFile %s
 CertFile %s
+ClipboardName Phil's Clipboard
 ClipboardDir %s
 ClipboardSizeLimit 10M
 ClipboardCountLimit 101
@@ -121,6 +122,7 @@ FileModesAllowed ro rw
 	assertBytesEquals(t, fromBase64(t, "XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I="), config.Key.Bytes)
 	assertStrEquals(t, keyFile, config.KeyFile)
 	assertStrEquals(t, certFile, config.CertFile)
+	assertStrEquals(t, "Phil's Clipboard", config.ClipboardName)
 	assertStrEquals(t, dir, config.ClipboardDir)
 	assertInt64Equals(t, 10*1024*1024, config.ClipboardSizeLimit)
 	assertInt64Equals(t, 101, int64(config.ClipboardCountLimit))
@@ -265,6 +267,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config.Key = &Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	config.CertFile = "some cert file"
 	config.KeyFile = "some key file"
+	config.ClipboardName = "Phil's Clipboard"
 	config.ClipboardDir = "/tmp/clipboarddir"
 	config.ClipboardCountLimit = 1234
 	config.ClipboardSizeLimit = 9876
@@ -287,6 +290,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	assertStrContains(t, contents, "Key c29tZSBzYWx0:MTYgYnl0ZXMgZXhhY3RseQ==")
 	assertStrContains(t, contents, "CertFile some cert file")
 	assertStrContains(t, contents, "KeyFile some key file")
+	assertStrContains(t, contents, "ClipboardName Phil's Clipboard")
 	assertStrContains(t, contents, "ClipboardDir /tmp/clipboarddir")
 	assertStrContains(t, contents, "ClipboardCountLimit 1234")
 	assertStrContains(t, contents, "ClipboardSizeLimit 9876")
@@ -309,11 +313,12 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 	}
 	contents := string(b)
 	assertStrContains(t, contents, "# ServerAddr")
-	assertStrContains(t, contents, "ListenAddr :2586")
+	assertStrContains(t, contents, "# ListenAddr :2586")
 	assertStrContains(t, contents, "# Key")
 	assertStrContains(t, contents, "# CertFile")
 	assertStrContains(t, contents, "# KeyFile")
-	assertStrContains(t, contents, "ClipboardDir /var/cache/pcopy")
+	assertStrContains(t, contents, "# ClipboardName pcopy")
+	assertStrContains(t, contents, "# ClipboardDir /var/cache/pcopy")
 	assertStrContains(t, contents, "# ClipboardCountLimit")
 	assertStrContains(t, contents, "# ClipboardSizeLimit")
 	assertStrContains(t, contents, "# FileSizeLimit")
