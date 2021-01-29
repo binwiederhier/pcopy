@@ -14,10 +14,10 @@ var cmdLeave = &cli.Command{
 	UsageText: "pcopy leave [OPTIONS..] [CLIPBOARD]",
 	Action:    execLeave,
 	Category:  categoryClient,
-	Description: `Removes the clipboard configuration and certificate (if any) from the config folder.
+	Description: `Removes the clipboard configuration and certificate/key (if any) from the config folder.
 
-The command will load a the clipboard config from ~/.config/pcopy/$CLIPBOARD.conf or
-/etc/pcopy/$CLIPBOARD.conf. If not config exists, it will fail.
+The command will find a clipboard config in ~/.config/pcopy/$CLIPBOARD.conf or
+/etc/pcopy/$CLIPBOARD.conf. If no config exists, it will fail.
 
 Examples:
   pcopy leave           # Leaves the default clipboard
@@ -25,14 +25,21 @@ Examples:
 }
 
 func execLeave(c *cli.Context) error {
-	configFile, clipboard, config, err := parseLeaveArgs(c)
-	if err != nil {
-		return err
+	// Parse clipboard and file
+	clipboard := pcopy.DefaultClipboard
+	if c.NArg() > 0 {
+		clipboard = c.Args().First()
 	}
-	if configFile == "" {
+	store := pcopy.NewConfigStore()
+	filename := store.FileFromName(clipboard)
+	if _, err := os.Stat(filename); err != nil {
 		return fmt.Errorf("clipboard '%s' does not exist", clipboard)
 	}
-	if err := os.Remove(configFile); err != nil {
+	config, err := pcopy.LoadConfigFromFile(filename)
+	if err != nil {
+		return fmt.Errorf("cannot load config for %s: %w", clipboard, err)
+	}
+	if err := os.Remove(filename); err != nil {
 		return err
 	}
 	if config.CertFile != "" {
@@ -42,30 +49,14 @@ func execLeave(c *cli.Context) error {
 			}
 		}
 	}
-
-	fmt.Printf("Successfully left clipboard '%s'. To rejoin, run 'pcopy join %s'.\n", clipboard, pcopy.CollapseServerAddr(config.ServerAddr))
+	if config.KeyFile != "" {
+		// This is odd, but we may want to "leave" a server, which has a key file
+		if _, err := os.Stat(config.KeyFile); err == nil {
+			if err := os.Remove(config.KeyFile); err != nil {
+				return err
+			}
+		}
+	}
+	fmt.Fprintf(c.App.Writer, "Successfully left clipboard '%s'. To rejoin, run 'pcopy join %s'.\n", clipboard, pcopy.CollapseServerAddr(config.ServerAddr))
 	return nil
-}
-
-func parseLeaveArgs(c *cli.Context) (string, string, *pcopy.Config, error) {
-	configFileOverride := c.String("config")
-
-	// Parse clipboard and file
-	clipboard := pcopy.DefaultClipboard
-	if c.NArg() > 0 {
-		clipboard = c.Args().First()
-	}
-
-	// Load config
-	configFile, config, err := parseAndLoadConfig(configFileOverride, clipboard)
-	if err != nil {
-		return "", "", nil, err
-	}
-
-	// Load defaults
-	if config.CertFile == "" {
-		config.CertFile = pcopy.DefaultCertFile(configFile, true)
-	}
-
-	return configFile, clipboard, config, nil
 }

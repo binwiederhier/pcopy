@@ -125,9 +125,9 @@ func maybeOverrideOptions(config *pcopy.Config, listenHTTPS, listenHTTP, serverA
 	if certFile != "" {
 		config.CertFile = certFile
 	}
-	if os.Getenv("PCOPY_KEY") != "" {
+	if os.Getenv(pcopy.EnvKey) != "" {
 		var err error
-		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
+		config.Key, err = pcopy.DecodeKey(os.Getenv(pcopy.EnvKey))
 		if err != nil {
 			return nil, err
 		}

@@ -65,6 +65,12 @@ const (
 	// FileModeReadOnly ensures that files cannot be overwritten
 	FileModeReadOnly = "ro"
 
+	// EnvKey provides the ability to provide a key for certain CLI commands
+	EnvKey = "PCOPY_KEY"
+
+	// EnvConfigDir allows overriding the user-specific config dir
+	EnvConfigDir = "PCOPY_CONFIG_DIR"
+
 	systemConfigDir        = "/etc/pcopy"
 	userConfigDir          = "~/.config/pcopy"
 	suffixConf             = ".conf"
@@ -322,6 +328,10 @@ func defaultFileWithNewExt(newExtension string, configFile string, mustExist boo
 }
 
 func getConfigDir() string {
+	overrideConfigDir := os.Getenv(EnvConfigDir)
+	if overrideConfigDir != "" {
+		return overrideConfigDir
+	}
 	u, _ := user.Current()
 	if u.Uid == "0" {
 		return systemConfigDir

@@ -254,8 +254,8 @@ func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string, error) {
 			progressOutput(c.App.ErrWriter, processed, total, done)
 		}
 	}
-	if os.Getenv("PCOPY_KEY") != "" {
-		config.Key, err = pcopy.DecodeKey(os.Getenv("PCOPY_KEY"))
+	if os.Getenv(pcopy.EnvKey) != "" {
+		config.Key, err = pcopy.DecodeKey(os.Getenv(pcopy.EnvKey))
 		if err != nil {
 			return nil, "", nil, err
 		}

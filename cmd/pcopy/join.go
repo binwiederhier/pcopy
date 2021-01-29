@@ -81,7 +81,7 @@ func execJoin(c *cli.Context) error {
 	var key *pcopy.Key
 
 	if info.Salt != nil {
-		envKey := os.Getenv("PCOPY_KEY")
+		envKey := os.Getenv(pcopy.EnvKey)
 		if envKey != "" {
 			key, err = pcopy.DecodeKey(envKey)
 			if err != nil {
