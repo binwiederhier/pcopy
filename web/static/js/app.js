@@ -353,11 +353,17 @@ function updateLinkFields(file, url, curl, ttl, expires) {
     infoDirectLinkDownload.href = url
     infoCommandDirectLink.value = url
 
-    infoTabLinkPcopy.classList.add('tab-active')
-    infoTabLinkCurl.classList.remove('tab-active')
     infoCommandLine.dataset.pcopy = file === "default" ? 'ppaste' : 'ppaste ' + file
     infoCommandLine.dataset.curl = curl
-    infoCommandLine.value = infoCommandLine.dataset.pcopy
+    if (getPasteTab() === 'curl') {
+        infoTabLinkPcopy.classList.remove('tab-active')
+        infoTabLinkCurl.classList.add('tab-active')
+        infoCommandLine.value = infoCommandLine.dataset.curl
+    } else {
+        infoTabLinkPcopy.classList.add('tab-active')
+        infoTabLinkCurl.classList.remove('tab-active')
+        infoCommandLine.value = infoCommandLine.dataset.pcopy
+    }
 
     if (expires === 0) {
         infoExpireNever.classList.remove('hidden')
@@ -549,6 +555,7 @@ infoTabLinkPcopy.addEventListener('click', function(e) {
     infoTabLinkPcopy.classList.add('tab-active')
     infoTabLinkCurl.classList.remove('tab-active')
     infoCommandLine.value = infoCommandLine.dataset.pcopy
+    storePasteTab('pcopy')
 })
 
 infoTabLinkCurl.addEventListener('click', function(e) {
@@ -556,6 +563,7 @@ infoTabLinkCurl.addEventListener('click', function(e) {
     infoTabLinkPcopy.classList.remove('tab-active')
     infoTabLinkCurl.classList.add('tab-active')
     infoCommandLine.value = infoCommandLine.dataset.curl
+    storePasteTab('curl')
 })
 
 infoCommandDirectLinkCopy.addEventListener('click', function() {
@@ -684,6 +692,14 @@ function getTTL() {
     } else {
         return parseInt(headerTTL.value)
     }
+}
+
+function storePasteTab(tab) {
+    localStorage.setItem('pasteTab', tab)
+}
+
+function getPasteTab() {
+    return localStorage.getItem('pasteTab')
 }
 
 function secondsToHuman(seconds) {
