@@ -59,6 +59,8 @@ let infoErrorTextNotAllowed = document.getElementById("info-error-text-not-allow
 let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
 let infoDirectLinkDownload = document.getElementById("info-direct-link-download")
+let infoTabLinkView = document.getElementById("info-tab-link-view")
+let infoTabLinkDownload = document.getElementById("info-tab-link-download")
 let infoTabLinkPcopy = document.getElementById("info-tab-link-pcopy")
 let infoTabLinkCurl = document.getElementById("info-tab-link-curl")
 let infoCommandDirectLink = document.getElementById("info-command-link")
@@ -268,7 +270,7 @@ async function save() {
     if (streamEnabled()) {
         headers['X-Stream'] = '2'
         try {
-            file = await reserveAndUpdateLinkFields(file)
+            file = await reserveAndUpdateLinkFields(file, '')
         } catch (e) {
             return progressFailed(e.response.status)
         }
@@ -285,7 +287,8 @@ async function save() {
                     response.headers.get("X-URL"),
                     response.headers.get("X-Curl"),
                     parseInt(response.headers.get("X-TTL")),
-                    parseInt(response.headers.get("X-Expires"))
+                    parseInt(response.headers.get("X-Expires")),
+                    ''
                 )
             } else {
                 progressFailed(response.status)
@@ -348,10 +351,25 @@ function progressStart() {
     infoArea.classList.remove("hidden")
 }
 
-function updateLinkFields(file, url, curl, ttl, expires) {
+function updateLinkFields(file, url, curl, ttl, expires, nameHint) {
     infoDirectLinkStream.href = url
     infoDirectLinkDownload.href = url
-    infoCommandDirectLink.value = url
+
+    infoCommandDirectLink.dataset.view = url
+    if (nameHint) {
+        infoCommandDirectLink.dataset.download = prependQueryParam(prependQueryParam(url, 'f', nameHint), 'd', 1)
+    } else {
+        infoCommandDirectLink.dataset.download = prependQueryParam(url, 'd', 1)
+    }
+    if (getLinkTab() === 'download') {
+        infoTabLinkView.classList.remove('tab-active')
+        infoTabLinkDownload.classList.add('tab-active')
+        infoCommandDirectLink.value = infoCommandDirectLink.dataset.download
+    } else {
+        infoTabLinkView.classList.add('tab-active')
+        infoTabLinkDownload.classList.remove('tab-active')
+        infoCommandDirectLink.value = infoCommandDirectLink.dataset.view
+    }
 
     infoCommandLine.dataset.pcopy = file === "default" ? 'ppaste' : 'ppaste ' + file
     infoCommandLine.dataset.curl = curl
@@ -385,7 +403,7 @@ function progressUpdate(progress) {
     }
 }
 
-function progressFinish(code, file, url, curl, ttl, expires) {
+function progressFinish(code, file, url, curl, ttl, expires, nameHint) {
     progressHideHeaders()
 
     if (streamEnabled()) {
@@ -396,7 +414,7 @@ function progressFinish(code, file, url, curl, ttl, expires) {
             infoStreamHeaderFinished.classList.remove('hidden')
         }
     } else {
-        updateLinkFields(file, url, curl, ttl, expires)
+        updateLinkFields(file, url, curl, ttl, expires, nameHint)
         infoLinks.classList.remove('hidden')
         infoUploadHeaderFinished.classList.remove('hidden')
     }
@@ -434,7 +452,7 @@ async function req(method, path, body, headers) {
     return await fetch(path, {method: method, headers: headers, body: body})
 }
 
-async function reserveAndUpdateLinkFields(file) {
+async function reserveAndUpdateLinkFields(file, nameHint) {
     return await req('PUT', `/${file}`, null, {'X-Reserve': 'yes'})
         .then(response => {
             if (response.status === 200) {
@@ -443,7 +461,8 @@ async function reserveAndUpdateLinkFields(file) {
                     response.headers.get("X-URL"),
                     response.headers.get("X-Curl"),
                     parseInt(response.headers.get("X-TTL")),
-                    parseInt(response.headers.get("X-Expires"))
+                    parseInt(response.headers.get("X-Expires")),
+                    nameHint
                 )
                 return response.headers.get("X-File")
             } else {
@@ -470,7 +489,7 @@ async function uploadFile(file) {
     let fileId = getFileId()
     if (streamEnabled()) {
         try {
-            fileId = await reserveAndUpdateLinkFields(fileId)
+            fileId = await reserveAndUpdateLinkFields(fileId, file.name)
         } catch (e) {
             return progressFailed(e.response.status)
         }
@@ -493,7 +512,8 @@ async function uploadFile(file) {
                 xhr.getResponseHeader("X-URL"),
                 xhr.getResponseHeader("X-Curl"),
                 parseInt(xhr.getResponseHeader("X-TTL")),
-                parseInt(xhr.getResponseHeader("X-Expires"))
+                parseInt(xhr.getResponseHeader("X-Expires")),
+                file.name
             )
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
             progressFailed(xhr.status)
@@ -549,6 +569,22 @@ function fadeOutInfoArea(e) {
         infoArea.removeEventListener('transitionend', handler)
     })
 }
+
+infoTabLinkView.addEventListener('click', function(e) {
+    e.preventDefault()
+    infoTabLinkView.classList.add('tab-active')
+    infoTabLinkDownload.classList.remove('tab-active')
+    infoCommandDirectLink.value = infoCommandDirectLink.dataset.view
+    storeLinkTab('view')
+})
+
+infoTabLinkDownload.addEventListener('click', function(e) {
+    e.preventDefault()
+    infoTabLinkView.classList.remove('tab-active')
+    infoTabLinkDownload.classList.add('tab-active')
+    infoCommandDirectLink.value = infoCommandDirectLink.dataset.download
+    storeLinkTab('download')
+})
 
 infoTabLinkPcopy.addEventListener('click', function(e) {
     e.preventDefault()
@@ -694,6 +730,14 @@ function getTTL() {
     }
 }
 
+function storeLinkTab(tab) {
+    localStorage.setItem('linkTab', tab)
+}
+
+function getLinkTab() {
+    return localStorage.getItem('linkTab')
+}
+
 function storePasteTab(tab) {
     localStorage.setItem('pasteTab', tab)
 }
@@ -723,4 +767,13 @@ function secondsToHuman(seconds) {
         return seconds2 + ' second' + numberEnding(seconds2);
     }
     return 'less than a second';
+}
+
+function prependQueryParam(url, k, v) {
+    let u = new URL(url)
+    if (u.search) {
+        return `${u.origin}${u.pathname}?${k}=${encodeURIComponent(v)}&${u.search.substr(1)}`
+    } else {
+        return `${u.origin}${u.pathname}?${k}=${encodeURIComponent(v)}`
+    }
 }

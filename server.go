@@ -47,6 +47,8 @@ const (
 	queryParamFormat        = "f"
 	queryParamFileMode      = "m"
 	queryParamTTL           = "t"
+	queryParamDownload      = "d"
+	queryParamFilename      = "f" // Same as format, but that's ok, since this is for GETs
 
 	formatJSON        = "json"
 	formatText        = "text"
@@ -258,6 +260,14 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 func (s *Server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
 	fields := r.Context().Value(routeCtx{}).([]string)
 	id := fields[0]
+	download := false
+	filename := id
+	if r.URL.Query().Get(queryParamFilename) != "" {
+		filename = r.URL.Query().Get(queryParamFilename)
+	}
+	if r.URL.Query().Get(queryParamDownload) == "1" {
+		download = true
+	}
 	stat, err := s.clipboard.Stat(id)
 	if err != nil {
 		return ErrHTTPNotFound
@@ -265,14 +275,12 @@ func (s *Server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 	if !stat.Pipe {
 		w.Header().Set("Length", fmt.Sprintf("%d", stat.Size))
 	}
-
 	defer func() {
 		if stat.Pipe {
 			s.clipboard.DeleteFile(id)
 		}
 	}()
-
-	return s.clipboard.ReadFile(id, newSniffWriter(w))
+	return s.clipboard.ReadFile(id, newContentTypeWriter(w, filename, download))
 }
 
 func (s *Server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {
@@ -510,7 +518,7 @@ func (s *Server) getTTL(r *http.Request) (time.Duration, error) {
 		return 0, ErrHTTPBadRequest
 	}
 	if s.config.FileExpireAfter > 0 && ttl > s.config.FileExpireAfter {
-		ttl = s.config.FileExpireAfter // TODO test TTL
+		ttl = s.config.FileExpireAfter
 	}
 	return ttl, nil
 }
