@@ -145,7 +145,7 @@ func assertFileNotExist(t *testing.T, filename string) {
 
 func waitForPortUp(t *testing.T, port string) {
 	success := false
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 100; i++ {
 		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("localhost", port), 50*time.Millisecond)
 		if conn != nil {
 			success = true
