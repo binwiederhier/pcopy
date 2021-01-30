@@ -46,7 +46,7 @@
 <div id="main-area" class="hidden">
     <div id="header-area">
         <div id="header-flex-box">
-            <div class="col-auto">
+            <div class="col-auto col-first">
                 <a href="https://heckel.io/pcopy"><h1>{{.Config.ClipboardName | htmlEscape}}</h1></a>
             </div>
             <div class="col-auto">
@@ -56,11 +56,15 @@
             <div class="col-auto">
                 <input id="random-file-id" type="checkbox" checked/>
                 <label for="random-file-id">Random name</label>
+            </div>
+            <div class="col-auto">
                 <div class="divider"></div>
                 <input id="stream" type="checkbox"/>
                 <label for="stream">Stream</label>
+            </div>
+            <div class="col-auto">
                 <div class="divider"></div>
-                <label for="ttl">Expires after: {{if lt .Config.FileExpireAfter.Seconds 1800.0}} {{.Config.FileExpireAfter | durationToHuman}}{{end}}</label>
+                <label for="ttl">Expires: {{if lt .Config.FileExpireAfter.Seconds 1800.0}} {{.Config.FileExpireAfter | durationToHuman}}{{end}}</label>
                 <select id="ttl" class="textfield">
                     <option value="1800">30 min</option>
                     <option value="3600">1 hour</option>
@@ -69,6 +73,7 @@
                     <option value="259200">3 days</option>
                     <option value="604800">1 week</option>
                     <option value="1814400">3 weeks</option>
+                    <option value="3628800">6 weeks</option>
                     <option value="0">never</option>
                 </select>
             </div>
@@ -83,7 +88,7 @@
         </div>
     </div>
     <div id="text-area">
-        <textarea id="text" wrap="off" spellcheck="false" placeholder="Paste your content here or drag & drop a file"></textarea>
+        <textarea id="text" wrap="off" spellcheck="false" placeholder="Paste text or drag & drop a file"></textarea>
     </div>
 </div>
 

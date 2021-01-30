@@ -38,6 +38,7 @@ p {
 
 .button {
     display: inline-block;
+    height: 34px;
     padding: 7px;
     background: #006099;
     cursor: pointer;
@@ -361,8 +362,12 @@ html, body {
     flex: 0 0 auto;
     width: auto;
     max-width: 100%;
-    padding-left: 10px;
+    padding-left: 4px;
     padding-right: 4px;
+}
+
+#header-area .col-first {
+    padding-left: 10px;
 }
 
 #header-area  .col {
@@ -383,9 +388,10 @@ html, body {
 
 #header-area h1 {
     line-height: 40px;
-    margin: -5px 25px 0 0;
+    margin-top: -5px;
     font-size: 1.4em;
     color: white;
+    padding-right: 20px;
 }
 
 #header-area h1:hover {
@@ -401,11 +407,17 @@ html, body {
 
 #header-area button {
     padding: 0 10px;
+    margin: 3px 0;
 }
 
 #header-area button:disabled {
     background: #54656f;
     cursor: not-allowed;
+}
+
+#header-area input[type="checkbox"] {
+    height: 40px;
+    vertical-align: bottom;
 }
 
 #header-area input.error {
@@ -414,16 +426,16 @@ html, body {
 
 #header-area select {
     appearance: none;
-    padding: 7px 3px;
+    padding: 7px 5px;
+    height: 34px;
 }
 
 #header-area .divider {
     display: inline;
     width: 10px;
     height: 40px;
-    border-right: 1px solid #ccc;
+    border-right: 1px solid #aaa;
     margin-right: 10px;
-    margin-left: 10px;
 }
 
 #header-area #file-id {
@@ -443,15 +455,14 @@ html, body {
     #header-area h1 {
         margin: 0 200px; /* we want this on a line alone */
     }
-    #header-area button {
-        margin-bottom: 5px;
-        margin-top: 5px;
-    }
 }
 
 @media (max-width: 500px) {
     #header-area h1 {
         margin: 0 100px; /* we want this on a line alone */
+    }
+    #header-area .divider {
+        display: none;
     }
 }
 
