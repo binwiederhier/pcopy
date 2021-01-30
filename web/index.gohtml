@@ -65,7 +65,7 @@
             <div class="col-auto">
                 <div class="divider"></div>
                 <label for="ttl">Expires: {{if lt .Config.FileExpireAfter.Seconds 1800.0}} {{.Config.FileExpireAfter | durationToHuman}}{{end}}</label>
-                <select id="ttl" class="textfield">
+                <select id="ttl" class="button">
                     <option value="1800">30 min</option>
                     <option value="3600">1 hour</option>
                     <option value="10800">3 hours</option>

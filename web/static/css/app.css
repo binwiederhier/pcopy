@@ -370,16 +370,12 @@ html, body {
     padding-left: 10px;
 }
 
-#header-area  .col {
+#header-area .col {
     position: relative;
     flex-basis: 0;
     flex-grow: 1;
     max-width: 100%;
     width: 100%;
-}
-
-#header-area button {
-    height: 32px;
 }
 
 #header-area img {
@@ -406,8 +402,9 @@ html, body {
 }
 
 #header-area button {
+    height: 34px;
     padding: 0 10px;
-    margin: 3px 0;
+    margin: 3px 1px;
 }
 
 #header-area button:disabled {
@@ -428,6 +425,11 @@ html, body {
     appearance: none;
     padding: 7px 5px;
     height: 34px;
+    text-align: center;
+}
+
+#header-area select:hover {
+    background: #0074ba;
 }
 
 #header-area .divider {
@@ -439,7 +441,7 @@ html, body {
 }
 
 #header-area #file-id {
-    width: 150px;
+    width: 130px;
 }
 
 @media (max-width: 900px) {
