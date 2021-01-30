@@ -213,12 +213,18 @@ headerStream.addEventListener('change', (e) => { storeStreamEnabled(e.target.che
 
 /* TTL dropdown */
 
+headerTTL.addEventListener('change', (e) => {
+    storeTTL(e.target.value)
+})
+
+let ttl = getTTL()
 Array.from(headerTTL.options).forEach(function(option) {
-    if (option.value == 0 && config.FileExpireAfter > 0) {
+    const removeNeverOption = parseInt(option.value) === 0 && config.FileExpireAfter > 0
+    const removeHigherOption = option.value > config.FileExpireAfter && config.FileExpireAfter > 0
+    const isStoredTTL = ttl !== null && parseInt(option.value) === ttl
+    if (removeNeverOption || removeHigherOption) {
         headerTTL.removeChild(option)
-    } if (option.value > config.FileExpireAfter && config.FileExpireAfter > 0) {
-        headerTTL.removeChild(option)
-    } else {
+    } else if (isStoredTTL) {
         option.selected = 'selected'
     }
 })
@@ -665,6 +671,18 @@ function streamEnabled() {
         return localStorage.getItem('streamEnabled') === 'true'
     } else {
         return false
+    }
+}
+
+function storeTTL(ttl) {
+    localStorage.setItem('ttl', ttl)
+}
+
+function getTTL() {
+    if (localStorage.getItem('ttl') !== null) {
+        return parseInt(localStorage.getItem('ttl'))
+    } else {
+        return parseInt(headerTTL.value)
     }
 }
 
