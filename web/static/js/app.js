@@ -19,6 +19,7 @@ let headerLogoutButton = document.getElementById("logout-button")
 let headerFileId = document.getElementById("file-id")
 let headerRandomFileId = document.getElementById("random-file-id")
 let headerStream = document.getElementById("stream")
+let headerTTL = document.getElementById("ttl")
 let headerUploadButton = document.getElementById("upload-button")
 let headerFileUpload = document.getElementById("file-upload")
 
@@ -44,6 +45,11 @@ let infoStreamHeaderActive = document.getElementById("info-stream-header-active"
 let infoStreamHeaderFinished = document.getElementById("info-stream-header-finished")
 let infoStreamHeaderInterrupted = document.getElementById("info-stream-header-interrupted")
 let infoStreamTitleActive = document.getElementById("info-stream-title-active")
+
+let infoExpireNever = document.getElementById("info-expire-never")
+let infoExpireSometime = document.getElementById("info-expire-sometime")
+let infoExpireTTL = document.getElementById("info-expire-ttl")
+let infoExpireDate = document.getElementById("info-expire-date")
 
 let infoErrorHeader = document.getElementById("info-error-header")
 let infoErrorCode = document.getElementById("info-error-code")
@@ -205,6 +211,22 @@ function changeRandomFileIdEnabled(enabled) {
 headerStream.checked = streamEnabled()
 headerStream.addEventListener('change', (e) => { storeStreamEnabled(e.target.checked) })
 
+/* TTL dropdown */
+
+Array.from(headerTTL.options).forEach(function(option) {
+    if (option.value == 0 && config.FileExpireAfter > 0) {
+        headerTTL.removeChild(option)
+    } if (option.value > config.FileExpireAfter && config.FileExpireAfter > 0) {
+        headerTTL.removeChild(option)
+    } else {
+        option.selected = 'selected'
+    }
+})
+
+if (headerTTL.options.length === 0) {
+    headerTTL.classList.add('hidden')
+}
+
 /* Text field & saving text */
 
 headerSaveButton.addEventListener('click', save)
@@ -234,7 +256,9 @@ async function save() {
     }
 
     let file = getFileId()
-    let headers = {}
+    let headers = {
+        'X-TTL': headerTTL.value
+    }
     if (streamEnabled()) {
         headers['X-Stream'] = '2'
         try {
@@ -249,7 +273,14 @@ async function save() {
     req('PUT', `/${file}`, body, headers)
         .then(response => {
             if (response.status === 200 || response.status === 206) {
-                progressFinish(response.status, response.headers.get("X-File"), response.headers.get("X-URL"), response.headers.get("X-Curl"))
+                progressFinish(
+                    response.status,
+                    response.headers.get("X-File"),
+                    response.headers.get("X-URL"),
+                    response.headers.get("X-Curl"),
+                    parseInt(response.headers.get("X-TTL")),
+                    parseInt(response.headers.get("X-Expires"))
+                )
             } else {
                 progressFailed(response.status)
             }
@@ -311,7 +342,7 @@ function progressStart() {
     infoArea.classList.remove("hidden")
 }
 
-function updateLinkFields(file, url, curl) {
+function updateLinkFields(file, url, curl, ttl, expires) {
     infoDirectLinkStream.href = url
     infoDirectLinkDownload.href = url
     infoCommandDirectLink.value = url
@@ -321,6 +352,17 @@ function updateLinkFields(file, url, curl) {
     infoCommandLine.dataset.pcopy = file === "default" ? 'ppaste' : 'ppaste ' + file
     infoCommandLine.dataset.curl = curl
     infoCommandLine.value = infoCommandLine.dataset.pcopy
+
+    if (expires === 0) {
+        infoExpireNever.classList.remove('hidden')
+        infoExpireSometime.classList.add('hidden')
+    } else {
+        var options = { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+        infoExpireNever.classList.add('hidden')
+        infoExpireSometime.classList.remove('hidden')
+        infoExpireTTL.innerHTML = secondsToHuman(ttl)
+        infoExpireDate.innerHTML = new Date(expires * 1000).toLocaleDateString('en-US', options)
+    }
 }
 
 function progressUpdate(progress) {
@@ -331,7 +373,7 @@ function progressUpdate(progress) {
     }
 }
 
-function progressFinish(code, file, url, curl) {
+function progressFinish(code, file, url, curl, ttl, expires) {
     progressHideHeaders()
 
     if (streamEnabled()) {
@@ -342,7 +384,7 @@ function progressFinish(code, file, url, curl) {
             infoStreamHeaderFinished.classList.remove('hidden')
         }
     } else {
-        updateLinkFields(file, url, curl)
+        updateLinkFields(file, url, curl, ttl, expires)
         infoLinks.classList.remove('hidden')
         infoUploadHeaderFinished.classList.remove('hidden')
     }
@@ -384,7 +426,13 @@ async function reserveAndUpdateLinkFields(file) {
     return await req('PUT', `/${file}`, null, {'X-Reserve': 'yes'})
         .then(response => {
             if (response.status === 200) {
-                updateLinkFields(response.headers.get("X-File"), response.headers.get("X-URL"), response.headers.get("X-Curl"))
+                updateLinkFields(
+                    response.headers.get("X-File"),
+                    response.headers.get("X-URL"),
+                    response.headers.get("X-Curl"),
+                    parseInt(response.headers.get("X-TTL")),
+                    parseInt(response.headers.get("X-Expires"))
+                )
                 return response.headers.get("X-File")
             } else {
                 progressFailed(response.status)
@@ -420,13 +468,21 @@ async function uploadFile(file) {
     let method = 'PUT'
     let path = '/' + fileId
     let url = location.protocol + '//' + location.host + path
+    let ttl = headerTTL.value
 
     progressStart()
 
     let xhr = new XMLHttpRequest()
     xhr.addEventListener('readystatechange', function (e) {
         if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
-            progressFinish(xhr.status, xhr.getResponseHeader("X-File"), xhr.getResponseHeader("X-URL"), xhr.getResponseHeader("X-Curl"))
+            progressFinish(
+                xhr.status,
+                xhr.getResponseHeader("X-File"),
+                xhr.getResponseHeader("X-URL"),
+                xhr.getResponseHeader("X-Curl"),
+                parseInt(xhr.getResponseHeader("X-TTL")),
+                parseInt(xhr.getResponseHeader("X-Expires"))
+            )
         } else if (xhr.readyState === 4 && xhr.status !== 200) {
             progressFailed(xhr.status)
         }
@@ -438,6 +494,7 @@ async function uploadFile(file) {
     xhr.open(method, url)
     xhr.overrideMimeType(file.type)
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
+    xhr.setRequestHeader('X-TTL', ttl)
     if (key) {
         xhr.setRequestHeader('Authorization', generateAuthHMAC(key, method, path))
     }
@@ -609,4 +666,27 @@ function streamEnabled() {
     } else {
         return false
     }
+}
+
+function secondsToHuman(seconds) {
+    function numberEnding (number) {
+        return (number > 1) ? 's' : '';
+    }
+    let days = Math.floor((seconds %= 31536000) / 86400);
+    if (days) {
+        return days + ' day' + numberEnding(days);
+    }
+    let hours = Math.floor((seconds %= 86400) / 3600);
+    if (hours) {
+        return hours + ' hour' + numberEnding(hours);
+    }
+    let minutes = Math.floor((seconds %= 3600) / 60);
+    if (minutes) {
+        return minutes + ' minute' + numberEnding(minutes);
+    }
+    let seconds2 = seconds % 60;
+    if (seconds2) {
+        return seconds2 + ' second' + numberEnding(seconds2);
+    }
+    return 'less than a second';
 }

@@ -142,6 +142,16 @@ func TestParseDuration_ZeroSuccess(t *testing.T) {
 	}
 }
 
+func TestParseDuration_SecondsOnly(t *testing.T) {
+	d, err := parseDuration("3600")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d != time.Hour {
+		t.Fatalf("expected %d, got %d", time.Hour, d)
+	}
+}
+
 func TestParseDuration_WithDaysSuccess(t *testing.T) {
 	d, err := parseDuration("10d")
 	if err != nil {

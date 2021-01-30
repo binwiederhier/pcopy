@@ -338,6 +338,7 @@ html, body {
     width: 100%;
     margin-right: auto;
     margin-left: auto;
+    color: white;
     background-color: #004c79;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
     z-index: 2;
@@ -394,8 +395,8 @@ html, body {
 #header-area label {
     color: white;
     line-height: 40px;
-    padding-right: 10px;
     padding-left: 2px;
+    padding-right: 2px;
 }
 
 #header-area button {
@@ -409,6 +410,20 @@ html, body {
 
 #header-area input.error {
     background: #ffd6d6;
+}
+
+#header-area select {
+    appearance: none;
+    padding: 7px 3px;
+}
+
+#header-area .divider {
+    display: inline;
+    width: 10px;
+    height: 40px;
+    border-right: 1px solid #ccc;
+    margin-right: 10px;
+    margin-left: 10px;
 }
 
 #header-area #file-id {

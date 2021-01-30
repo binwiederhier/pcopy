@@ -105,7 +105,7 @@ func startTestServerRouter(t *testing.T, configs ...*Config) *ServerRouter {
 
 func waitForPortUp(t *testing.T, port string) {
 	success := false
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 50; i++ {
 		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("", port), 20*time.Millisecond)
 		if conn != nil {
 			success = true

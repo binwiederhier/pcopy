@@ -56,8 +56,21 @@
             <div class="col-auto">
                 <input id="random-file-id" type="checkbox" checked/>
                 <label for="random-file-id">Random name</label>
+                <div class="divider"></div>
                 <input id="stream" type="checkbox"/>
                 <label for="stream">Stream</label>
+                <div class="divider"></div>
+                <label for="ttl">Expires after: {{if lt .Config.FileExpireAfter.Seconds 1800.0}} {{.Config.FileExpireAfter | durationToHuman}}{{end}}</label>
+                <select id="ttl" class="textfield">
+                    <option value="1800">30 min</option>
+                    <option value="3600">1 hour</option>
+                    <option value="10800">3 hours</option>
+                    <option value="86400">1 day</option>
+                    <option value="259200">3 days</option>
+                    <option value="604800">1 week</option>
+                    <option value="1814400">3 weeks</option>
+                    <option value="0">never</option>
+                </select>
             </div>
             <div class="col"></div>
             <div class="col-auto">
@@ -112,15 +125,17 @@
                     <div id="info-upload-header-finished" class="info-header">
                         <h1>Your clipboard entry has been copied.</h1>
                         <p>
-                            You may now use <tt>pcopy</tt> or <tt>curl</tt> to download it on any connected computer,
-                            or simply download it via the <a href="" id="info-direct-link-download">direct link</a>.
+                            You may now use <tt>pcopy</tt> or <tt>curl</tt> to download it, or simply share
+                            the <a href="" id="info-direct-link-download">direct link</a>.
+                            <span id="info-expire-never">The file will <b>never expire</b>.</span>
+                            <span id="info-expire-sometime">The file will expire in <b id="info-expire-ttl"></b> at <span id="info-expire-date"></span>.</span>
                         </p>
                     </div>
                     <div id="info-stream-header-active" class="info-header">
                         <h1 id="info-stream-title-active"></h1>
                         <p>
                             <b>Your upload will hold until you start the download.</b> You may now use <tt>pcopy</tt> or
-                            <tt>curl</tt> to download it on any connected computer, or simply download it via the
+                            <tt>curl</tt> to download it on any connected computer, or simply share it via the
                             <a href="" id="info-direct-link-stream">direct link</a>.
                         </p>
                     </div>
@@ -199,7 +214,8 @@
         KeyDerivIter: {{.KeyDerivIter}},
         KeyLenBytes: {{.KeyLenBytes}},
         DefaultPort: {{.DefaultPort}},
-        FileSizeLimit: {{.Config.FileSizeLimit}}
+        FileSizeLimit: {{.Config.FileSizeLimit}},
+        FileExpireAfter: {{.Config.FileExpireAfter.Seconds}}
     }
 </script>
 <script src="static/vendor/crypto-js.min.js"></script>

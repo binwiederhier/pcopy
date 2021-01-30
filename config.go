@@ -91,8 +91,9 @@ var (
 	configTemplateSource string
 	configTemplate       = template.Must(template.New("config").Funcs(templateFnMap).Parse(configTemplateSource))
 
-	sizeStrRegex             = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
-	durationStrDaysOnlyRegex = regexp.MustCompile(`(?i)^(\d+)d$`)
+	sizeStrRegex                = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
+	durationStrSecondsOnlyRegex = regexp.MustCompile(`(?i)^(\d+)$`)
+	durationStrDaysOnlyRegex    = regexp.MustCompile(`(?i)^(\d+)d$`)
 )
 
 // Config is the configuration struct used to configure the client and the server. Some settings only apply to
@@ -469,15 +470,23 @@ func loadConfig(reader io.Reader) (*Config, error) {
 }
 
 func parseDuration(s string) (time.Duration, error) {
-	matches := durationStrDaysOnlyRegex.FindStringSubmatch(s)
-	if matches == nil {
-		return time.ParseDuration(s)
+	matches := durationStrSecondsOnlyRegex.FindStringSubmatch(s)
+	if matches != nil {
+		seconds, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return -1, fmt.Errorf("cannot convert number %s", matches[1])
+		}
+		return time.Duration(seconds) * time.Second, nil
 	}
-	days, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return -1, fmt.Errorf("cannot convert number %s", matches[1])
+	matches = durationStrDaysOnlyRegex.FindStringSubmatch(s)
+	if matches != nil {
+		days, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return -1, fmt.Errorf("cannot convert number %s", matches[1])
+		}
+		return time.Duration(days) * time.Hour * 24, nil
 	}
-	return time.Duration(days) * time.Hour * 24, nil
+	return time.ParseDuration(s)
 }
 
 func parseSize(s string) (int64, error) {
