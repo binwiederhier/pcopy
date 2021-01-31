@@ -117,6 +117,14 @@ func TestDecodeKey_FailureInvalidBase64(t *testing.T) {
 	}
 }
 
+func TestDecodeKey_FailureKeyInvalidBase64(t *testing.T) {
+	keyEncoded := "Osz6osE1fRRirA==:this is invalid"
+	_, err := DecodeKey(keyEncoded)
+	if err != errInvalidKeyFormat {
+		t.Fatalf("expected errInvalidKeyFormat, but got no error")
+	}
+}
+
 func TestLoadCertFromFileAndCalculatePublicKeyHash_Success(t *testing.T) {
 	pemCert := `-----BEGIN CERTIFICATE-----
 MIIBMzCB2aADAgECAhED/nPE4UooT9Ru76nApxRWWzAKBggqhkjOPQQDAjAQMQ4w
