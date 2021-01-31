@@ -57,11 +57,11 @@ rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.5.1/pcopy_0
 docker run --rm -it binwiederhier/pcopy
 ```
 
-**Go** (*requires Go 1.16beta1*)**:**
+**Go** (*requires Go 1.16rc1*)**:**
 ```bash
-go get golang.org/dl/go1.16beta1
-go1.16beta1 download
-go1.16beta1 get -u heckel.io/pcopy/cmd/pcopy
+go get golang.org/dl/go1.16rc1
+go1.16rc1 download
+go1.16rc1 get -u heckel.io/pcopy/cmd/pcopy
 ```
 
 **Manual install** (*any x86_64-based Linux*)**:**
@@ -313,12 +313,12 @@ Try 'pcopy COMMAND --help' for more information.
 ``` 
 
 ## Building
-Building pcopy is dead simple, however it does need Go >=1.16beta1, because it uses [embed](https://tip.golang.org/pkg/embed/). 
+Building pcopy is dead simple, however it does need Go >=1.16rc1, because it uses [embed](https://tip.golang.org/pkg/embed/). 
 Here's how you build it:
 
 ```
-go get golang.org/dl/go1.16beta1
-go1.16beta1 download
+go get golang.org/dl/go1.16rc1
+go1.16rc1 download
 make build-simple
 # Builds to dist/pcopy_linux_amd64/pcopy
 ``` 

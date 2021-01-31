@@ -1,4 +1,4 @@
-GO=$(shell which go1.16beta1)
+GO=$(shell which go1.16rc1)
 VERSION := $(shell git describe --tag)
 
 .PHONY:

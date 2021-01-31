@@ -11,7 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Install go1.16 beta
-        run: go get golang.org/dl/go1.16beta1 && go1.16beta1 download
+        run: go get golang.org/dl/go1.16rc1 && go1.16rc1 download
       - name: Run tests, formatting, vetting and linting
         run: make check
       - name: Run and upload coverage to codecov.io

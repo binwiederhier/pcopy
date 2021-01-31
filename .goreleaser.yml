@@ -2,7 +2,7 @@ before:
   hooks:
     - go mod download
 builds:
-  - gobinary: "go1.16beta1"
+  - gobinary: "go1.16rc1"
     dir: cmd/pcopy
     binary: pcopy
     env:
