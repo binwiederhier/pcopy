@@ -5,6 +5,7 @@ import (
 	_ "embed" // Required for go:embed instructions
 	"encoding/base64"
 	"fmt"
+	"golang.org/x/time/rate"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -94,28 +95,36 @@ var (
 	sizeStrRegex                = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
 	durationStrSecondsOnlyRegex = regexp.MustCompile(`(?i)^(\d+)$`)
 	durationStrDaysOnlyRegex    = regexp.MustCompile(`(?i)^(\d+)d$`)
+
+	defaultLimitGET      = rate.Every(time.Second)
+	defaultLimitGETBurst = 200
+	defaultLimitPUT      = rate.Every(time.Minute)
+	defaultLimitPUTBurst = 50
 )
 
 // Config is the configuration struct used to configure the client and the server. Some settings only apply to
 // the client, others only to the server. Some apply to both. Many (but not all) of these settings can be set either
 // via the config file, or via command line parameters.
 type Config struct {
-	ListenHTTPS              string
-	ListenHTTP               string
-	ServerAddr               string
-	Key                      *Key
-	KeyFile                  string
-	CertFile                 string
-	ClipboardName            string
-	ClipboardDir             string
-	ClipboardSizeLimit       int64
-	ClipboardCountLimit      int
-	FileSizeLimit            int64
-	FileExpireAfter          time.Duration
-	FileModesAllowed         []string
-	FileCountPerVisitorLimit int
-	ProgressFunc             ProgressFunc
-	ManagerInterval          time.Duration
+	ListenHTTPS         string
+	ListenHTTP          string
+	ServerAddr          string
+	Key                 *Key
+	KeyFile             string
+	CertFile            string
+	ClipboardName       string
+	ClipboardDir        string
+	ClipboardSizeLimit  int64
+	ClipboardCountLimit int
+	FileSizeLimit       int64
+	FileExpireAfter     time.Duration
+	FileModesAllowed    []string
+	ProgressFunc        ProgressFunc
+	ManagerInterval     time.Duration
+	LimitGET            rate.Limit
+	LimitGETBurst       int
+	LimitPUT            rate.Limit
+	LimitPUTBurst       int
 }
 
 // ProgressFunc is callback that is called during copy/paste operations to indicate progress to the user.
@@ -131,22 +140,25 @@ type Key struct {
 // NewConfig returns the default config
 func NewConfig() *Config {
 	return &Config{
-		ListenHTTPS:              fmt.Sprintf(":%d", DefaultPort),
-		ListenHTTP:               "",
-		ServerAddr:               "",
-		Key:                      nil,
-		KeyFile:                  "",
-		CertFile:                 "",
-		ClipboardName:            DefaultClipboardName,
-		ClipboardDir:             DefaultClipboardDir,
-		ClipboardSizeLimit:       DefaultClipboardSizeLimit,
-		ClipboardCountLimit:      DefaultClipboardCountLimit,
-		FileSizeLimit:            DefaultFileSizeLimit,
-		FileExpireAfter:          DefaultFileExpireAfter,
-		FileModesAllowed:         strings.Split(DefaultFileModesAllowed, " "),
-		FileCountPerVisitorLimit: DefaultFileCountPerVisitorLimit,
-		ProgressFunc:             nil,
-		ManagerInterval:          defaultManagerInterval,
+		ListenHTTPS:         fmt.Sprintf(":%d", DefaultPort),
+		ListenHTTP:          "",
+		ServerAddr:          "",
+		Key:                 nil,
+		KeyFile:             "",
+		CertFile:            "",
+		ClipboardName:       DefaultClipboardName,
+		ClipboardDir:        DefaultClipboardDir,
+		ClipboardSizeLimit:  DefaultClipboardSizeLimit,
+		ClipboardCountLimit: DefaultClipboardCountLimit,
+		FileSizeLimit:       DefaultFileSizeLimit,
+		FileExpireAfter:     DefaultFileExpireAfter,
+		FileModesAllowed:    strings.Split(DefaultFileModesAllowed, " "),
+		ProgressFunc:        nil,
+		ManagerInterval:     defaultManagerInterval,
+		LimitGET:            defaultLimitGET,
+		LimitGETBurst:       defaultLimitGETBurst,
+		LimitPUT:            defaultLimitPUT,
+		LimitPUTBurst:       defaultLimitPUTBurst,
 	}
 }
 

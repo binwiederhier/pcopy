@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/time/rate"
 	"io"
 	"io/ioutil"
 	"log"
@@ -115,7 +116,7 @@ func TestServer_HandleWebRoot(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
-	req.TLS = &tls.ConnectionState{} // No redirect
+	req.TLS = &tls.ConnectionState{} // Pretend that this is TLS, so we don't redirect
 	server.Handle(rr, req)
 
 	assertStatus(t, rr, http.StatusOK)
@@ -248,9 +249,9 @@ func TestServer_HandleClipboardPutRandom(t *testing.T) {
 	assertFileContent(t, config, rr.Header().Get("X-File"), "this is a thing")
 }
 
-func TestServer_HandleClipboardPutUntilVisitorLimitReached(t *testing.T) {
+func TestServer_HandleClipboardPutUntilLimitReached(t *testing.T) {
 	config := newTestServerConfig(t)
-	config.FileCountPerVisitorLimit = 2
+	config.LimitPUTBurst = 2
 	server := newTestServer(t, config)
 
 	rr := httptest.NewRecorder()
@@ -267,6 +268,35 @@ func TestServer_HandleClipboardPutUntilVisitorLimitReached(t *testing.T) {
 	req, _ = http.NewRequest("PUT", "/", strings.NewReader("this is a yet another thing"))
 	server.Handle(rr, req)
 	assertStatus(t, rr, http.StatusTooManyRequests)
+}
+
+func TestServer_HandleWebRootGetUntilLimitReached(t *testing.T) {
+	config := newTestServerConfig(t)
+	config.LimitGETBurst = 10
+	config.LimitGET = rate.Every(100 * time.Millisecond)
+	server := newTestServer(t, config)
+
+	for i := 0; i < 10; i++ {
+		rr := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/", nil)
+		req.TLS = &tls.ConnectionState{} // Pretend that this is TLS, so we don't redirect
+		server.Handle(rr, req)
+		assertStatus(t, rr, http.StatusOK)
+	}
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.TLS = &tls.ConnectionState{} // Pretend that this is TLS, so we don't redirect
+	server.Handle(rr, req)
+	assertStatus(t, rr, http.StatusTooManyRequests)
+
+	time.Sleep(200 * time.Millisecond)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest("GET", "/", nil)
+	req.TLS = &tls.ConnectionState{} // Pretend that this is TLS, so we don't redirect
+	server.Handle(rr, req)
+	assertStatus(t, rr, http.StatusOK)
 }
 
 func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {

@@ -25,12 +25,10 @@ import (
 )
 
 const (
-	defaultMaxAuthAge             = time.Minute
-	noAuthRequestAge              = 0
-	visitorRequestsPerSecond      = 2
-	visitorRequestsPerSecondBurst = 5
-	visitorExpungeAfter           = 3 * time.Minute
-	reserveTTL                    = 10 * time.Second
+	defaultMaxAuthAge   = time.Minute
+	noAuthRequestAge    = 0
+	visitorExpungeAfter = 30 * time.Minute
+	reserveTTL          = 10 * time.Second
 
 	headerStream            = "X-Stream"
 	headerReserve           = "X-Reserve"
@@ -89,9 +87,9 @@ type Server struct {
 
 // visitor represents an API user, and its associated rate.Limiter used for rate limiting
 type visitor struct {
-	countLimiter *limiter
-	rateLimiter  *rate.Limiter
-	lastSeen     time.Time
+	limiterGET *rate.Limiter
+	limiterPUT *rate.Limiter
+	lastSeen   time.Time
 }
 
 // httpResponseServerInfo is the response returned by the /info endpoint
@@ -195,11 +193,11 @@ func (s *Server) routeList() []route {
 	}
 
 	s.routes = []route{
-		newRoute("GET", "/", s.handleRoot),
+		newRoute("GET", "/", s.limit(s.handleRoot)),
 		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
-		newRoute("GET", "/static/.+", s.handleStatic),
-		newRoute("GET", "/favicon.ico", s.handleFavicon),
+		newRoute("GET", "/static/.+", s.limit(s.handleStatic)),
+		newRoute("GET", "/favicon.ico", s.limit(s.handleFavicon)),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
 		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
@@ -412,18 +410,11 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-// checkPUT verifies that the PUT against the given ID is allowed. It also increases
-// clipboard count limits and visitor limits.
+// checkPUT verifies that the PUT against the given ID is allowed
 func (s *Server) checkPUT(id string, remoteAddr string) error {
 	stat, _ := s.clipboard.Stat(id)
 	if stat == nil {
 		// File does not exist
-
-		// Check visitor file count limit
-		v := s.getVisitor(remoteAddr)
-		if err := v.countLimiter.Add(1); err != nil {
-			return ErrHTTPTooManyRequests
-		}
 
 		// Check total file count limit
 		if err := s.clipboard.Add(); err != nil {
@@ -736,7 +727,7 @@ func (s *Server) printStats(stats *clipboardStats) {
 	} else {
 		sizeLimit = fmt.Sprintf("max %s", BytesToHuman(s.config.ClipboardSizeLimit))
 	}
-	log.Printf("[%s] files: %d (%s), size: %s (%s), visitors: %d (last 3 minutes)",
+	log.Printf("[%s] files: %d (%s), size: %s (%s), visitors: %d (last 30 minutes)",
 		CollapseServerAddr(s.config.ServerAddr), stats.NumFiles, countLimit, BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
 }
 
@@ -765,8 +756,14 @@ func (s *Server) redirectHTTPS(next handlerFnWithErr) handlerFnWithErr {
 func (s *Server) limit(next handlerFnWithErr) handlerFnWithErr {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		v := s.getVisitor(r.RemoteAddr)
-		if !v.rateLimiter.Allow() {
-			return ErrHTTPTooManyRequests
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			if !v.limiterGET.Allow() {
+				return ErrHTTPTooManyRequests
+			}
+		} else {
+			if !v.limiterPUT.Allow() {
+				return ErrHTTPTooManyRequests
+			}
 		}
 
 		return next(w, r)
@@ -787,8 +784,8 @@ func (s *Server) getVisitor(remoteAddr string) *visitor {
 	v, exists := s.visitors[ip]
 	if !exists {
 		v = &visitor{
-			newLimiter(int64(s.config.FileCountPerVisitorLimit)),
-			rate.NewLimiter(visitorRequestsPerSecond, visitorRequestsPerSecondBurst),
+			rate.NewLimiter(s.config.LimitGET, s.config.LimitGETBurst),
+			rate.NewLimiter(s.config.LimitPUT, s.config.LimitPUTBurst),
 			time.Now(),
 		}
 		s.visitors[ip] = v
