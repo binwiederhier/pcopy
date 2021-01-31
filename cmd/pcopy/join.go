@@ -88,7 +88,7 @@ func execJoin(c *cli.Context) error {
 				return err
 			}
 		} else {
-			password, err := readPassword()
+			password, err := readPassword(c)
 			if err != nil {
 				return err
 			}
@@ -122,44 +122,44 @@ func execJoin(c *cli.Context) error {
 	}
 
 	if !quiet {
-		printInstructions(configFile, clipboard, info)
+		printInstructions(c, configFile, clipboard, info)
 	}
 
 	return nil
 }
 
-func readPassword() ([]byte, error) {
-	fmt.Print("Enter password to join clipboard: ")
+func readPassword(c *cli.Context) ([]byte, error) {
+	fmt.Fprint(c.App.ErrWriter, "Enter password to join clipboard: ")
 	password, err := term.ReadPassword(syscall.Stdin)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Print("\r")
+	fmt.Fprint(c.App.ErrWriter, "\r")
 	return password, nil
 }
 
-func printInstructions(configFile string, clipboard string, info *pcopy.ServerInfo) {
+func printInstructions(c *cli.Context, configFile string, clipboard string, info *pcopy.ServerInfo) {
 	clipboardPrefix := ""
 	if clipboard != pcopy.DefaultClipboard {
 		clipboardPrefix = fmt.Sprintf(" %s:", clipboard)
 	}
 
 	if clipboard == pcopy.DefaultClipboard {
-		fmt.Printf("Successfully joined clipboard, config written to %s\n", pcopy.CollapseHome(configFile))
+		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard, config written to %s\n", pcopy.CollapseHome(configFile))
 	} else {
-		fmt.Printf("Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, pcopy.CollapseHome(configFile))
+		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, pcopy.CollapseHome(configFile))
 	}
 
 	if info.Cert != nil {
-		fmt.Println()
-		fmt.Println("Warning: The TLS certificate was self-signed and has been pinned.")
-		fmt.Println("Future communication will be secure, but joining could have been intercepted.")
+		fmt.Fprintln(c.App.ErrWriter)
+		fmt.Fprintln(c.App.ErrWriter, "Warning: The TLS certificate was self-signed and has been pinned.")
+		fmt.Fprintln(c.App.ErrWriter, "Future communication will be secure, but joining could have been intercepted.")
 	}
 
-	fmt.Println()
+	fmt.Fprintln(c.App.ErrWriter)
 	if _, err := os.Stat("/usr/bin/pcp"); err == nil {
-		fmt.Printf("You may now use 'pcp%s' and 'ppaste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
+		fmt.Fprintf(c.App.ErrWriter, "You may now use 'pcp%s' and 'ppaste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	} else {
-		fmt.Printf("You may now use 'pcopy copy%s' and 'pcopy paste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
+		fmt.Fprintf(c.App.ErrWriter, "You may now use 'pcopy copy%s' and 'pcopy paste%s'. See 'pcopy -h' for usage details.\n", clipboardPrefix, clipboardPrefix)
 	}
 }

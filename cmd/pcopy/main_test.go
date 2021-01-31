@@ -143,6 +143,12 @@ func assertFileNotExist(t *testing.T, filename string) {
 	}
 }
 
+func assertFileExist(t *testing.T, filename string) {
+	if stat, _ := os.Stat(filename); stat == nil {
+		t.Fatalf("expected file %s to exist, but it does not", filename)
+	}
+}
+
 func waitForPortUp(t *testing.T, port string) {
 	success := false
 	for i := 0; i < 100; i++ {

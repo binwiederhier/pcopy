@@ -37,16 +37,16 @@ func execList(c *cli.Context) error {
 		}
 
 		lineFmt := fmt.Sprintf("%%-%ds %%-%ds %%s\n", clipboardMaxLen, serverAddrMaxLen)
-		fmt.Printf(lineFmt, clipboardHeader, serverAddrHeader, "Config file")
-		fmt.Printf(lineFmt, strings.Repeat("-", clipboardMaxLen), strings.Repeat("-", serverAddrMaxLen), strings.Repeat("-", configFileMaxLen))
+		fmt.Fprintf(c.App.ErrWriter, lineFmt, clipboardHeader, serverAddrHeader, "Config file")
+		fmt.Fprintf(c.App.ErrWriter, lineFmt, strings.Repeat("-", clipboardMaxLen), strings.Repeat("-", serverAddrMaxLen), strings.Repeat("-", configFileMaxLen))
 		for filename, config := range configs {
 			clipboard := pcopy.ExtractClipboard(filename)
 			shortName := pcopy.CollapseHome(filename)
 			serverAddr := pcopy.CollapseServerAddr(config.ServerAddr)
-			fmt.Printf(lineFmt, clipboard, serverAddr, shortName)
+			fmt.Fprintf(c.App.ErrWriter, lineFmt, clipboard, serverAddr, shortName)
 		}
 	} else {
-		fmt.Println("No clipboards found. You can use 'pcopy join' to connect to existing clipboards.")
+		fmt.Fprintln(c.App.ErrWriter, "No clipboards found. You can use 'pcopy join' to connect to existing clipboards.")
 	}
 	return nil
 }
