@@ -477,7 +477,7 @@ async function uploadFile(file) {
         return
     }
 
-    if (file.size > config.FileSizeLimit) {
+    if (config.FileSizeLimit > 0 && file.size > config.FileSizeLimit) {
         // Let's fake a "request entity too large" error to avoid trying to upload a file that would
         // fail the upload anyway due to the server-size limits. It also avoids a bug(?) in Firefox that doesn't
         // properly trigger a "readystatechange" event for the 413 for really large payloads.
