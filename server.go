@@ -199,6 +199,7 @@ func (s *Server) routeList() []route {
 		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("GET", "/static/.+", s.handleStatic),
+		newRoute("GET", "/favicon.ico", s.handleFavicon),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
 		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
@@ -249,6 +250,11 @@ func (s *Server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
 	return curlTemplate.Execute(w, &webTemplateConfig{Config: s.config})
+}
+
+func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) error {
+	r.URL.Path = "/static/img/favicon.ico"
+	return s.handleStatic(w, r)
 }
 
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) error {

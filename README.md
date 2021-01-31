@@ -16,7 +16,7 @@ super simple REST API to copy/paste, e.g. via `curl`.
 The web UI allows you to paste text or upload files (even if they are gigabytes in size), and generates 
 temporary links you can share with others. 
 
-To see what else pcopy can do, check out the **[live demo](#demo)** or the **[videos](#videos)**.
+To see what else pcopy can do, check out the **[live demo](#demo)** (aka [nopaste.net](https://nopaste.net)) or the **[videos](#videos)**.
 
 **Features:**
 * 📋 Copy/paste across computers (via STDIN/STDOUT)

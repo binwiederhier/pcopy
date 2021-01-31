@@ -152,6 +152,18 @@ func TestServer_HandleWebStaticResource(t *testing.T) {
 	}
 }
 
+func TestServer_HandleWebFavicon(t *testing.T) {
+	config := newTestServerConfig(t)
+	server := newTestServer(t, config)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/favicon.ico", nil)
+	server.Handle(rr, req)
+
+	assertStatus(t, rr, http.StatusOK)
+	assertBytesEquals(t, []byte{0x00, 0x00, 0x01, 0x00}, rr.Body.Bytes()[:4]) // .ico magic bytes
+}
+
 func TestServer_HandleClipboardGetExists(t *testing.T) {
 	config := newTestServerConfig(t)
 	server := newTestServer(t, config)
