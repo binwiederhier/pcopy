@@ -373,7 +373,6 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			// yielding a http.ErrBodyReadAfterClose error. To counter this behavior in streaming mode, we consume
 			// the entire request body if it is short enough (<50 KB). In practice, curl will send "Expect: 100-continue"
 			// for anything > ~1400 bytes.
-			// TODO test short POST payload with curl "curl -dabc nopaste.net?s=1"
 			if r.Header.Get("Expect") == "" && r.ContentLength < 50*1024 {
 				buf := make([]byte, r.ContentLength)
 				_, err := io.ReadFull(body, buf)
