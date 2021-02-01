@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/client"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/server"
 )
 
 var cmdLink = &cli.Command{
@@ -25,27 +27,27 @@ Examples:
 }
 
 func execLink(c *cli.Context) error {
-	config, id, err := parseLinkArgs(c)
+	conf, id, err := parseLinkArgs(c)
 	if err != nil {
 		return err
 	}
-	client, err := pcopy.NewClient(config)
+	pclient, err := client.NewClient(conf)
 	if err != nil {
 		return err
 	}
-	info, err := client.FileInfo(id)
+	info, err := pclient.FileInfo(id)
 	if err != nil {
 		return err
 	}
-	fmt.Fprint(c.App.ErrWriter, pcopy.FileInfoInstructions(info))
+	fmt.Fprint(c.App.ErrWriter, server.FileInfoInstructions(info))
 	return nil
 }
 
-func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, error) {
+func parseLinkArgs(c *cli.Context) (*config.Config, string, error) {
 	configFileOverride := c.String("config")
 
 	// Parse clipboard and file
-	clipboard, id := pcopy.DefaultClipboard, pcopy.DefaultID
+	clipboard, id := config.DefaultClipboard, config.DefaultID
 	if c.NArg() > 0 {
 		var err error
 		clipboard, id, err = parseClipboardAndID(c.Args().First(), configFileOverride)
@@ -55,15 +57,15 @@ func parseLinkArgs(c *cli.Context) (*pcopy.Config, string, error) {
 	}
 
 	// Load config
-	configFile, config, err := parseAndLoadConfig(configFileOverride, clipboard)
+	configFile, conf, err := parseAndLoadConfig(configFileOverride, clipboard)
 	if err != nil {
 		return nil, "", cli.Exit("clipboard does not exist", 1)
 	}
 
 	// Load defaults
-	if config.CertFile == "" {
-		config.CertFile = pcopy.DefaultCertFile(configFile, true)
+	if conf.CertFile == "" {
+		conf.CertFile = config.DefaultCertFile(configFile, true)
 	}
 
-	return config, id, nil
+	return conf, id, nil
 }

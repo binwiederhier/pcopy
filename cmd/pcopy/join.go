@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/client"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/server"
+	"heckel.io/pcopy/util"
 	"io/ioutil"
 	"os"
 	"syscall"
@@ -49,28 +53,28 @@ func execJoin(c *cli.Context) error {
 		return errors.New("cannot use both --auto and --force")
 	}
 
-	clipboard := pcopy.DefaultClipboard
-	serverAddr := pcopy.ExpandServerAddr(c.Args().Get(0))
+	clipboard := config.DefaultClipboard
+	serverAddr := config.ExpandServerAddr(c.Args().Get(0))
 	if c.NArg() > 1 {
 		clipboard = c.Args().Get(1)
 	}
 
 	// Find config file
-	store := pcopy.NewConfigStore()
+	store := config.NewStore()
 	configFile := store.FileFromName(clipboard)
 	if _, err := os.Stat(configFile); err == nil && !force {
 		return fmt.Errorf("config file %s exists, you may want to specify a different clipboard name, or use --force to override", configFile)
 	}
 
 	// Read basic info from server
-	client, err := pcopy.NewClient(&pcopy.Config{
+	pclient, err := client.NewClient(&config.Config{
 		ServerAddr: serverAddr,
 	})
 	if err != nil {
 		return err
 	}
 
-	info, err := client.ServerInfo()
+	info, err := pclient.ServerInfo()
 	if err != nil {
 		return err
 	}
@@ -78,12 +82,12 @@ func execJoin(c *cli.Context) error {
 	// TODO fix info.serverAddr handling
 
 	// Read and verify that password was correct (if server is secured with key)
-	var key *pcopy.Key
+	var key *crypto.Key
 
 	if info.Salt != nil {
-		envKey := os.Getenv(pcopy.EnvKey)
+		envKey := os.Getenv(config.EnvKey)
 		if envKey != "" {
-			key, err = pcopy.DecodeKey(envKey)
+			key, err = crypto.DecodeKey(envKey)
 			if err != nil {
 				return err
 			}
@@ -92,8 +96,8 @@ func execJoin(c *cli.Context) error {
 			if err != nil {
 				return err
 			}
-			key = pcopy.DeriveKey(password, info.Salt)
-			err = client.Verify(info.Cert, key)
+			key = crypto.DeriveKey(password, info.Salt)
+			err = pclient.Verify(info.Cert, key)
 			if err != nil {
 				return fmt.Errorf("failed to join clipboard: %s", err.Error())
 			}
@@ -101,18 +105,18 @@ func execJoin(c *cli.Context) error {
 	}
 
 	// Write config file
-	config := &pcopy.Config{
+	conf := &config.Config{
 		ServerAddr: serverAddr,
 		Key:        key, // May be nil, but that's ok
 	}
-	if err := config.WriteFile(configFile); err != nil {
+	if err := conf.WriteFile(configFile); err != nil {
 		return err
 	}
 
 	// Write self-signed cert (only if Verify didn't work with secure client)
 	if info.Cert != nil {
-		certFile := pcopy.DefaultCertFile(configFile, false)
-		certsEncoded, err := pcopy.EncodeCert(info.Cert)
+		certFile := config.DefaultCertFile(configFile, false)
+		certsEncoded, err := crypto.EncodeCert(info.Cert)
 		if err != nil {
 			return err
 		}
@@ -138,16 +142,16 @@ func readPassword(c *cli.Context) ([]byte, error) {
 	return password, nil
 }
 
-func printInstructions(c *cli.Context, configFile string, clipboard string, info *pcopy.ServerInfo) {
+func printInstructions(c *cli.Context, configFile string, clipboard string, info *server.Info) {
 	clipboardPrefix := ""
-	if clipboard != pcopy.DefaultClipboard {
+	if clipboard != config.DefaultClipboard {
 		clipboardPrefix = fmt.Sprintf(" %s:", clipboard)
 	}
 
-	if clipboard == pcopy.DefaultClipboard {
-		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard, config written to %s\n", pcopy.CollapseHome(configFile))
+	if clipboard == config.DefaultClipboard {
+		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard, config written to %s\n", util.CollapseHome(configFile))
 	} else {
-		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, pcopy.CollapseHome(configFile))
+		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, util.CollapseHome(configFile))
 	}
 
 	if info.Cert != nil {

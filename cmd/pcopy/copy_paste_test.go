@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"heckel.io/pcopy/clipboard/clipboardtest"
+	"heckel.io/pcopy/test"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +18,7 @@ func TestCLI_Copy(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
-	waitForPortUp(t, "12345")
+	test.WaitForPortUp(t, "12345")
 
 	app, stdin, _, stderr := newTestApp()
 	stdin.WriteString("test stdin")
@@ -25,10 +27,10 @@ func TestCLI_Copy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertFileContent(t, config, "default", "test stdin")
-	assertStrContains(t, stderr.String(), "Direct link (valid for 7d")
-	assertStrContains(t, stderr.String(), "curl -sSLk --pinnedpubkey")
-	assertStrContains(t, stderr.String(), "https://localhost:12345/default")
+	clipboardtest.Content(t, config, "default", "test stdin")
+	test.StrContains(t, stderr.String(), "Direct link (valid for 7d")
+	test.StrContains(t, stderr.String(), "curl -sSLk --pinnedpubkey")
+	test.StrContains(t, stderr.String(), "https://localhost:12345/default")
 }
 
 func TestCLI_CopyPaste(t *testing.T) {
@@ -36,7 +38,7 @@ func TestCLI_CopyPaste(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
-	waitForPortUp(t, "12345")
+	test.WaitForPortUp(t, "12345")
 
 	copyApp, copyStdin, _, copyStderr := newTestApp()
 	copyStdin.WriteString("this is a test string")
@@ -48,8 +50,8 @@ func TestCLI_CopyPaste(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertStrContains(t, copyStderr.String(), "https://localhost:12345/somefile")
-	assertStrContains(t, pasteStdout.String(), "this is a test string")
+	test.StrContains(t, copyStderr.String(), "https://localhost:12345/somefile")
+	test.StrContains(t, pasteStdout.String(), "this is a test string")
 }
 
 func TestCLI_CopyPasteStream(t *testing.T) {
@@ -57,7 +59,7 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
-	waitForPortUp(t, "12345")
+	test.WaitForPortUp(t, "12345")
 
 	// Copy
 	copyApp, copyStdin, _, copyStderr := newTestApp()
@@ -68,7 +70,7 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 			copyErrChan <- err
 			return
 		}
-		assertStrContains(t, copyStderr.String(), "https://localhost:12345/mystream")
+		test.StrContains(t, copyStderr.String(), "https://localhost:12345/mystream")
 	}()
 
 	// Wait for pipe to be created
@@ -98,7 +100,7 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertStrContains(t, pasteStdout.String(), "this is a test string")
+	test.StrContains(t, pasteStdout.String(), "this is a test string")
 }
 
 func TestCurl_CopyPOSTSuccess(t *testing.T) {
@@ -106,15 +108,15 @@ func TestCurl_CopyPOSTSuccess(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
-	waitForPortUp(t, "12345")
+	test.WaitForPortUp(t, "12345")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s/howdy?f=json", config.ServerAddr))
 	cmd.Stdout = &stdout
 	cmd.Run()
 
-	assertFileContent(t, config, "howdy", "abc")
-	assertStrContains(t, stdout.String(), `"url":"https://localhost:12345/howdy"`) // json
+	clipboardtest.Content(t, config, "howdy", "abc")
+	test.StrContains(t, stdout.String(), `"url":"https://localhost:12345/howdy"`) // json
 }
 
 func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
@@ -122,7 +124,7 @@ func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
-	waitForPortUp(t, "12345")
+	test.WaitForPortUp(t, "12345")
 
 	var stdout bytes.Buffer
 	cmdCurlPOST := exec.Command("curl", "-sSLk", "-dabc", fmt.Sprintf("%s?f=json", config.ServerAddr))
@@ -137,7 +139,7 @@ func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 	cmdCurlGET.Stdout = &stdout
 	cmdCurlGET.Run()
 
-	assertStrEquals(t, stdout.String(), "abc")
+	test.StrEquals(t, stdout.String(), "abc")
 }
 
 func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
@@ -147,14 +149,14 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
-	waitForPortUp(t, "12345")
+	test.WaitForPortUp(t, "12345")
 
 	// Streaming enabled (s=1), note that "stdbuf -oL" is required to flush buffers after every line
 	cmdCurlPOST := exec.Command("stdbuf", "-oL", "curl", "-sSLk", "-dabc", fmt.Sprintf("%s?s=1&f=json", config.ServerAddr))
 	stdoutPipe, _ := cmdCurlPOST.StdoutPipe()
 	cmdCurlPOST.Start()
 
-	out := waitForOutput(t, stdoutPipe, 1*time.Second, 100*time.Millisecond)
+	out := test.WaitForOutput(t, stdoutPipe, 1*time.Second, 100*time.Millisecond)
 	var info map[string]interface{}
 	json.Unmarshal([]byte(out), &info)
 
@@ -173,7 +175,7 @@ func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	cmdCurlGET.Stdout = &stdout
 	cmdCurlGET.Run()
 
-	assertStrEquals(t, stdout.String(), "abc")
+	test.StrEquals(t, stdout.String(), "abc")
 	stat, _ = os.Stat(file)
 	if stat != nil {
 		t.Fatalf("expected %s to not exist anymore, but it does", file)

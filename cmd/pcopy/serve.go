@@ -2,7 +2,9 @@ package main
 
 import (
 	"github.com/urfave/cli/v2"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/server"
 	"log"
 	"os"
 )
@@ -48,7 +50,7 @@ func execServe(c *cli.Context) error {
 	clipboardDir := c.String("dir")
 
 	var err error
-	var configs []*pcopy.Config
+	var configs []*config.Config
 	if len(files) == 0 {
 		configs, err = loadDefaultServerConfigWithOverrides(listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
 	} else {
@@ -60,77 +62,77 @@ func execServe(c *cli.Context) error {
 	if len(configs) == 0 {
 		return cli.Exit("No valid config files found. Exiting", 1)
 	}
-	return pcopy.Serve(configs...)
+	return server.Serve(configs...)
 }
 
-func loadDefaultServerConfigWithOverrides(listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) ([]*pcopy.Config, error) {
-	store := pcopy.NewConfigStore()
+func loadDefaultServerConfigWithOverrides(listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) ([]*config.Config, error) {
+	store := config.NewStore()
 	filename := store.FileFromName(defaultServerClipboardName)
 
 	var err error
-	var config *pcopy.Config
+	var conf *config.Config
 	if stat, _ := os.Stat(filename); stat != nil {
 		log.Printf("Loading config from %s", filename)
-		config, err = pcopy.LoadConfigFromFile(filename)
+		conf, err = config.LoadFromFile(filename)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		log.Printf("No server config file found, using command line arguments")
-		config = pcopy.NewConfig()
+		conf = config.New()
 	}
-	config, err = maybeOverrideOptions(config, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
+	conf, err = maybeOverrideOptions(conf, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
 	if err != nil {
 		return nil, err
 	}
-	return []*pcopy.Config{config}, nil
+	return []*config.Config{conf}, nil
 }
 
-func loadServerConfigsFromFilesWithOverrides(files []string, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) ([]*pcopy.Config, error) {
-	configs := make([]*pcopy.Config, 0)
+func loadServerConfigsFromFilesWithOverrides(files []string, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) ([]*config.Config, error) {
+	configs := make([]*config.Config, 0)
 	for _, filename := range files {
 		if _, err := os.Stat(filename); err != nil {
 			return nil, err
 		}
 		log.Printf("Loading config from %s", filename)
-		config, err := pcopy.LoadConfigFromFile(filename)
+		conf, err := config.LoadFromFile(filename)
 		if err != nil {
 			return nil, err
 		}
-		config, err = maybeOverrideOptions(config, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
+		conf, err = maybeOverrideOptions(conf, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir)
 		if err != nil {
 			return nil, err
 		}
-		configs = append(configs, config)
+		configs = append(configs, conf)
 	}
 	return configs, nil
 }
 
-func maybeOverrideOptions(config *pcopy.Config, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) (*pcopy.Config, error) {
+func maybeOverrideOptions(conf *config.Config, listenHTTPS, listenHTTP, serverAddr, keyFile, certFile, clipboardDir string) (*config.Config, error) {
 	if listenHTTPS != "" {
-		config.ListenHTTPS = listenHTTPS
+		conf.ListenHTTPS = listenHTTPS
 	}
 	if listenHTTP != "" {
-		config.ListenHTTP = listenHTTP
+		conf.ListenHTTP = listenHTTP
 	}
 	if serverAddr != "" {
-		config.ServerAddr = pcopy.ExpandServerAddr(serverAddr)
+		conf.ServerAddr = config.ExpandServerAddr(serverAddr)
 	}
 	if clipboardDir != "" {
-		config.ClipboardDir = clipboardDir
+		conf.ClipboardDir = clipboardDir
 	}
 	if keyFile != "" {
-		config.KeyFile = keyFile
+		conf.KeyFile = keyFile
 	}
 	if certFile != "" {
-		config.CertFile = certFile
+		conf.CertFile = certFile
 	}
-	if os.Getenv(pcopy.EnvKey) != "" {
+	if os.Getenv(config.EnvKey) != "" {
 		var err error
-		config.Key, err = pcopy.DecodeKey(os.Getenv(pcopy.EnvKey))
+		conf.Key, err = crypto.DecodeKey(os.Getenv(config.EnvKey))
 		if err != nil {
 			return nil, err
 		}
 	}
-	return config, nil
+	return conf, nil
 }

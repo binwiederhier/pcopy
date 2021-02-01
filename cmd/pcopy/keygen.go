@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/crypto"
 	"syscall"
 )
 
@@ -29,11 +29,11 @@ func execKeygen(c *cli.Context) error {
 		return err
 	}
 
-	key, err := pcopy.GenerateKey(password)
+	key, err := crypto.GenerateKey(password)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "\rKey %s\n", pcopy.EncodeKey(key))
+	fmt.Fprintf(c.App.Writer, "\rKey %s\n", crypto.EncodeKey(key))
 	return nil
 }

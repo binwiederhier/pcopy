@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/util"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -38,7 +40,7 @@ Examples:
 }
 
 type wizard struct {
-	config *pcopy.Config
+	config *config.Config
 	reader *bufio.Reader
 
 	configFile     string
@@ -52,7 +54,7 @@ type wizard struct {
 
 func execSetup(c *cli.Context) error {
 	setup := &wizard{
-		config: &pcopy.Config{},
+		config: &config.Config{},
 		reader: bufio.NewReader(os.Stdin),
 	}
 
@@ -117,7 +119,7 @@ func (s *wizard) askUser() {
 func (s *wizard) askConfigFile() {
 	var defaultConfigFile string
 	if s.serviceUser == defaultServiceUser {
-		defaultConfigFile = pcopy.DefaultServerConfigFile
+		defaultConfigFile = config.DefaultServerConfigFile
 	} else {
 		defaultConfigFile = "~/.config/pcopy/server.conf"
 	}
@@ -125,9 +127,9 @@ func (s *wizard) askConfigFile() {
 	fmt.Printf("Config file (default: %s): ", defaultConfigFile)
 	configFile := s.readLine()
 	if configFile != "" {
-		s.configFile = pcopy.ExpandHome(configFile)
+		s.configFile = util.ExpandHome(configFile)
 	} else {
-		s.configFile = pcopy.ExpandHome(defaultConfigFile)
+		s.configFile = util.ExpandHome(defaultConfigFile)
 	}
 	fmt.Println()
 }
@@ -135,7 +137,7 @@ func (s *wizard) askConfigFile() {
 func (s *wizard) askClipboardDir() {
 	var defaultClipboardDir string
 	if s.serviceUser == defaultServiceUser {
-		defaultClipboardDir = pcopy.DefaultClipboardDir
+		defaultClipboardDir = config.DefaultClipboardDir
 	} else {
 		defaultClipboardDir = "~/.cache/pcopy"
 	}
@@ -143,20 +145,20 @@ func (s *wizard) askClipboardDir() {
 	fmt.Printf("Clipboard dir (default: %s): ", defaultClipboardDir)
 	clipboardDir := s.readLine()
 	if clipboardDir != "" {
-		s.config.ClipboardDir = pcopy.ExpandHome(clipboardDir)
-		s.clipboardDir = pcopy.ExpandHome(clipboardDir)
+		s.config.ClipboardDir = util.ExpandHome(clipboardDir)
+		s.clipboardDir = util.ExpandHome(clipboardDir)
 	} else {
 		if s.serviceUser != defaultServiceUser {
 			s.config.ClipboardDir = defaultClipboardDir
 		}
-		s.clipboardDir = pcopy.ExpandHome(defaultClipboardDir)
+		s.clipboardDir = util.ExpandHome(defaultClipboardDir)
 	}
 	fmt.Println()
 }
 
 func (s *wizard) askListenAddr() {
 	fmt.Println("The listen address is used to bind the local server for HTTPS connections.")
-	fmt.Printf("Listen address (default: :%d): ", pcopy.DefaultPort)
+	fmt.Printf("Listen address (default: :%d): ", config.DefaultPort)
 	s.config.ListenHTTPS = s.readLine()
 	fmt.Println()
 }
@@ -187,7 +189,7 @@ func (s *wizard) askPassword() {
 	fmt.Println()
 	fmt.Println()
 	if string(password) != "" {
-		s.config.Key, err = pcopy.GenerateKey(password)
+		s.config.Key, err = crypto.GenerateKey(password)
 		if err != nil {
 			fail(err)
 		}
@@ -228,10 +230,10 @@ func (s *wizard) askConfirm() {
 		fmt.Println()
 	}
 	fmt.Println("Files to be created:")
-	fmt.Printf("- Clipboard dir:     %s\n", pcopy.CollapseHome(s.clipboardDir))
-	fmt.Printf("- Config file:       %s\n", pcopy.CollapseHome(s.configFile))
-	fmt.Printf("- Private key file:  %s\n", pcopy.CollapseHome(pcopy.DefaultKeyFile(s.configFile, false)))
-	fmt.Printf("- Certificate file:  %s\n", pcopy.CollapseHome(pcopy.DefaultCertFile(s.configFile, false)))
+	fmt.Printf("- Clipboard dir:     %s\n", util.CollapseHome(s.clipboardDir))
+	fmt.Printf("- Config file:       %s\n", util.CollapseHome(s.configFile))
+	fmt.Printf("- Private key file:  %s\n", util.CollapseHome(config.DefaultKeyFile(s.configFile, false)))
+	fmt.Printf("- Certificate file:  %s\n", util.CollapseHome(config.DefaultCertFile(s.configFile, false)))
 	if s.installService {
 		fmt.Printf("- Systemd unit file: %s\n", serviceFile)
 	}
@@ -246,7 +248,7 @@ func (s *wizard) askConfirm() {
 }
 
 func (s *wizard) createClipboardDir() {
-	fmt.Printf("Creating clipboard directory %s ... ", pcopy.CollapseHome(s.clipboardDir))
+	fmt.Printf("Creating clipboard directory %s ... ", util.CollapseHome(s.clipboardDir))
 	if err := os.MkdirAll(s.clipboardDir, 0700); err != nil {
 		fail(err)
 	}
@@ -257,7 +259,7 @@ func (s *wizard) createClipboardDir() {
 }
 
 func (s *wizard) writeConfigFile() {
-	fmt.Printf("Writing server config file %s ... ", pcopy.CollapseHome(s.configFile))
+	fmt.Printf("Writing server config file %s ... ", util.CollapseHome(s.configFile))
 	if err := s.config.WriteFile(s.configFile); err != nil {
 		fail(err)
 	}
@@ -271,17 +273,17 @@ func (s *wizard) writeConfigFile() {
 }
 
 func (s *wizard) writeKeyAndCert() {
-	serverURL, err := url.ParseRequestURI(pcopy.ExpandServerAddr(s.config.ServerAddr))
+	serverURL, err := url.ParseRequestURI(config.ExpandServerAddr(s.config.ServerAddr))
 	if err != nil {
 		fail(err)
 	}
-	pemKey, pemCert, err := pcopy.GenerateKeyAndCert(serverURL.Hostname())
+	pemKey, pemCert, err := crypto.GenerateKeyAndCert(serverURL.Hostname())
 	if err != nil {
 		fail(err)
 	}
 
-	keyFile := pcopy.DefaultKeyFile(s.configFile, false)
-	fmt.Printf("Writing private key file %s ... ", pcopy.CollapseHome(keyFile))
+	keyFile := config.DefaultKeyFile(s.configFile, false)
+	fmt.Printf("Writing private key file %s ... ", util.CollapseHome(keyFile))
 	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
 		fail(err)
 	}
@@ -290,8 +292,8 @@ func (s *wizard) writeKeyAndCert() {
 	}
 	fmt.Println("ok")
 
-	certFile := pcopy.DefaultCertFile(s.configFile, false)
-	fmt.Printf("Writing certificate %s ... ", pcopy.CollapseHome(certFile))
+	certFile := config.DefaultCertFile(s.configFile, false)
+	fmt.Printf("Writing certificate %s ... ", util.CollapseHome(certFile))
 	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
 		fail(err)
 	}
@@ -303,7 +305,7 @@ func (s *wizard) writeKeyAndCert() {
 
 func (s *wizard) writeSystemdUnit() {
 	fmt.Printf("Writing systemd unit file %s ... ", serviceFile)
-	if err := ioutil.WriteFile(serviceFile, []byte(pcopy.SystemdUnit), 0644); err != nil {
+	if err := ioutil.WriteFile(serviceFile, []byte(config.SystemdUnit), 0644); err != nil {
 		fail(err)
 	}
 	fmt.Println("ok")
@@ -354,4 +356,9 @@ func (s *wizard) printSuccess() {
 		}
 	}
 	fmt.Println()
+}
+
+func fail(err error) {
+	fmt.Fprintln(os.Stderr, err.Error())
+	os.Exit(1)
 }

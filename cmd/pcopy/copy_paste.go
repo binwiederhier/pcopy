@@ -5,7 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/client"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/server"
+	"heckel.io/pcopy/util"
 	"io"
 	"os"
 	"regexp"
@@ -86,11 +90,11 @@ To override or specify the remote server key, you may pass the PCOPY_KEY variabl
 }
 
 func execCopy(c *cli.Context) error {
-	config, id, files, err := parseClientArgs(c)
+	conf, id, files, err := parseClientArgs(c)
 	if err != nil {
 		return err
 	}
-	client, err := pcopy.NewClient(config)
+	pclient, err := client.NewClient(conf)
 	if err != nil {
 		return err
 	}
@@ -107,18 +111,18 @@ func execCopy(c *cli.Context) error {
 	}
 	fileMode := ""
 	if readonly {
-		fileMode = pcopy.FileModeReadOnly
+		fileMode = config.FileModeReadOnly
 	} else if readwrite {
-		fileMode = pcopy.FileModeReadWrite
+		fileMode = config.FileModeReadWrite
 	}
 
 	if random {
 		id = ""
 	}
 
-	var fileInfo *pcopy.FileInfo
+	var fileInfo *server.File
 	if stream {
-		fileInfo, err = client.Reserve(id)
+		fileInfo, err = pclient.Reserve(id)
 		if err != nil {
 			return err
 		}
@@ -126,13 +130,13 @@ func execCopy(c *cli.Context) error {
 	}
 
 	if link && stream {
-		fmt.Fprint(c.App.ErrWriter, pcopy.FileInfoInstructions(fileInfo))
+		fmt.Fprint(c.App.ErrWriter, server.FileInfoInstructions(fileInfo))
 		fmt.Fprintln(c.App.ErrWriter)
 		fmt.Fprintln(c.App.ErrWriter, "# Streaming contents: upload will hold until you start downloading using any of the commands above.")
 	}
 
 	if len(files) > 0 {
-		fileInfo, err = client.CopyFiles(files, id, ttl, fileMode, stream)
+		fileInfo, err = pclient.CopyFiles(files, id, ttl, fileMode, stream)
 		if err != nil {
 			return handleCopyError(c.App.ErrWriter, err)
 		}
@@ -157,28 +161,28 @@ func execCopy(c *cli.Context) error {
 			reader = createInteractiveReader(c.App.Reader, c.App.ErrWriter)
 		}
 
-		fileInfo, err = client.Copy(reader, id, ttl, fileMode, stream)
+		fileInfo, err = pclient.Copy(reader, id, ttl, fileMode, stream)
 		if err != nil {
 			return handleCopyError(c.App.ErrWriter, err)
 		}
 	}
 
 	if link && !stream {
-		fmt.Fprint(c.App.ErrWriter, pcopy.FileInfoInstructions(fileInfo))
+		fmt.Fprint(c.App.ErrWriter, server.FileInfoInstructions(fileInfo))
 	}
 	return nil
 }
 
 func handleCopyError(errWriter io.Writer, err error) error {
-	if err == pcopy.ErrHTTPPartialContent {
+	if err == server.ErrHTTPPartialContent {
 		fmt.Fprintln(errWriter, " (interrupted by client)")
 		return nil // This is not really an error!
 	}
-	if err == pcopy.ErrHTTPPayloadTooLarge {
+	if err == server.ErrHTTPPayloadTooLarge {
 		fmt.Fprint(errWriter, "\r")
 		return cli.Exit("error: file too large, or clipboard full", 1)
 	}
-	if err == pcopy.ErrHTTPTooManyRequests {
+	if err == server.ErrHTTPTooManyRequests {
 		fmt.Fprint(errWriter, "\r")
 		return cli.Exit("error: too many files in clipboard, or rate limit reached", 1)
 	}
@@ -203,23 +207,23 @@ func execPaste(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	client, err := pcopy.NewClient(config)
+	pclient, err := client.NewClient(config)
 	if err != nil {
 		return err
 	}
 	if len(files) > 0 {
-		if err := client.PasteFiles(files[0], id); err != nil {
+		if err := pclient.PasteFiles(files[0], id); err != nil {
 			return err
 		}
 	} else {
-		if err := client.Paste(c.App.Writer, id); err != nil {
+		if err := pclient.Paste(c.App.Writer, id); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string, error) {
+func parseClientArgs(c *cli.Context) (*config.Config, string, []string, error) {
 	configFileOverride := c.String("config")
 	certFile := c.String("cert")
 	serverAddr := c.String("server")
@@ -232,41 +236,41 @@ func parseClientArgs(c *cli.Context) (*pcopy.Config, string, []string, error) {
 	}
 
 	// Load config
-	configFile, config, err := parseAndLoadConfig(configFileOverride, clipboard)
+	configFile, conf, err := parseAndLoadConfig(configFileOverride, clipboard)
 	if err != nil {
 		return nil, "", nil, err
 	}
 
 	// Load defaults
-	if config.CertFile == "" {
-		config.CertFile = pcopy.DefaultCertFile(configFile, true)
+	if conf.CertFile == "" {
+		conf.CertFile = config.DefaultCertFile(configFile, true)
 	}
 
 	// Command line overrides
 	if serverAddr != "" {
-		config.ServerAddr = pcopy.ExpandServerAddr(serverAddr)
+		conf.ServerAddr = config.ExpandServerAddr(serverAddr)
 	}
 	if certFile != "" {
-		config.CertFile = certFile
+		conf.CertFile = certFile
 	}
 	if !quiet {
-		config.ProgressFunc = func(processed int64, total int64, done bool) {
+		conf.ProgressFunc = func(processed int64, total int64, done bool) {
 			progressOutput(c.App.ErrWriter, processed, total, done)
 		}
 	}
-	if os.Getenv(pcopy.EnvKey) != "" {
-		config.Key, err = pcopy.DecodeKey(os.Getenv(pcopy.EnvKey))
+	if os.Getenv(config.EnvKey) != "" {
+		conf.Key, err = crypto.DecodeKey(os.Getenv(config.EnvKey))
 		if err != nil {
 			return nil, "", nil, err
 		}
 	}
 
-	return config, id, files, nil
+	return conf, id, files, nil
 }
 
 func parseClipboardIDAndFiles(args cli.Args, configFileOverride string) (string, string, []string, error) {
-	clipboard := pcopy.DefaultClipboard
-	id := pcopy.DefaultID
+	clipboard := config.DefaultClipboard
+	id := config.DefaultID
 	files := make([]string, 0)
 	if args.Len() > 0 {
 		var err error
@@ -282,8 +286,8 @@ func parseClipboardIDAndFiles(args cli.Args, configFileOverride string) (string,
 }
 
 func parseClipboardAndID(clipboardAndID string, configFileOverride string) (string, string, error) {
-	clipboard := pcopy.DefaultClipboard
-	id := pcopy.DefaultID
+	clipboard := config.DefaultClipboard
+	id := config.DefaultID
 	re := regexp.MustCompile(`^(?i)(?:([-_a-z0-9]*):)?(|[a-z0-9][-_.a-z0-9]*)$`)
 	parts := re.FindStringSubmatch(clipboardAndID)
 	if len(parts) != 3 {
@@ -306,7 +310,7 @@ var previousProgressLen int
 func progressOutput(errWriter io.Writer, processed int64, total int64, done bool) {
 	if done {
 		if previousProgressLen > 0 {
-			progress := fmt.Sprintf("%s (100%%)", pcopy.BytesToHuman(processed))
+			progress := fmt.Sprintf("%s (100%%)", util.BytesToHuman(processed))
 			progressWithSpaces := progress
 			if len(progress) < previousProgressLen {
 				progressWithSpaces += strings.Repeat(" ", previousProgressLen-len(progress))
@@ -316,10 +320,10 @@ func progressOutput(errWriter io.Writer, processed int64, total int64, done bool
 	} else {
 		var progress string
 		if total > 0 {
-			progress = fmt.Sprintf("%s / %s (%.f%%)", pcopy.BytesToHuman(processed),
-				pcopy.BytesToHuman(total), float64(processed)/float64(total)*100)
+			progress = fmt.Sprintf("%s / %s (%.f%%)", util.BytesToHuman(processed),
+				util.BytesToHuman(total), float64(processed)/float64(total)*100)
 		} else {
-			progress = pcopy.BytesToHuman(processed)
+			progress = util.BytesToHuman(processed)
 		}
 		progressWithSpaces := progress
 		if len(progress) < previousProgressLen {
@@ -328,4 +332,26 @@ func progressOutput(errWriter io.Writer, processed int64, total int64, done bool
 		fmt.Fprintf(errWriter, "\r%s", progressWithSpaces)
 		previousProgressLen = len(progress)
 	}
+}
+
+// parseAndLoadConfig is a helper to load the config file either from the given filename, or if that is empty, determine
+// the filename based on the clipboard name.
+func parseAndLoadConfig(filename string, clipboard string) (string, *config.Config, error) {
+	if filename != "" {
+		conf, err := config.LoadFromFile(filename)
+		if err != nil {
+			return "", nil, err
+		}
+		return filename, conf, err
+	}
+	store := config.NewStore()
+	filename = store.FileFromName(clipboard)
+	if _, err := os.Stat(filename); err != nil {
+		return "", nil, err
+	}
+	conf, err := config.LoadFromFile(filename)
+	if err != nil {
+		return "", config.New(), nil
+	}
+	return filename, conf, nil
 }

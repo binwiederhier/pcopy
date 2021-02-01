@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/util"
 	"math"
 	"strings"
 )
@@ -18,7 +19,7 @@ var cmdList = &cli.Command{
 }
 
 func execList(c *cli.Context) error {
-	store := pcopy.NewConfigStore()
+	store := config.NewStore()
 	configs := store.All()
 	if len(configs) > 0 {
 		clipboardHeader := "Clipboard"
@@ -27,10 +28,10 @@ func execList(c *cli.Context) error {
 		serverAddrMaxLen := len(serverAddrHeader)
 		configFileHeader := "Config file"
 		configFileMaxLen := len(configFileHeader)
-		for filename, config := range configs {
-			clipboard := pcopy.ExtractClipboard(filename)
-			shortName := pcopy.CollapseHome(filename)
-			serverAddr := pcopy.CollapseServerAddr(config.ServerAddr)
+		for filename, conf := range configs {
+			clipboard := config.ExtractClipboard(filename)
+			shortName := util.CollapseHome(filename)
+			serverAddr := config.CollapseServerAddr(conf.ServerAddr)
 			clipboardMaxLen = int(math.Max(float64(clipboardMaxLen), float64(len(clipboard))))
 			serverAddrMaxLen = int(math.Max(float64(serverAddrMaxLen), float64(len(serverAddr))))
 			configFileMaxLen = int(math.Max(float64(configFileMaxLen), float64(len(shortName))))
@@ -39,10 +40,10 @@ func execList(c *cli.Context) error {
 		lineFmt := fmt.Sprintf("%%-%ds %%-%ds %%s\n", clipboardMaxLen, serverAddrMaxLen)
 		fmt.Fprintf(c.App.ErrWriter, lineFmt, clipboardHeader, serverAddrHeader, "Config file")
 		fmt.Fprintf(c.App.ErrWriter, lineFmt, strings.Repeat("-", clipboardMaxLen), strings.Repeat("-", serverAddrMaxLen), strings.Repeat("-", configFileMaxLen))
-		for filename, config := range configs {
-			clipboard := pcopy.ExtractClipboard(filename)
-			shortName := pcopy.CollapseHome(filename)
-			serverAddr := pcopy.CollapseServerAddr(config.ServerAddr)
+		for filename, conf := range configs {
+			clipboard := config.ExtractClipboard(filename)
+			shortName := util.CollapseHome(filename)
+			serverAddr := config.CollapseServerAddr(conf.ServerAddr)
 			fmt.Fprintf(c.App.ErrWriter, lineFmt, clipboard, serverAddr, shortName)
 		}
 	} else {

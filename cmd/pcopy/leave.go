@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"heckel.io/pcopy"
+	"heckel.io/pcopy/config"
 	"os"
 )
 
@@ -26,37 +26,37 @@ Examples:
 
 func execLeave(c *cli.Context) error {
 	// Parse clipboard and file
-	clipboard := pcopy.DefaultClipboard
+	clipboard := config.DefaultClipboard
 	if c.NArg() > 0 {
 		clipboard = c.Args().First()
 	}
-	store := pcopy.NewConfigStore()
+	store := config.NewStore()
 	filename := store.FileFromName(clipboard)
 	if _, err := os.Stat(filename); err != nil {
 		return fmt.Errorf("clipboard '%s' does not exist", clipboard)
 	}
-	config, err := pcopy.LoadConfigFromFile(filename)
+	conf, err := config.LoadFromFile(filename)
 	if err != nil {
 		return fmt.Errorf("cannot load config for %s: %w", clipboard, err)
 	}
 	if err := os.Remove(filename); err != nil {
 		return err
 	}
-	if config.CertFile != "" {
-		if _, err := os.Stat(config.CertFile); err == nil {
-			if err := os.Remove(config.CertFile); err != nil {
+	if conf.CertFile != "" {
+		if _, err := os.Stat(conf.CertFile); err == nil {
+			if err := os.Remove(conf.CertFile); err != nil {
 				return err
 			}
 		}
 	}
-	if config.KeyFile != "" {
+	if conf.KeyFile != "" {
 		// This is odd, but we may want to "leave" a server, which has a key file
-		if _, err := os.Stat(config.KeyFile); err == nil {
-			if err := os.Remove(config.KeyFile); err != nil {
+		if _, err := os.Stat(conf.KeyFile); err == nil {
+			if err := os.Remove(conf.KeyFile); err != nil {
 				return err
 			}
 		}
 	}
-	fmt.Fprintf(c.App.Writer, "Successfully left clipboard '%s'. To rejoin, run 'pcopy join %s'.\n", clipboard, pcopy.CollapseServerAddr(config.ServerAddr))
+	fmt.Fprintf(c.App.Writer, "Successfully left clipboard '%s'. To rejoin, run 'pcopy join %s'.\n", clipboard, config.CollapseServerAddr(conf.ServerAddr))
 	return nil
 }

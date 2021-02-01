@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"heckel.io/pcopy"
 	"os"
 	"runtime"
 )
@@ -21,7 +20,8 @@ const (
 
 func main() {
 	if err := runApp(newApp(), os.Args...); err != nil {
-		fail(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 }
 
@@ -69,31 +69,4 @@ func runApp(app *cli.App, args ...string) error {
 		args = append([]string{"pcopy", "paste"}, args[1:]...)
 	}
 	return app.Run(args)
-}
-
-// parseAndLoadConfig is a helper to load the config file either from the given filename, or if that is empty, determine
-// the filename based on the clipboard name.
-func parseAndLoadConfig(filename string, clipboard string) (string, *pcopy.Config, error) {
-	if filename != "" {
-		config, err := pcopy.LoadConfigFromFile(filename)
-		if err != nil {
-			return "", nil, err
-		}
-		return filename, config, err
-	}
-	store := pcopy.NewConfigStore()
-	filename = store.FileFromName(clipboard)
-	if _, err := os.Stat(filename); err != nil {
-		return "", nil, err
-	}
-	config, err := pcopy.LoadConfigFromFile(filename)
-	if err != nil {
-		return "", pcopy.NewConfig(), nil
-	}
-	return filename, config, nil
-}
-
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, err.Error())
-	os.Exit(1)
 }
