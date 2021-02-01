@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"heckel.io/pcopy/config"
@@ -19,7 +19,7 @@ func TestCLI_JoinAndList(t *testing.T) {
 	os.Setenv(config.EnvConfigDir, configDir)
 
 	app, _, _, stderr := newTestApp()
-	if err := runApp(app, "pcopy", "join", "localhost:12345"); err != nil {
+	if err := Run(app, "pcopy", "join", "localhost:12345"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -27,7 +27,7 @@ func TestCLI_JoinAndList(t *testing.T) {
 	test.FileExist(t, filepath.Join(configDir, "default.conf"))
 
 	stderr.Reset()
-	if err := runApp(app, "pcopy", "list"); err != nil {
+	if err := Run(app, "pcopy", "list"); err != nil {
 		t.Fatal(err)
 	}
 	test.StrContains(t, stderr.String(), "default")

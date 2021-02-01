@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"heckel.io/pcopy/config"
@@ -16,7 +16,7 @@ func TestCLI_LeaveDefault(t *testing.T) {
 
 	os.Setenv(config.EnvConfigDir, dir)
 	app, _, stdout, _ := newTestApp()
-	if err := runApp(app, "pcopy", "leave"); err != nil {
+	if err := Run(app, "pcopy", "leave"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -35,7 +35,7 @@ func TestCLI_LeaveCustom(t *testing.T) {
 
 	os.Setenv(config.EnvConfigDir, dir)
 	app, _, stdout, _ := newTestApp()
-	if err := runApp(app, "pcopy", "leave", "clip"); err != nil {
+	if err := Run(app, "pcopy", "leave", "clip"); err != nil {
 		t.Fatal(err)
 	}
 

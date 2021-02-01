@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ func TestCLI_Copy(t *testing.T) {
 	app, stdin, _, stderr := newTestApp()
 	stdin.WriteString("test stdin")
 
-	if err := runApp(app, "pcp", "-c", filename); err != nil {
+	if err := Run(app, "pcp", "-c", filename); err != nil {
 		t.Fatal(err)
 	}
 
@@ -42,11 +42,11 @@ func TestCLI_CopyPaste(t *testing.T) {
 
 	copyApp, copyStdin, _, copyStderr := newTestApp()
 	copyStdin.WriteString("this is a test string")
-	if err := runApp(copyApp, "pcp", "-c", filename, "somefile"); err != nil {
+	if err := Run(copyApp, "pcp", "-c", filename, "somefile"); err != nil {
 		t.Fatal(err)
 	}
 	pasteApp, _, pasteStdout, _ := newTestApp()
-	if err := runApp(pasteApp, "ppaste", "-c", filename, "somefile"); err != nil {
+	if err := Run(pasteApp, "ppaste", "-c", filename, "somefile"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -66,7 +66,7 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 	copyErrChan := make(chan error)
 	go func() {
 		copyStdin.WriteString("this is a test string\n")
-		if err := runApp(copyApp, "pcp", "--stream", "-c", filename, "mystream"); err != nil {
+		if err := Run(copyApp, "pcp", "--stream", "-c", filename, "mystream"); err != nil {
 			copyErrChan <- err
 			return
 		}
@@ -96,7 +96,7 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 
 	// Paste
 	pasteApp, _, pasteStdout, _ := newTestApp()
-	if err := runApp(pasteApp, "ppaste", "-c", filename, "mystream"); err != nil {
+	if err := Run(pasteApp, "ppaste", "-c", filename, "mystream"); err != nil {
 		t.Fatal(err)
 	}
 

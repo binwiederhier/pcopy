@@ -3,7 +3,6 @@ before:
     - go mod download
 builds:
   - gobinary: "go1.16rc1"
-    dir: cmd/pcopy
     binary: pcopy
     env:
       - CGO_ENABLED=0

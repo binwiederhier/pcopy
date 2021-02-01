@@ -87,8 +87,7 @@ build-simple: clean
 	$(GO) build \
 		-o dist/pcopy_linux_amd64/pcopy \
 		-ldflags \
-		"-s -w -X main.version=$(VERSION) -X main.commit=$(shell git rev-parse --short HEAD) -X main.date=$(shell date +%s)" \
-		cmd/pcopy/*.go
+		"-s -w -X main.version=$(VERSION) -X main.commit=$(shell git rev-parse --short HEAD) -X main.date=$(shell date +%s)"
 
 clean: .PHONY
 	rm -rf dist build

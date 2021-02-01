@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"bytes"
@@ -19,6 +19,15 @@ import (
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
 	os.Exit(m.Run())
+}
+
+func newTestApp() (*cli.App, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
+	var stdin, stdout, stderr bytes.Buffer
+	app := New()
+	app.Reader = &stdin
+	app.Writer = &stdout
+	app.ErrWriter = &stderr
+	return app, &stdin, &stdout, &stderr
 }
 
 func newTestConfig(t *testing.T) (string, *config.Config) {
@@ -67,13 +76,4 @@ func startTestServerRouter(t *testing.T, config *config.Config) *server.Router {
 		}
 	}()
 	return router
-}
-
-func newTestApp() (*cli.App, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
-	var stdin, stdout, stderr bytes.Buffer
-	app := newApp()
-	app.Reader = &stdin
-	app.Writer = &stdout
-	app.ErrWriter = &stderr
-	return app, &stdin, &stdout, &stderr
 }
