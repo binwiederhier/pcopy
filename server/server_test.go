@@ -60,18 +60,18 @@ func TestServer_NewServerInvalidCertFile(t *testing.T) {
 }
 
 func TestServer_HandleInfoUnprotected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/info", nil)
 	server.Handle(rr, req)
 
-	test.Response(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":""}`)
+	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","salt":""}`)
 }
 
 func TestServer_HandleVerify(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -81,7 +81,7 @@ func TestServer_HandleVerify(t *testing.T) {
 }
 
 func TestServer_HandleInfoProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = &crypto.Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	server := newTestServer(t, conf)
 
@@ -89,11 +89,11 @@ func TestServer_HandleInfoProtected(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/info", nil)
 	server.Handle(rr, req)
 
-	test.Response(t, rr, http.StatusOK, `{"serverAddr":"localhost:12345","salt":"c29tZSBzYWx0"}`)
+	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","salt":"c29tZSBzYWx0"}`)
 }
 
 func TestServer_HandleDoesNotExist(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func TestServer_HandleDoesNotExist(t *testing.T) {
 }
 
 func TestServer_HandleCurlRoot(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -116,7 +116,7 @@ func TestServer_HandleCurlRoot(t *testing.T) {
 }
 
 func TestServer_HandleWebRoot(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -131,7 +131,7 @@ func TestServer_HandleWebRoot(t *testing.T) {
 }
 
 func TestServer_HandleWebRootRedirectHTTPS(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.ListenHTTP = ":9876"
 	server := newTestServer(t, conf)
 
@@ -145,7 +145,7 @@ func TestServer_HandleWebRootRedirectHTTPS(t *testing.T) {
 }
 
 func TestServer_HandleWebStaticResource(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -159,7 +159,7 @@ func TestServer_HandleWebStaticResource(t *testing.T) {
 }
 
 func TestServer_HandleWebFavicon(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -171,7 +171,7 @@ func TestServer_HandleWebFavicon(t *testing.T) {
 }
 
 func TestServer_HandleClipboardGetExists(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	file := filepath.Join(conf.ClipboardDir, "this-exists")
@@ -186,7 +186,7 @@ func TestServer_HandleClipboardGetExists(t *testing.T) {
 }
 
 func TestServer_HandleClipboardGetExistsWithAuthParam(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = &crypto.Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	server := newTestServer(t, conf)
 
@@ -205,7 +205,7 @@ func TestServer_HandleClipboardGetExistsWithAuthParam(t *testing.T) {
 }
 
 func TestServer_HandleClipboardGetExistsWithAuthParamFailure(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = &crypto.Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	server := newTestServer(t, conf)
 
@@ -218,7 +218,7 @@ func TestServer_HandleClipboardGetExistsWithAuthParamFailure(t *testing.T) {
 }
 
 func TestServer_HandleClipboardGetDoesntExist(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -228,7 +228,7 @@ func TestServer_HandleClipboardGetDoesntExist(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPut(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	content := "this is a new thing"
@@ -240,7 +240,7 @@ func TestServer_HandleClipboardPut(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutRandom(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -255,7 +255,7 @@ func TestServer_HandleClipboardPutRandom(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutUntilLimitReached(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.LimitPUTBurst = 2
 	server := newTestServer(t, conf)
 
@@ -276,7 +276,7 @@ func TestServer_HandleClipboardPutUntilLimitReached(t *testing.T) {
 }
 
 func TestServer_HandleWebRootGetUntilLimitReached(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.LimitGETBurst = 10
 	conf.LimitGET = rate.Every(100 * time.Millisecond)
 	server := newTestServer(t, conf)
@@ -305,7 +305,7 @@ func TestServer_HandleWebRootGetUntilLimitReached(t *testing.T) {
 }
 
 func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -316,7 +316,7 @@ func TestServer_handleClipboardClipboardPutInvalidId(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutGetSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -344,7 +344,7 @@ func TestServer_HandleClipboardPutGetSuccess(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -364,7 +364,7 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutWithTooLargeTTL(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.FileExpireAfter = time.Hour
 	server := newTestServer(t, conf)
 
@@ -378,7 +378,7 @@ func TestServer_HandleClipboardPutWithTooLargeTTL(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.FileSizeLimit = 10 // bytes
 	server := newTestServer(t, conf)
 
@@ -395,7 +395,7 @@ func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutManySmallFailed(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.ClipboardCountLimit = 2
 	server := newTestServer(t, conf)
 
@@ -419,7 +419,7 @@ func TestServer_HandleClipboardPutManySmallFailed(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.ClipboardCountLimit = 2
 	server := newTestServer(t, conf)
 
@@ -444,7 +444,7 @@ func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutOverwriteFailure(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.FileModesAllowed = []string{config.FileModeReadOnly}
 	server := newTestServer(t, conf)
 
@@ -462,7 +462,7 @@ func TestServer_HandleClipboardPutOverwriteFailure(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutReadWriteFailure(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.FileModesAllowed = []string{config.FileModeReadOnly}
 	server := newTestServer(t, conf)
 
@@ -473,7 +473,7 @@ func TestServer_HandleClipboardPutReadWriteFailure(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutReadOnlyDisallowOverwriteSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -489,7 +489,7 @@ func TestServer_HandleClipboardPutReadOnlyDisallowOverwriteSuccess(t *testing.T)
 }
 
 func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.ClipboardSizeLimit = 10
 	server := newTestServer(t, conf)
 
@@ -507,7 +507,7 @@ func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
 }
 
 func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	payload := string(bytes.Repeat([]byte("this is a 60 byte long string that's being repeated 99 times"), 99))
@@ -537,7 +537,7 @@ func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
 // TODO add tests to include :meta files
 
 func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	payload := string(bytes.Repeat([]byte("this is a 60 byte long string that's being repeated 10 times"), 10))
@@ -573,7 +573,7 @@ func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
 }
 
 func TestServer_HandleClipboardHeadSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -586,12 +586,12 @@ func TestServer_HandleClipboardHeadSuccess(t *testing.T) {
 	test.Status(t, rr, http.StatusOK)
 
 	test.StrEquals(t, "abc", rr.Header().Get("X-File"))
-	test.StrEquals(t, "https://"+conf.ServerAddr+"/abc", rr.Header().Get("X-URL"))
+	test.StrEquals(t, conf.ServerAddr+"/abc", rr.Header().Get("X-URL"))
 	test.StrContains(t, rr.Header().Get("X-Curl"), "--pinnedpubkey")
 }
 
 func TestServer_AuthorizeSuccessUnprotected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	req, _ := http.NewRequest("GET", "/", nil)
@@ -601,7 +601,7 @@ func TestServer_AuthorizeSuccessUnprotected(t *testing.T) {
 }
 
 func TestServer_AuthorizeFailureMissingProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, conf)
 
@@ -612,7 +612,7 @@ func TestServer_AuthorizeFailureMissingProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeBasicSuccessProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, conf)
 
@@ -624,7 +624,7 @@ func TestServer_AuthorizeBasicSuccessProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeBasicFailureProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, conf)
 
@@ -636,7 +636,7 @@ func TestServer_AuthorizeBasicFailureProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacSuccessProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, conf)
 
@@ -649,7 +649,7 @@ func TestServer_AuthorizeHmacSuccessProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacFailureWrongPathProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, conf)
 
@@ -662,7 +662,7 @@ func TestServer_AuthorizeHmacFailureWrongPathProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacFailureWrongMethodProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, conf)
 
@@ -675,7 +675,7 @@ func TestServer_AuthorizeHmacFailureWrongMethodProtected(t *testing.T) {
 }
 
 func TestServer_AuthorizeHmacFailureWrongKeyProtected(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
 	server := newTestServer(t, conf)
 
@@ -688,7 +688,7 @@ func TestServer_AuthorizeHmacFailureWrongKeyProtected(t *testing.T) {
 }
 
 func TestServer_ExpireSuccess(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.FileExpireAfter = time.Second
 	server := newTestServer(t, conf)
 
@@ -704,7 +704,7 @@ func TestServer_ExpireSuccess(t *testing.T) {
 }
 
 func TestServer_ReservedWordsFailure(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -714,7 +714,7 @@ func TestServer_ReservedWordsFailure(t *testing.T) {
 }
 
 func TestServer_StartStopManager(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.ManagerInterval = 100 * time.Millisecond
 	server := newTestServer(t, conf)
 

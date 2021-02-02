@@ -24,7 +24,7 @@ func TestServerRouter_InvalidConfigNoConfigs(t *testing.T) {
 }
 
 func TestServerRouter_StartStopSimple(t *testing.T) {
-	conf := configtest.NewTestServerConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	conf.ServerAddr = "https://localhost:11443"
 	conf.ListenHTTPS = ":11443"
 	conf.ListenHTTP = ":11080"
@@ -53,11 +53,11 @@ func TestServerRouter_StartStopSimple(t *testing.T) {
 
 func TestServerRouter_StartStopWithVhostOnSamePorts(t *testing.T) {
 	// This tests two clipboards listening on the same ports being multiplexed based on the "Host:" header
-	conf1 := configtest.NewTestServerConfigWithHostname(t, "some-host-1")
+	_, conf1 := configtest.NewTestConfigWithHostname(t, "some-host-1")
 	conf1.ServerAddr = "https://some-host-1:11443"
 	conf1.ListenHTTPS = ":11443"
 	conf1.ListenHTTP = ":11080"
-	conf2 := configtest.NewTestServerConfigWithHostname(t, "some-host-2")
+	_, conf2 := configtest.NewTestConfigWithHostname(t, "some-host-2")
 	conf2.ServerAddr = "https://some-host-2:12443"
 	conf2.ListenHTTPS = ":11443"
 	conf2.ListenHTTP = ":11080"
