@@ -225,7 +225,6 @@ func TestEncodeCertAndReadCurlPinnedPublicKeyFromFileSuccess(t *testing.T) {
 	test.StrEquals(t, "hi there what's up", stdout.String())
 }
 
-
 func TestReadCurlPinnedPublicKeyFromFileFileNotExist(t *testing.T) {
 	_, err := ReadCurlPinnedPublicKeyFromFile("this is not a file")
 	if err == nil {

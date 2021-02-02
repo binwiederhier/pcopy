@@ -187,48 +187,60 @@ func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration)
 // GenerateKeyAndCert generates a ECDSA P-256 key, and a self-signed certificate.
 // It returns both as PEM-encoded values.
 func GenerateKeyAndCert(hostname string) (string, string, error) {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	key, cert, err := generateKeyAndCertRaw(hostname)
 	if err != nil {
 		return "", "", err
 	}
+	pemKey, err := encodeKey(key)
+	if err != nil {
+		return "", "", err
+	}
+	pemCert, err := EncodeCert(cert)
+	if err != nil {
+		return "", "", err
+	}
+	return string(pemKey), string(pemCert), nil
+}
 
+func generateKeyAndCertRaw(hostname string) (*ecdsa.PrivateKey, *x509.Certificate, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
 	max := new(big.Int)
 	max.Exp(big.NewInt(2), big.NewInt(130), nil).Sub(max, big.NewInt(1))
 	serial, err := rand.Int(rand.Reader, max)
 	if err != nil {
-		return "", "", err
+		return nil, nil, err
 	}
-
-	cert := x509.Certificate{
+	template := x509.Certificate{
 		SerialNumber: serial,
 		Subject:      pkix.Name{CommonName: hostname},
 		DNSNames:     []string{hostname},
 		NotBefore:    time.Now().Add(certNotBeforeAge),
 		NotAfter:     time.Now().Add(certNotAfterAge),
 	}
-
-	derBytes, err := x509.CreateCertificate(rand.Reader, &cert, &cert, &key.PublicKey, key)
+	derCert, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
-		return "", "", err
+		return nil, nil, err
 	}
-
-	out := &bytes.Buffer{}
-	if err := pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		return "", "", err
-	}
-	pemCert := out.String()
-
-	out.Reset()
-	b, err := x509.MarshalECPrivateKey(key)
+	cert, err := x509.ParseCertificate(derCert)
 	if err != nil {
-		return "", "", err
+		return nil, nil, err
 	}
-	if err := pem.Encode(out, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}); err != nil {
-		return "", "", err
-	}
-	pemKey := out.String()
+	return key, cert, nil
+}
 
-	return pemKey, pemCert, nil
+func encodeKey(key *ecdsa.PrivateKey) ([]byte, error) {
+	keyBytes, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
+	var b bytes.Buffer
+	if err := pem.Encode(&b, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes}); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }
 
 var errInvalidKeyFormat = errors.New("invalid key format")
