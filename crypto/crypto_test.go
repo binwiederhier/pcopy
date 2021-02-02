@@ -174,3 +174,23 @@ RgIhAMp7oFxtc93HbfkdhtlBBibc0AJw1tnSYOj+nGbPlxX/AiEA64WsMewc29LT
 		t.Fatalf("expected errNoCertFound, but got %s", err)
 	}
 }
+
+func TestGenerateKeyAndCert(t *testing.T) {
+	dir := t.TempDir()
+
+	key, cert, err := GenerateKeyAndCert("thiscert.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	test.StrContains(t, key, "--BEGIN EC PRIVATE KEY--")
+	test.StrContains(t, cert, "--BEGIN CERTIFICATE--")
+
+	certfile := filepath.Join(dir, "cert")
+	ioutil.WriteFile(certfile, []byte(cert), 0600)
+
+	crt, _ := LoadCertFromFile(certfile)
+	test.BytesEquals(t, crt.RawIssuer, crt.RawSubject) // self-signed
+	test.StrEquals(t, "thiscert.com", crt.Subject.CommonName)
+	test.StrEquals(t, "thiscert.com", crt.DNSNames[0])
+}

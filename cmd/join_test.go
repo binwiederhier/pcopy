@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/config/configtest"
 	"heckel.io/pcopy/test"
 	"os"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestCLI_JoinAndList(t *testing.T) {
-	_, conf := newTestConfig(t)
+	_, conf := configtest.NewTestConfig(t)
 	serverRouter := startTestServerRouter(t, conf)
 	defer serverRouter.Stop()
 

@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/server"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -28,41 +26,6 @@ func newTestApp() (*cli.App, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
 	app.Writer = &stdout
 	app.ErrWriter = &stderr
 	return app, &stdin, &stdout, &stderr
-}
-
-func newTestConfig(t *testing.T) (string, *config.Config) {
-	conf := config.New()
-	tempDir := t.TempDir()
-
-	key, cert, err := crypto.GenerateKeyAndCert("localhost")
-	if err != nil {
-		t.Fatal(err)
-	}
-	clipboardDir := filepath.Join(tempDir, "clipboard")
-	if err := os.Mkdir(clipboardDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	keyFile := filepath.Join(tempDir, "key")
-	if err := ioutil.WriteFile(keyFile, []byte(key), 0700); err != nil {
-		t.Fatal(err)
-	}
-	certFile := filepath.Join(tempDir, "cert")
-	if err := ioutil.WriteFile(certFile, []byte(cert), 0700); err != nil {
-		t.Fatal(err)
-	}
-
-	conf.ServerAddr = config.ExpandServerAddr("localhost:12345")
-	conf.ListenHTTPS = ":12345"
-	conf.ClipboardDir = clipboardDir
-	conf.KeyFile = keyFile
-	conf.CertFile = certFile
-
-	filename := filepath.Join(tempDir, "config.conf")
-	if err := conf.WriteFile(filename); err != nil {
-		t.Fatal(err)
-	}
-
-	return filename, conf
 }
 
 func startTestServerRouter(t *testing.T, config *config.Config) *server.Router {

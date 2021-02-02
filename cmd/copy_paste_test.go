@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"heckel.io/pcopy/clipboard/clipboardtest"
+	"heckel.io/pcopy/config/configtest"
 	"heckel.io/pcopy/test"
 	"os"
 	"os/exec"
@@ -14,7 +15,7 @@ import (
 )
 
 func TestCLI_Copy(t *testing.T) {
-	filename, config := newTestConfig(t)
+	filename, config := configtest.NewTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
@@ -34,7 +35,7 @@ func TestCLI_Copy(t *testing.T) {
 }
 
 func TestCLI_CopyPaste(t *testing.T) {
-	filename, config := newTestConfig(t)
+	filename, config := configtest.NewTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
@@ -55,7 +56,7 @@ func TestCLI_CopyPaste(t *testing.T) {
 }
 
 func TestCLI_CopyPasteStream(t *testing.T) {
-	filename, config := newTestConfig(t)
+	filename, config := configtest.NewTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
@@ -104,7 +105,7 @@ func TestCLI_CopyPasteStream(t *testing.T) {
 }
 
 func TestCurl_CopyPOSTSuccess(t *testing.T) {
-	_, config := newTestConfig(t)
+	_, config := configtest.NewTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
@@ -120,7 +121,7 @@ func TestCurl_CopyPOSTSuccess(t *testing.T) {
 }
 
 func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
-	_, config := newTestConfig(t)
+	_, config := configtest.NewTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
@@ -145,7 +146,7 @@ func TestCurl_POSTGETRandomWithJsonFormat(t *testing.T) {
 func TestCurl_POSTGETRandomStreamWithJsonFormat(t *testing.T) {
 	// This tests #46: curl POST with streaming and short payloads does not work (curl -dabc http://...?s=1)
 
-	_, config := newTestConfig(t)
+	_, config := configtest.NewTestConfig(t)
 	serverRouter := startTestServerRouter(t, config)
 	defer serverRouter.Stop()
 
