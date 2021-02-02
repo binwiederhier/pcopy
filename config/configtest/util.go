@@ -10,10 +10,14 @@ import (
 	"testing"
 )
 
+// NewTestConfig creates a new config.Config that can be used for testing. Like NewTestConfigWithHostname, but
+// only for localhost.
 func NewTestConfig(t *testing.T) (string, *config.Config) {
 	return NewTestConfigWithHostname(t, "localhost")
 }
 
+// NewTestConfigWithHostname creates a new config.Config that can be used for testing. It creates a temporary
+// clipboard directory and even generates a self-signed cert (issued to the given hostname).
 func NewTestConfigWithHostname(t *testing.T, hostname string) (string, *config.Config) {
 	conf := config.New()
 	tempDir := t.TempDir()

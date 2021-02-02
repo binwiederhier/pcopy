@@ -479,6 +479,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 func (s *Server) checkPUT(id string, remoteAddr string) error {
 	stat, _ := s.clipboard.Stat(id)
 	if stat == nil {
+		// TODO this should be in the WriteFile call
 		// File does not exist, check total file count limit
 		if !s.clipboard.Allow() {
 			return ErrHTTPTooManyRequests
