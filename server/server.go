@@ -790,7 +790,7 @@ func (s *Server) printStats(stats *clipboard.Stats) {
 		sizeLimit = fmt.Sprintf("max %s", util.BytesToHuman(s.config.ClipboardSizeLimit))
 	}
 	log.Printf("[%s] files: %d (%s), size: %s (%s), visitors: %d (last 30 minutes)",
-		config.CollapseServerAddr(s.config.ServerAddr), stats.NumFiles, countLimit, util.BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
+		config.CollapseServerAddr(s.config.ServerAddr), stats.Count, countLimit, util.BytesToHuman(stats.Size), sizeLimit, len(s.visitors))
 }
 
 func (s *Server) redirectHTTPS(next handleFunc) handleFunc {

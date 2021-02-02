@@ -43,8 +43,8 @@ type Clipboard struct {
 
 // Stats holds statistics about the current clipboard usage
 type Stats struct {
-	NumFiles int
-	Size     int64
+	Count int
+	Size  int64
 }
 
 // File defines the metadata file format stored next to each file
