@@ -10,7 +10,7 @@ jobs:
           go-version: '1.15.x'
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Install go1.16 beta
+      - name: Install go1.16
         run: go get golang.org/dl/go1.16rc1 && go1.16rc1 download
       - name: Run tests, formatting, vetting and linting
         run: make check
