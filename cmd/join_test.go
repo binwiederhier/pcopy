@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/config/configtest"
+	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/test"
 	"os"
 	"path/filepath"
@@ -33,4 +35,30 @@ func TestCLI_JoinAndList(t *testing.T) {
 	}
 	test.StrContains(t, stderr.String(), "default")
 	test.StrContains(t, stderr.String(), "localhost:12345")
+}
+
+func TestCLI_JoinWithPasswordAndCopyAndPaste(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.Key = crypto.DeriveKey([]byte("some password"), []byte("some salt"))
+	serverRouter := startTestServerRouter(t, conf)
+	defer serverRouter.Stop()
+
+	test.WaitForPortUp(t, "12345")
+
+	configDir := t.TempDir()
+	os.Setenv(config.EnvConfigDir, configDir)
+
+	app, stdin, _, stderr := newTestApp()
+	stdin.WriteString("some password")
+
+	if err := Run(app, "pcopy", "join", "localhost:12345"); err != nil {
+		t.Fatal(err)
+	}
+
+	content, _ := os.ReadFile(filepath.Join(configDir, "default.conf"))
+	saltBase64 := base64.StdEncoding.EncodeToString(conf.Key.Salt)
+
+	test.StrContains(t, stderr.String(), "Successfully joined clipboard, config written to")
+	test.StrContains(t, string(content), saltBase64)
+	test.FileExist(t, filepath.Join(configDir, "default.conf"))
 }

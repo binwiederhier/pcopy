@@ -3,9 +3,8 @@ package cmd
 import (
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/term"
 	"heckel.io/pcopy/crypto"
-	"syscall"
+	"heckel.io/pcopy/util"
 )
 
 var cmdKeygen = &cli.Command{
@@ -24,7 +23,7 @@ Examples:
 
 func execKeygen(c *cli.Context) error {
 	fmt.Fprint(c.App.ErrWriter, "Enter Password: ")
-	password, err := term.ReadPassword(syscall.Stdin)
+	password, err := util.ReadPassword(c.App.Reader)
 	if err != nil {
 		return err
 	}

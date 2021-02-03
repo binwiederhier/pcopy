@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/term"
 	"heckel.io/pcopy/client"
 	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/crypto"
@@ -12,7 +11,6 @@ import (
 	"heckel.io/pcopy/util"
 	"io/ioutil"
 	"os"
-	"syscall"
 )
 
 var cmdJoin = &cli.Command{
@@ -134,7 +132,7 @@ func execJoin(c *cli.Context) error {
 
 func readPassword(c *cli.Context) ([]byte, error) {
 	fmt.Fprint(c.App.ErrWriter, "Enter password to join clipboard: ")
-	password, err := term.ReadPassword(syscall.Stdin)
+	password, err := util.ReadPassword(c.App.Reader)
 	if err != nil {
 		return nil, err
 	}

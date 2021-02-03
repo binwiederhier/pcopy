@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/term"
 	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/util"
@@ -17,7 +16,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 const (
@@ -40,8 +38,9 @@ Examples:
 }
 
 type wizard struct {
-	config *config.Config
-	reader *bufio.Reader
+	config  *config.Config
+	reader  *bufio.Reader
+	context *cli.Context
 
 	configFile     string
 	clipboardDir   string
@@ -54,12 +53,13 @@ type wizard struct {
 
 func execSetup(c *cli.Context) error {
 	setup := &wizard{
-		config: &config.Config{},
-		reader: bufio.NewReader(os.Stdin),
+		config:  &config.Config{},
+		reader:  bufio.NewReader(c.App.Reader),
+		context: c,
 	}
 
-	fmt.Println("pcopy server setup")
-	fmt.Println("--")
+	fmt.Fprintln(c.App.ErrWriter, "pcopy server setup")
+	fmt.Fprintln(c.App.ErrWriter, "--")
 
 	// TODO check overwrite config file
 	// TODO write access to config file
@@ -91,274 +91,274 @@ func execSetup(c *cli.Context) error {
 	return nil
 }
 
-func (s *wizard) askUser() {
+func (w *wizard) askUser() {
 	u, err := user.Current()
 	if err != nil {
-		fail(err)
+		w.fail(err)
 	}
 	if u.Uid == "0" || u.Name == defaultServiceUser {
-		s.serviceUser = defaultServiceUser
+		w.serviceUser = defaultServiceUser
 	} else {
-		fmt.Println("You are not root. To be able to install a systemd service for the pcopy")
-		fmt.Println("server, please re-run this wizard as a super user: 'sudo pcopy setup'.")
-		fmt.Printf("To setup a pcopy server for user %s, simply continue the wizard.\n", u.Name)
-		fmt.Println()
+		fmt.Fprintln(w.context.App.ErrWriter, "You are not root. To be able to install a systemd service for the pcopy")
+		fmt.Fprintln(w.context.App.ErrWriter, "server, please re-run this wizard as a super user: 'sudo pcopy setup'.")
+		fmt.Fprintf(w.context.App.ErrWriter, "To setup a pcopy server for user %s, simply continue the wizard.\n", u.Name)
+		fmt.Fprintln(w.context.App.ErrWriter)
 
-		s.serviceUser = u.Name
-		s.uid, err = strconv.Atoi(u.Uid)
+		w.serviceUser = u.Name
+		w.uid, err = strconv.Atoi(u.Uid)
 		if err != nil {
-			fail(err)
+			w.fail(err)
 		}
-		s.gid, err = strconv.Atoi(u.Gid)
+		w.gid, err = strconv.Atoi(u.Gid)
 		if err != nil {
-			fail(err)
+			w.fail(err)
 		}
 	}
 }
 
-func (s *wizard) askConfigFile() {
+func (w *wizard) askConfigFile() {
 	var defaultConfigFile string
-	if s.serviceUser == defaultServiceUser {
+	if w.serviceUser == defaultServiceUser {
 		defaultConfigFile = config.DefaultServerConfigFile
 	} else {
 		defaultConfigFile = "~/.config/pcopy/server.conf"
 	}
-	fmt.Println("The config file is where all of this server's configuration will be stored.")
-	fmt.Printf("Config file (default: %s): ", defaultConfigFile)
-	configFile := s.readLine()
+	fmt.Fprintln(w.context.App.ErrWriter, "The config file is where all of this server'w configuration will be stored.")
+	fmt.Fprintf(w.context.App.ErrWriter, "Config file (default: %s): ", defaultConfigFile)
+	configFile := w.readLine()
 	if configFile != "" {
-		s.configFile = util.ExpandHome(configFile)
+		w.configFile = util.ExpandHome(configFile)
 	} else {
-		s.configFile = util.ExpandHome(defaultConfigFile)
+		w.configFile = util.ExpandHome(defaultConfigFile)
 	}
-	fmt.Println()
+	fmt.Fprintln(w.context.App.ErrWriter)
 }
 
-func (s *wizard) askClipboardDir() {
+func (w *wizard) askClipboardDir() {
 	var defaultClipboardDir string
-	if s.serviceUser == defaultServiceUser {
+	if w.serviceUser == defaultServiceUser {
 		defaultClipboardDir = config.DefaultClipboardDir
 	} else {
 		defaultClipboardDir = "~/.cache/pcopy"
 	}
-	fmt.Println("The clipboard dir is where the clipboard contents are stored.")
-	fmt.Printf("Clipboard dir (default: %s): ", defaultClipboardDir)
-	clipboardDir := s.readLine()
+	fmt.Fprintln(w.context.App.ErrWriter, "The clipboard dir is where the clipboard contents are stored.")
+	fmt.Fprintf(w.context.App.ErrWriter, "Clipboard dir (default: %s): ", defaultClipboardDir)
+	clipboardDir := w.readLine()
 	if clipboardDir != "" {
-		s.config.ClipboardDir = util.ExpandHome(clipboardDir)
-		s.clipboardDir = util.ExpandHome(clipboardDir)
+		w.config.ClipboardDir = util.ExpandHome(clipboardDir)
+		w.clipboardDir = util.ExpandHome(clipboardDir)
 	} else {
-		if s.serviceUser != defaultServiceUser {
-			s.config.ClipboardDir = defaultClipboardDir
+		if w.serviceUser != defaultServiceUser {
+			w.config.ClipboardDir = defaultClipboardDir
 		}
-		s.clipboardDir = util.ExpandHome(defaultClipboardDir)
+		w.clipboardDir = util.ExpandHome(defaultClipboardDir)
 	}
-	fmt.Println()
+	fmt.Fprintln(w.context.App.ErrWriter)
 }
 
-func (s *wizard) askListenAddr() {
-	fmt.Println("The listen address is used to bind the local server for HTTPS connections.")
-	fmt.Printf("Listen address (default: :%d): ", config.DefaultPort)
-	s.config.ListenHTTPS = s.readLine()
-	fmt.Println()
+func (w *wizard) askListenAddr() {
+	fmt.Fprintln(w.context.App.ErrWriter, "The listen address is used to bind the local server for HTTPS connections.")
+	fmt.Fprintf(w.context.App.ErrWriter, "Listen address (default: :%d): ", config.DefaultPort)
+	w.config.ListenHTTPS = w.readLine()
+	fmt.Fprintln(w.context.App.ErrWriter)
 }
 
-func (s *wizard) askServerAddr() {
+func (w *wizard) askServerAddr() {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = ""
 	}
-	fmt.Println("The hostname will be used to advertise to clients. It must be resolvable by clients.")
-	fmt.Printf("Hostname (default: %s): ", hostname)
-	serverAddr := s.readLine()
+	fmt.Fprintln(w.context.App.ErrWriter, "The hostname will be used to advertise to clients. It must be resolvable by clients.")
+	fmt.Fprintf(w.context.App.ErrWriter, "Hostname (default: %s): ", hostname)
+	serverAddr := w.readLine()
 	if serverAddr != "" {
-		s.config.ServerAddr = serverAddr
+		w.config.ServerAddr = serverAddr
 	} else {
-		s.config.ServerAddr = hostname
+		w.config.ServerAddr = hostname
 	}
-	fmt.Println()
+	fmt.Fprintln(w.context.App.ErrWriter)
 }
 
-func (s *wizard) askPassword() {
-	fmt.Println("To protect the server with a key, enter a password. A key will be derived from it.")
-	fmt.Print("Password: ")
-	password, err := term.ReadPassword(syscall.Stdin)
+func (w *wizard) askPassword() {
+	fmt.Fprintln(w.context.App.ErrWriter, "To protect the server with a key, enter a password. A key will be derived from it.")
+	fmt.Fprint(w.context.App.ErrWriter, "Password: ")
+	password, err := util.ReadPassword(w.reader)
 	if err != nil {
-		fail(err)
+		w.fail(err)
 	}
-	fmt.Println()
-	fmt.Println()
+	fmt.Fprintln(w.context.App.ErrWriter)
+	fmt.Fprintln(w.context.App.ErrWriter)
 	if string(password) != "" {
-		s.config.Key, err = crypto.GenerateKey(password)
+		w.config.Key, err = crypto.GenerateKey(password)
 		if err != nil {
-			fail(err)
+			w.fail(err)
 		}
 	}
 }
 
-func (s *wizard) readLine() string {
-	line, err := s.reader.ReadString('\n')
+func (w *wizard) readLine() string {
+	line, err := w.reader.ReadString('\n')
 	if err != nil {
-		fail(err)
+		w.fail(err)
 	}
 	return strings.TrimSpace(line)
 }
 
-func (s *wizard) askService() {
+func (w *wizard) askService() {
 	if _, err := os.Stat(serviceFile); err != nil {
-		fmt.Println("If your system supports systemd, installing the pcopy server as a service is recommended.")
-		fmt.Print("Install systemd service? [Y/n] ")
-		answer := strings.ToLower(s.readLine())
-		s.installService = answer == "y" || answer == ""
-		s.hasService = s.installService
-		fmt.Println()
+		fmt.Fprintln(w.context.App.ErrWriter, "If your system supports systemd, installing the pcopy server as a service is recommended.")
+		fmt.Fprint(w.context.App.ErrWriter, "Install systemd service? [Y/n] ")
+		answer := strings.ToLower(w.readLine())
+		w.installService = answer == "y" || answer == ""
+		w.hasService = w.installService
+		fmt.Fprintln(w.context.App.ErrWriter)
 	} else {
-		s.installService = false
-		s.hasService = true
+		w.installService = false
+		w.hasService = true
 	}
 }
 
-func (s *wizard) askConfirm() {
-	fmt.Println("Summary")
-	fmt.Println("--")
-	fmt.Println("We're ready to go. Please review the summary and continue if you're")
-	fmt.Println("happy with what you see:")
-	fmt.Println()
-	if s.serviceUser == defaultServiceUser {
-		fmt.Println("Users to be created:")
-		fmt.Printf("- User: %s (to run 'pcopy serve')\n", s.serviceUser)
-		fmt.Println()
+func (w *wizard) askConfirm() {
+	fmt.Fprintln(w.context.App.ErrWriter, "Summary")
+	fmt.Fprintln(w.context.App.ErrWriter, "--")
+	fmt.Fprintln(w.context.App.ErrWriter, "We're ready to go. Please review the summary and continue if you're")
+	fmt.Fprintln(w.context.App.ErrWriter, "happy with what you see:")
+	fmt.Fprintln(w.context.App.ErrWriter)
+	if w.serviceUser == defaultServiceUser {
+		fmt.Fprintln(w.context.App.ErrWriter, "Users to be created:")
+		fmt.Fprintf(w.context.App.ErrWriter, "- User: %s (to run 'pcopy serve')\n", w.serviceUser)
+		fmt.Fprintln(w.context.App.ErrWriter)
 	}
-	fmt.Println("Files to be created:")
-	fmt.Printf("- Clipboard dir:     %s\n", util.CollapseHome(s.clipboardDir))
-	fmt.Printf("- Config file:       %s\n", util.CollapseHome(s.configFile))
-	fmt.Printf("- Private key file:  %s\n", util.CollapseHome(config.DefaultKeyFile(s.configFile, false)))
-	fmt.Printf("- Certificate file:  %s\n", util.CollapseHome(config.DefaultCertFile(s.configFile, false)))
-	if s.installService {
-		fmt.Printf("- Systemd unit file: %s\n", serviceFile)
+	fmt.Fprintln(w.context.App.ErrWriter, "Files to be created:")
+	fmt.Fprintf(w.context.App.ErrWriter, "- Clipboard dir:     %s\n", util.CollapseHome(w.clipboardDir))
+	fmt.Fprintf(w.context.App.ErrWriter, "- Config file:       %s\n", util.CollapseHome(w.configFile))
+	fmt.Fprintf(w.context.App.ErrWriter, "- Private key file:  %s\n", util.CollapseHome(config.DefaultKeyFile(w.configFile, false)))
+	fmt.Fprintf(w.context.App.ErrWriter, "- Certificate file:  %s\n", util.CollapseHome(config.DefaultCertFile(w.configFile, false)))
+	if w.installService {
+		fmt.Fprintf(w.context.App.ErrWriter, "- Systemd unit file: %s\n", serviceFile)
 	}
-	fmt.Println()
+	fmt.Fprintln(w.context.App.ErrWriter)
 
-	fmt.Print("Would you like to continue? [Y/n] ")
-	answer := strings.ToLower(s.readLine())
+	fmt.Fprint(w.context.App.ErrWriter, "Would you like to continue? [Y/n] ")
+	answer := strings.ToLower(w.readLine())
 	if answer != "y" && answer != "" {
-		fail(errors.New("user aborted"))
+		w.fail(errors.New("user aborted"))
 	}
-	fmt.Println()
+	fmt.Fprintln(w.context.App.ErrWriter)
 }
 
-func (s *wizard) createClipboardDir() {
-	fmt.Printf("Creating clipboard directory %s ... ", util.CollapseHome(s.clipboardDir))
-	if err := os.MkdirAll(s.clipboardDir, 0700); err != nil {
-		fail(err)
+func (w *wizard) createClipboardDir() {
+	fmt.Fprintf(w.context.App.ErrWriter, "Creating clipboard directory %s ... ", util.CollapseHome(w.clipboardDir))
+	if err := os.MkdirAll(w.clipboardDir, 0700); err != nil {
+		w.fail(err)
 	}
-	if err := os.Chown(s.clipboardDir, s.uid, s.gid); err != nil {
-		fail(err)
+	if err := os.Chown(w.clipboardDir, w.uid, w.gid); err != nil {
+		w.fail(err)
 	}
-	fmt.Println("ok")
+	fmt.Fprintln(w.context.App.ErrWriter, "ok")
 }
 
-func (s *wizard) writeConfigFile() {
-	fmt.Printf("Writing server config file %s ... ", util.CollapseHome(s.configFile))
-	if err := s.config.WriteFile(s.configFile); err != nil {
-		fail(err)
+func (w *wizard) writeConfigFile() {
+	fmt.Fprintf(w.context.App.ErrWriter, "Writing server config file %s ... ", util.CollapseHome(w.configFile))
+	if err := w.config.WriteFile(w.configFile); err != nil {
+		w.fail(err)
 	}
-	if err := os.Chown(filepath.Dir(s.configFile), s.uid, s.gid); err != nil {
-		fail(err)
+	if err := os.Chown(filepath.Dir(w.configFile), w.uid, w.gid); err != nil {
+		w.fail(err)
 	}
-	if err := os.Chown(s.configFile, s.uid, s.gid); err != nil {
-		fail(err)
+	if err := os.Chown(w.configFile, w.uid, w.gid); err != nil {
+		w.fail(err)
 	}
-	fmt.Println("ok")
+	fmt.Fprintln(w.context.App.ErrWriter, "ok")
 }
 
-func (s *wizard) writeKeyAndCert() {
-	serverURL, err := url.ParseRequestURI(config.ExpandServerAddr(s.config.ServerAddr))
+func (w *wizard) writeKeyAndCert() {
+	serverURL, err := url.ParseRequestURI(config.ExpandServerAddr(w.config.ServerAddr))
 	if err != nil {
-		fail(err)
+		w.fail(err)
 	}
 	pemKey, pemCert, err := crypto.GenerateKeyAndCert(serverURL.Hostname())
 	if err != nil {
-		fail(err)
+		w.fail(err)
 	}
 
-	keyFile := config.DefaultKeyFile(s.configFile, false)
-	fmt.Printf("Writing private key file %s ... ", util.CollapseHome(keyFile))
+	keyFile := config.DefaultKeyFile(w.configFile, false)
+	fmt.Fprintf(w.context.App.ErrWriter, "Writing private key file %s ... ", util.CollapseHome(keyFile))
 	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
-		fail(err)
+		w.fail(err)
 	}
-	if err := os.Chown(keyFile, s.uid, s.gid); err != nil {
-		fail(err)
+	if err := os.Chown(keyFile, w.uid, w.gid); err != nil {
+		w.fail(err)
 	}
-	fmt.Println("ok")
+	fmt.Fprintln(w.context.App.ErrWriter, "ok")
 
-	certFile := config.DefaultCertFile(s.configFile, false)
-	fmt.Printf("Writing certificate %s ... ", util.CollapseHome(certFile))
+	certFile := config.DefaultCertFile(w.configFile, false)
+	fmt.Fprintf(w.context.App.ErrWriter, "Writing certificate %s ... ", util.CollapseHome(certFile))
 	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
-		fail(err)
+		w.fail(err)
 	}
-	if err := os.Chown(certFile, s.uid, s.gid); err != nil {
-		fail(err)
+	if err := os.Chown(certFile, w.uid, w.gid); err != nil {
+		w.fail(err)
 	}
-	fmt.Println("ok")
+	fmt.Fprintln(w.context.App.ErrWriter, "ok")
 }
 
-func (s *wizard) writeSystemdUnit() {
-	fmt.Printf("Writing systemd unit file %s ... ", serviceFile)
+func (w *wizard) writeSystemdUnit() {
+	fmt.Fprintf(w.context.App.ErrWriter, "Writing systemd unit file %s ... ", serviceFile)
 	if err := ioutil.WriteFile(serviceFile, []byte(config.SystemdUnit), 0644); err != nil {
-		fail(err)
+		w.fail(err)
 	}
-	fmt.Println("ok")
+	fmt.Fprintln(w.context.App.ErrWriter, "ok")
 }
 
-func (s *wizard) createUserAndGroup() {
-	fmt.Printf("Creating user %s ... ", s.serviceUser)
-	u, err := user.Lookup(s.serviceUser)
+func (w *wizard) createUserAndGroup() {
+	fmt.Fprintf(w.context.App.ErrWriter, "Creating user %s ... ", w.serviceUser)
+	u, err := user.Lookup(w.serviceUser)
 	if err != nil {
 		if _, ok := err.(user.UnknownUserError); ok {
-			cmd := exec.Command("useradd", s.serviceUser)
+			cmd := exec.Command("useradd", w.serviceUser)
 			err := cmd.Run()
 			if err != nil {
-				fail(err)
+				w.fail(err)
 			}
-			u, err = user.Lookup(s.serviceUser)
+			u, err = user.Lookup(w.serviceUser)
 			if err != nil {
-				fail(err)
+				w.fail(err)
 			}
-			fmt.Println("ok")
+			fmt.Fprintln(w.context.App.ErrWriter, "ok")
 		} else {
-			fail(err)
+			w.fail(err)
 		}
 	} else {
-		fmt.Println("exists")
+		fmt.Fprintln(w.context.App.ErrWriter, "exists")
 	}
-	s.uid, err = strconv.Atoi(u.Uid)
+	w.uid, err = strconv.Atoi(u.Uid)
 	if err != nil {
-		fail(err)
+		w.fail(err)
 	}
-	s.gid, err = strconv.Atoi(u.Gid)
+	w.gid, err = strconv.Atoi(u.Gid)
 	if err != nil {
-		fail(err)
+		w.fail(err)
 	}
 }
 
-func (s *wizard) printSuccess() {
-	fmt.Println()
-	fmt.Println("Success. You may now start the server by running:")
-	fmt.Println()
-	if s.hasService {
-		fmt.Println("  $ sudo systemctl start pcopy")
+func (w *wizard) printSuccess() {
+	fmt.Fprintln(w.context.App.ErrWriter)
+	fmt.Fprintln(w.context.App.ErrWriter, "Success. You may now start the server by running:")
+	fmt.Fprintln(w.context.App.ErrWriter)
+	if w.hasService {
+		fmt.Fprintln(w.context.App.ErrWriter, "  $ sudo systemctl start pcopy")
 	} else {
-		if s.serviceUser == defaultServiceUser {
-			fmt.Println("  $ sudo -u pcopy pcopy serve")
+		if w.serviceUser == defaultServiceUser {
+			fmt.Fprintln(w.context.App.ErrWriter, "  $ sudo -u pcopy pcopy serve")
 		} else {
-			fmt.Println("  $ pcopy serve")
+			fmt.Fprintln(w.context.App.ErrWriter, "  $ pcopy serve")
 		}
 	}
-	fmt.Println()
+	fmt.Fprintln(w.context.App.ErrWriter)
 }
 
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, err.Error())
+func (w *wizard) fail(err error) {
+	fmt.Fprintln(w.context.App.ErrWriter, err.Error())
 	os.Exit(1)
 }
