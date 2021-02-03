@@ -14,6 +14,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync/atomic"
 )
 
 var cmdCopy = &cli.Command{
@@ -305,15 +306,16 @@ func parseClipboardAndID(clipboardAndID string, configFileOverride string) (stri
 	return clipboard, id, nil
 }
 
-var previousProgressLen int
+var previousProgressLen uint32
 
 func progressOutput(errWriter io.Writer, processed int64, total int64, done bool) {
+	prevLen := int(atomic.LoadUint32(&previousProgressLen))
 	if done {
-		if previousProgressLen > 0 {
+		if prevLen > 0 {
 			progress := fmt.Sprintf("%s (100%%)", util.BytesToHuman(processed))
 			progressWithSpaces := progress
-			if len(progress) < previousProgressLen {
-				progressWithSpaces += strings.Repeat(" ", previousProgressLen-len(progress))
+			if len(progress) < int(prevLen) {
+				progressWithSpaces += strings.Repeat(" ", prevLen-len(progress))
 			}
 			fmt.Fprintf(errWriter, "\r%s\r\n", progressWithSpaces)
 		}
@@ -326,11 +328,11 @@ func progressOutput(errWriter io.Writer, processed int64, total int64, done bool
 			progress = util.BytesToHuman(processed)
 		}
 		progressWithSpaces := progress
-		if len(progress) < previousProgressLen {
-			progressWithSpaces += strings.Repeat(" ", previousProgressLen-len(progress))
+		if len(progress) < prevLen {
+			progressWithSpaces += strings.Repeat(" ", prevLen-len(progress))
 		}
 		fmt.Fprintf(errWriter, "\r%s", progressWithSpaces)
-		previousProgressLen = len(progress)
+		atomic.StoreUint32(&previousProgressLen, uint32(len(progress)))
 	}
 }
 
