@@ -370,6 +370,10 @@ html, body {
     padding-left: 10px;
 }
 
+#header-area .col-last {
+    padding-left: 0;
+}
+
 #header-area .col {
     position: relative;
     flex-basis: 0;
@@ -399,6 +403,7 @@ html, body {
     line-height: 40px;
     padding-left: 2px;
     padding-right: 2px;
+    vertical-align: middle; /* align with select/input */
 }
 
 #header-area button {
@@ -426,6 +431,7 @@ html, body {
     padding: 7px 5px;
     height: 34px;
     text-align: center;
+    vertical-align: middle;
 }
 
 #header-area select:hover {
