@@ -28,7 +28,7 @@ nfpms:
       - /etc/pcopy
       - /var/cache/pcopy
     contents:
-      - src: init/pcopy.service
+      - src: config/pcopy.service
         dst: /lib/systemd/system/pcopy.service
       - src: /usr/bin/pcopy
         dst: /usr/bin/pcp
