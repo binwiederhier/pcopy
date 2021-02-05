@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -65,26 +64,4 @@ func defaultFileWithNewExt(newExtension string, configFile string, mustExist boo
 	}
 
 	return file
-}
-
-// TODO move this to util package
-func parseSize(s string) (int64, error) {
-	matches := sizeStrRegex.FindStringSubmatch(s)
-	if matches == nil {
-		return -1, fmt.Errorf("invalid size %s", s)
-	}
-	value, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return -1, fmt.Errorf("cannot convert number %s", matches[1])
-	}
-	switch strings.ToUpper(matches[2]) {
-	case "G":
-		return int64(value) * 1024 * 1024 * 1024, nil
-	case "M":
-		return int64(value) * 1024 * 1024, nil
-	case "K":
-		return int64(value) * 1024, nil
-	default:
-		return int64(value), nil
-	}
 }

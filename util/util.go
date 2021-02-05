@@ -19,6 +19,7 @@ var (
 	random                      = rand.New(rand.NewSource(time.Now().UnixNano()))
 	durationStrSecondsOnlyRegex = regexp.MustCompile(`(?i)^(\d+)$`)
 	durationStrDaysOnlyRegex    = regexp.MustCompile(`(?i)^(\d+)d$`)
+	sizeStrRegex                = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
 )
 
 // ExpandHome replaces "~" with the user's home directory
@@ -99,6 +100,28 @@ func ParseDuration(s string) (time.Duration, error) {
 		return time.Duration(days) * time.Hour * 24, nil
 	}
 	return time.ParseDuration(s)
+}
+
+// ParseSize parses a size string like 2K or 2M into bytes. If no unit is found, e.g. 123, bytes is assumed.
+func ParseSize(s string) (int64, error) {
+	matches := sizeStrRegex.FindStringSubmatch(s)
+	if matches == nil {
+		return -1, fmt.Errorf("invalid size %s", s)
+	}
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return -1, fmt.Errorf("cannot convert number %s", matches[1])
+	}
+	switch strings.ToUpper(matches[2]) {
+	case "G":
+		return int64(value) * 1024 * 1024 * 1024, nil
+	case "M":
+		return int64(value) * 1024 * 1024, nil
+	case "K":
+		return int64(value) * 1024, nil
+	default:
+		return int64(value), nil
+	}
 }
 
 // RandomStringWithCharset returns a random string with a given length, using the defined charset

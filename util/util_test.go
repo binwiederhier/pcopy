@@ -229,3 +229,34 @@ func TestParseDuration_WithDaysAndHoursFailure(t *testing.T) {
 		t.Fatalf("expected error, got none")
 	}
 }
+
+func TestParseSize_10GSuccess(t *testing.T) {
+	s, err := ParseSize("10G")
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.Int64Equals(t, 10*1024*1024*1024, s)
+}
+
+func TestParseSize_10MUpperCaseSuccess(t *testing.T) {
+	s, err := ParseSize("10M")
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.Int64Equals(t, 10*1024*1024, s)
+}
+
+func TestParseSize_10kLowerCaseSuccess(t *testing.T) {
+	s, err := ParseSize("10k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.Int64Equals(t, 10*1024, s)
+}
+
+func TestParseSize_FailureInvalid(t *testing.T) {
+	_, err := ParseSize("not a size")
+	if err == nil {
+		t.Fatalf("expected error, but got none")
+	}
+}

@@ -93,8 +93,6 @@ var (
 		"stringsJoin":     strings.Join,
 	}
 
-	sizeStrRegex = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
-
 	defaultLimitGET      = rate.Every(time.Second)
 	defaultLimitGETBurst = 200
 	defaultLimitPUT      = rate.Every(time.Minute)
@@ -280,7 +278,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 
 	clipboardSizeLimit, ok := raw["ClipboardSizeLimit"]
 	if ok {
-		config.ClipboardSizeLimit, err = parseSize(clipboardSizeLimit)
+		config.ClipboardSizeLimit, err = util.ParseSize(clipboardSizeLimit)
 		if err != nil {
 			return nil, fmt.Errorf("invalid config value for 'ClipboardSizeLimit': %w", err)
 		}
@@ -296,7 +294,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 
 	fileSizeLimit, ok := raw["FileSizeLimit"]
 	if ok {
-		config.FileSizeLimit, err = parseSize(fileSizeLimit)
+		config.FileSizeLimit, err = util.ParseSize(fileSizeLimit)
 		if err != nil {
 			return nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
 		}

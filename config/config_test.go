@@ -334,37 +334,6 @@ func TestConfigStore_All(t *testing.T) {
 	}
 }
 
-func TestParseSize_10GSuccess(t *testing.T) {
-	s, err := parseSize("10G")
-	if err != nil {
-		t.Fatal(err)
-	}
-	test.Int64Equals(t, 10*1024*1024*1024, s)
-}
-
-func TestParseSize_10MUpperCaseSuccess(t *testing.T) {
-	s, err := parseSize("10M")
-	if err != nil {
-		t.Fatal(err)
-	}
-	test.Int64Equals(t, 10*1024*1024, s)
-}
-
-func TestParseSize_10kLowerCaseSuccess(t *testing.T) {
-	s, err := parseSize("10k")
-	if err != nil {
-		t.Fatal(err)
-	}
-	test.Int64Equals(t, 10*1024, s)
-}
-
-func TestParseSize_FailureInvalid(t *testing.T) {
-	_, err := parseSize("not a size")
-	if err == nil {
-		t.Fatalf("expected error, but got none")
-	}
-}
-
 func TestExtractClipboard(t *testing.T) {
 	test.StrEquals(t, "myclip", ExtractClipboard("/etc/pcopy/myclip.conf"))
 }
