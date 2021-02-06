@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed" // Required for go:embed instructions
 	"heckel.io/pcopy/clipboard/clipboardtest"
+	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/config/configtest"
 	"heckel.io/pcopy/test"
 	"heckel.io/pcopy/util"
@@ -16,7 +17,9 @@ import (
 func TestClipboard_WriteFileSuccess(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	clip, _ := New(conf)
-	clip.WriteFile("howdy", io.NopCloser(strings.NewReader("howdy dude")))
+
+	meta := &File{Mode: config.FileModeReadOnly, Expires: time.Now().Add(time.Hour).Unix()}
+	clip.WriteFile("howdy", meta, io.NopCloser(strings.NewReader("howdy dude")))
 
 	clipboardtest.Content(t, conf, "howdy", "howdy dude")
 }
@@ -25,9 +28,13 @@ func TestClipboard_WriteFile_FileSizeLimitReached(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	conf.FileSizeLimit = 10
 	clip, _ := New(conf)
-	if err := clip.WriteFile("sup", io.NopCloser(strings.NewReader("this is more than 10 bytes"))); err != util.ErrLimitReached {
+	meta := &File{Mode: config.FileModeReadWrite, Expires: time.Now().Add(time.Hour).Unix()}
+	if err := clip.WriteFile("sup", meta, io.NopCloser(strings.NewReader("this is more than 10 bytes"))); err != util.ErrLimitReached {
 		t.Fatalf("expected ErrLimitReached, but that didn't happen")
 	}
+	file, metafile, _ := clip.getFilenames("sup")
+	test.FileNotExist(t, file)
+	test.FileNotExist(t, metafile)
 }
 
 func TestClipboard_WriteFile_ClipboardSizeLimitReached(t *testing.T) {
@@ -35,7 +42,8 @@ func TestClipboard_WriteFile_ClipboardSizeLimitReached(t *testing.T) {
 	conf.FileSizeLimit = 10
 	conf.ClipboardSizeLimit = 5
 	clip, _ := New(conf)
-	if err := clip.WriteFile("sup", io.NopCloser(strings.NewReader("7 bytes"))); err != util.ErrLimitReached {
+	meta := &File{Mode: config.FileModeReadWrite, Expires: time.Now().Add(time.Hour).Unix()}
+	if err := clip.WriteFile("sup", meta, io.NopCloser(strings.NewReader("7 bytes"))); err != util.ErrLimitReached {
 		t.Fatalf("expected ErrLimitReached, but that didn't happen")
 	}
 }
@@ -43,7 +51,8 @@ func TestClipboard_WriteFile_ClipboardSizeLimitReached(t *testing.T) {
 func TestClipboard_WriteFile_ReadFile(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	clip, _ := New(conf)
-	clip.WriteFile("sup", io.NopCloser(strings.NewReader("7 bytes")))
+	meta := &File{Mode: config.FileModeReadWrite, Expires: time.Now().Add(time.Hour).Unix()}
+	clip.WriteFile("sup", meta, io.NopCloser(strings.NewReader("7 bytes")))
 
 	var buf bytes.Buffer
 	clip.ReadFile("sup", &buf)
@@ -54,11 +63,9 @@ func TestClipboard_Stats(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	clip, _ := New(conf)
 
-	clip.WriteMeta("sup", "rw", 0)
-	clip.WriteFile("sup", io.NopCloser(strings.NewReader("7 bytes")))
-
-	clip.WriteMeta("sup2", "rw", 0)
-	clip.WriteFile("sup2", io.NopCloser(strings.NewReader("this is a sting with 29 bytes")))
+	meta := &File{Mode: config.FileModeReadWrite, Expires: time.Now().Add(time.Hour).Unix()}
+	clip.WriteFile("sup", meta, io.NopCloser(strings.NewReader("7 bytes")))
+	clip.WriteFile("sup2", meta, io.NopCloser(strings.NewReader("this is a sting with 29 bytes")))
 
 	stats, _ := clip.Stats()
 	test.Int64Equals(t, 36, stats.Size)
@@ -80,8 +87,8 @@ func TestClipboard_Expire(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	clip, _ := New(conf)
 
-	clip.WriteMeta("sup", "rw", time.Now().Add(-time.Hour).Unix())
-	clip.WriteFile("sup", io.NopCloser(strings.NewReader("7 bytes")))
+	meta := &File{Mode: config.FileModeReadWrite, Expires: time.Now().Add(-time.Hour).Unix()}
+	clip.WriteFile("sup", meta, io.NopCloser(strings.NewReader("7 bytes")))
 
 	stat, _ := clip.Stat("sup")
 	test.StrEquals(t, "sup", stat.ID)

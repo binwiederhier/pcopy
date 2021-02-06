@@ -407,17 +407,17 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Ensure that we update the limiters and such!
 	defer s.updateStatsAndExpire()
 
-	// TODO this is bad when things crash
 	// TODO i hate this reservation stuff
+	var meta *clipboard.File
 	if reserve {
-		reservationExpires := time.Now().Add(reserveTTL).Unix()
-		// TODO WriteMeta should just be part of WriteFile!
-		if err := s.clipboard.WriteMeta(id, config.FileModeReadWrite, reservationExpires); err != nil {
-			return err
+		meta = &clipboard.File{
+			Mode:    config.FileModeReadWrite,
+			Expires: time.Now().Add(reserveTTL).Unix(),
 		}
 	} else {
-		if err := s.clipboard.WriteMeta(id, fileMode, expires); err != nil {
-			return err
+		meta = &clipboard.File{
+			Mode:    fileMode,
+			Expires: expires,
 		}
 	}
 
@@ -454,7 +454,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Copy file contents (with file limit & total limit)
-	if err := s.clipboard.WriteFile(id, body); err != nil {
+	if err := s.clipboard.WriteFile(id, meta, body); err != nil {
 		if err == util.ErrLimitReached {
 			return ErrHTTPPayloadTooLarge
 		} else if err == clipboard.ErrBrokenPipe {

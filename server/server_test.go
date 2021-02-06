@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/time/rate"
+	"heckel.io/pcopy/clipboard"
 	"heckel.io/pcopy/clipboard/clipboardtest"
 	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/config/configtest"
@@ -721,8 +722,8 @@ func TestServer_StartStopManager(t *testing.T) {
 	server.StartManager()
 	time.Sleep(10 * time.Millisecond)
 
-	server.clipboard.WriteFile("testfile", io.NopCloser(strings.NewReader("this is a test")))
-	server.clipboard.WriteMeta("testfile", config.FileModeReadWrite, time.Now().Unix())
+	meta := &clipboard.File{Mode: config.FileModeReadWrite, Expires: time.Now().Unix()}
+	server.clipboard.WriteFile("testfile", meta, io.NopCloser(strings.NewReader("this is a test")))
 
 	cf, _ := server.clipboard.Stat("testfile")
 	test.StrEquals(t, "testfile", cf.ID)
@@ -734,8 +735,9 @@ func TestServer_StartStopManager(t *testing.T) {
 	}
 
 	server.StopManager()
-	server.clipboard.WriteFile("testfile2", io.NopCloser(strings.NewReader("this is another test")))
-	server.clipboard.WriteMeta("testfile2", config.FileModeReadWrite, time.Now().Unix())
+
+	meta = &clipboard.File{Mode: config.FileModeReadWrite, Expires: time.Now().Unix()}
+	server.clipboard.WriteFile("testfile2", meta, io.NopCloser(strings.NewReader("this is another test")))
 
 	time.Sleep(110 * time.Millisecond)
 	cf, _ = server.clipboard.Stat("testfile2")

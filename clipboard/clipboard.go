@@ -174,42 +174,33 @@ func (c *Clipboard) Stat(id string) (*File, error) {
 	return &cf, nil
 }
 
-// WriteMeta writes files metadata for the given clipboard entry
-func (c *Clipboard) WriteMeta(id string, mode string, expires int64) error {
-	_, metafile, err := c.getFilenames(id)
-	if err != nil {
-		return err
-	}
-	response := &File{
-		Mode:    mode,
-		Expires: expires,
-	}
-	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-	if err != nil {
-		return err
-	}
-	defer mf.Close()
-	if err := json.NewEncoder(mf).Encode(response); err != nil {
-		return err
-	}
-	return nil
-}
-
 // Allow increases the clipboard file counter and returns true if a new file may be added
 func (c *Clipboard) Allow() bool {
 	err := c.countLimiter.Add(1)
 	return err == nil
 }
 
-// WriteFile writes the entire content of rc to the clipboard entry. This method observes the
-// per-file size limit as defined in the config, as well as the total clipboard size limit. If a limit is
-// reached, it will return util.ErrLimitReached. When the target file is a FIFO pipe (see MakePipe) and the
-// consumer prematurely interrupts reading, ErrBrokenPipe may be returned.
-func (c *Clipboard) WriteFile(id string, rc io.ReadCloser) error {
-	file, _, err := c.getFilenames(id)
+// WriteFile writes the entire content of rc to the clipboard entry as well as a metadata file.
+// The method observes the per-file size limit as defined in the config, as well as the total clipboard
+// size limit. If a limit is reached, it will return util.ErrLimitReached. When the target file is a FIFO
+// pipe (see MakePipe) and the consumer prematurely interrupts reading, ErrBrokenPipe may be returned.
+func (c *Clipboard) WriteFile(id string, meta *File, rc io.ReadCloser) error {
+	file, metafile, err := c.getFilenames(id)
 	if err != nil {
 		return err
 	}
+
+	// Write metadata file
+	mf, err := os.OpenFile(metafile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer mf.Close()
+	if err := json.NewEncoder(mf).Encode(meta); err != nil {
+		return err
+	}
+
+	// Write actual file
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
