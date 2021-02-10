@@ -9,6 +9,7 @@ import (
 	"heckel.io/pcopy/test"
 	"heckel.io/pcopy/util"
 	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -99,4 +100,28 @@ func TestClipboard_Expire(t *testing.T) {
 	if stat != nil {
 		t.Fatalf("expected stat to be nil, but it is not: %#v", stat)
 	}
+}
+
+func TestClipboard_MakePipe(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	clip, _ := New(conf)
+	clip.MakePipe("sup")
+
+	file, _, _ := clip.getFilenames("sup")
+	stat, _ := os.Stat(file)
+	test.BoolEquals(t, true, stat.Mode()&os.ModeNamedPipe == os.ModeNamedPipe)
+}
+
+func TestClipboard_ValidID(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	clip, _ := New(conf)
+	test.BoolEquals(t, true, clip.isValidID("valid-id"))
+	test.BoolEquals(t, true, clip.isValidID("valid.txt"))
+	test.BoolEquals(t, false, clip.isValidID("robots.txt"))
+	test.BoolEquals(t, false, clip.isValidID("favicon.ico"))
+	test.BoolEquals(t, false, clip.isValidID(""))
+	test.BoolEquals(t, false, clip.isValidID("/hi"))
+	test.BoolEquals(t, false, clip.isValidID("äöüß.txt"))
+	test.BoolEquals(t, false, clip.isValidID(".invalid"))
+	test.BoolEquals(t, false, clip.isValidID("this-is-so-log-that-it-cannot-by-any-possible-reasoning-be-valid-so-this-is-really-rally-invalid-because-it-is-too-long"))
 }

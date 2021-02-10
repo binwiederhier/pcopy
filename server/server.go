@@ -273,6 +273,7 @@ func (s *Server) routeList() []route {
 		return s.routes
 	}
 
+	fileRoute := "/" + clipboard.FileRegexPart
 	s.routes = []route{
 		newRoute("GET", "/", s.limit(s.handleRoot)),
 		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
@@ -281,10 +282,10 @@ func (s *Server) routeList() []route {
 		newRoute("GET", "/favicon.ico", s.limit(s.handleFavicon)),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
-		newRoute("GET", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardGet))),
-		newRoute("HEAD", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardHead))),
-		newRoute("PUT", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
-		newRoute("POST", "/(?i)([a-z0-9][-_.a-z0-9]{1,100})", s.limit(s.auth(s.handleClipboardPut))),
+		newRoute("GET", fileRoute, s.limit(s.auth(s.handleClipboardGet))),
+		newRoute("HEAD", fileRoute, s.limit(s.auth(s.handleClipboardHead))),
+		newRoute("PUT", fileRoute, s.limit(s.auth(s.handleClipboardPut))),
+		newRoute("POST", fileRoute, s.limit(s.auth(s.handleClipboardPut))),
 	}
 	return s.routes
 }

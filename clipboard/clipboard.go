@@ -14,12 +14,17 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
 )
 
 const (
+	// FileRegexPart defines the regex for a valid file ID. Note that this does not include start/end markers,
+	// as they can be different depending on the use case.
+	FileRegexPart = `(?i)([a-z0-9][-_.a-z0-9]{1,100})`
+
 	metaFileSuffix = ":meta"
 )
 
@@ -30,6 +35,7 @@ var (
 	// ErrInvalidFileID is returned in any method that deals with file ID input for reserved identifiers (ReadFile, WriteFile, ...)
 	ErrInvalidFileID = errors.New("invalid file id")
 
+	validIDRegex               = regexp.MustCompile("^" + FileRegexPart + "$")
 	reservedFiles              = []string{"help", "version", "info", "verify", "random", "static", "robots.txt", "favicon.ico"}
 	errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 )
@@ -267,7 +273,9 @@ func (c *Clipboard) getFilenames(id string) (string, string, error) {
 }
 
 func (c *Clipboard) isValidID(id string) bool {
-	// TODO include regex from server.go
+	if !validIDRegex.MatchString(id) {
+		return false
+	}
 	for _, reserved := range reservedFiles {
 		if id == reserved {
 			return false
