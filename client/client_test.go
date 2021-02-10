@@ -195,9 +195,9 @@ func TestClient_PasteWithCertFile(t *testing.T) {
 func TestClient_ServerInfoSuccess(t *testing.T) {
 	conf := config.New()
 	client, serv := newTestClientAndServer(t, conf, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(&server.HTTPResponseServerInfo{
+		json.NewEncoder(w).Encode(&server.Info{
 			ServerAddr: "hi-there.com",
-			Salt:       "aSBhbSBiYXNlNjQ=",
+			Salt:       []byte("i am base64"),
 		})
 	}))
 	defer serv.Close()
@@ -208,6 +208,25 @@ func TestClient_ServerInfoSuccess(t *testing.T) {
 	}
 	test.StrEquals(t, "hi-there.com", info.ServerAddr)
 	test.BytesEquals(t, []byte("i am base64"), info.Salt)
+	test.BytesEquals(t, serv.Certificate().Raw, info.Cert.Raw)
+}
+
+func TestClient_ServerInfoWithoutSaltSuccess(t *testing.T) {
+	conf := config.New()
+	client, serv := newTestClientAndServer(t, conf, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(&server.Info{
+			ServerAddr: "hi-there.com",
+			Salt:       nil,
+		})
+	}))
+	defer serv.Close()
+
+	info, err := client.ServerInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.StrEquals(t, "hi-there.com", info.ServerAddr)
+	test.BytesEquals(t, nil, info.Salt)
 	test.BytesEquals(t, serv.Certificate().Raw, info.Cert.Raw)
 }
 

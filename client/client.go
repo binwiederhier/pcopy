@@ -4,7 +4,6 @@ package client
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -247,17 +246,9 @@ func (c *Client) ServerInfo() (*server.Info, error) {
 		}
 	}
 
-	var salt []byte
-	if info.Salt != "" {
-		salt, err = base64.StdEncoding.DecodeString(info.Salt)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &server.Info{
 		ServerAddr: info.ServerAddr,
-		Salt:       salt,
+		Salt:       info.Salt,
 		Cert:       cert,
 	}, nil
 }
@@ -331,19 +322,19 @@ func (c *Client) parseFileInfoResponse(resp *http.Response) (*server.File, error
 	}, nil
 }
 
-func (c *Client) retrieveInfo(client *http.Client) (*server.HTTPResponseServerInfo, error) {
+func (c *Client) retrieveInfo(client *http.Client) (*server.Info, error) {
 	resp, err := client.Get(fmt.Sprintf("%s/info", config.ExpandServerAddr(c.config.ServerAddr)))
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	info := &server.HTTPResponseServerInfo{}
-	if err := json.NewDecoder(resp.Body).Decode(info); err != nil {
+	var info server.Info
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return nil, err
 	}
 
-	return info, nil
+	return &info, nil
 }
 
 // retrieveCert opens a raw TLS connection and retrieves the leaf certificate

@@ -68,7 +68,7 @@ func TestServer_HandleInfoUnprotected(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/info", nil)
 	server.Handle(rr, req)
 
-	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","salt":""}`)
+	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","salt":null}`)
 }
 
 func TestServer_HandleVerify(t *testing.T) {

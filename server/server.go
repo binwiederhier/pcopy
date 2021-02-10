@@ -167,16 +167,9 @@ type visitor struct {
 
 // Info contains information about the server needed o join a server.
 type Info struct {
-	ServerAddr string
-	Salt       []byte
-	Cert       *x509.Certificate
-}
-
-// HTTPResponseServerInfo is the response returned when calling the /info endpoint
-// TODO combine with Info
-type HTTPResponseServerInfo struct {
-	ServerAddr string `json:"serverAddr"`
-	Salt       string `json:"salt"`
+	ServerAddr string            `json:"serverAddr"`
+	Salt       []byte            `json:"salt"`
+	Cert       *x509.Certificate `json:"-"`
 }
 
 // httpResponseFileInfo is the response returned when uploading a file
@@ -293,12 +286,12 @@ func (s *Server) routeList() []route {
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("[%s] %s - %s %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 
-	salt := ""
+	var salt []byte
 	if s.config.Key != nil {
-		salt = base64.StdEncoding.EncodeToString(s.config.Key.Salt)
+		salt = s.config.Key.Salt
 	}
 
-	response := &HTTPResponseServerInfo{
+	response := &Info{
 		ServerAddr: s.config.ServerAddr,
 		Salt:       salt,
 	}
