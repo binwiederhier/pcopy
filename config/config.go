@@ -1,3 +1,4 @@
+// Package config provides an interface to configure a pcopy server and client
 package config
 
 import (

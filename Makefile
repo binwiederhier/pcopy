@@ -11,6 +11,7 @@ help:
 	@echo "Test/check:"
 	@echo "  make test                        - Run tests"
 	@echo "  make coverage                    - Run tests and show coverage"
+	@echo "  make coverage-html               - Run tests and show coverage (as HTML)"
 	@echo "  make coverage-upload             - Upload coverage results to codecov.io"
 	@echo
 	@echo "Lint/format:"
@@ -47,6 +48,11 @@ coverage:
 	mkdir -p build/coverage
 	$(GO) test -race -coverprofile=build/coverage/coverage.txt -covermode=atomic ./...
 	$(GO) tool cover -func build/coverage/coverage.txt
+
+coverage-html:
+	mkdir -p build/coverage
+	$(GO) test -race -coverprofile=build/coverage/coverage.txt -covermode=atomic ./...
+	$(GO) tool cover -html build/coverage/coverage.txt
 
 coverage-upload:
 	cd build/coverage && (curl -s https://codecov.io/bash | bash)

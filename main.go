@@ -1,3 +1,7 @@
+// pcopy is a temporary file host, nopaste and clipboard across machines. It can be used from the
+// Web UI, via a CLI or without a client by using curl.
+//
+// Full documentation with examples and videos can be found at https://heckel.io/pcopy.
 package main
 
 import (

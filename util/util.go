@@ -1,3 +1,4 @@
+// Package util contains utility functions and general purpose writers/readers
 package util
 
 import (

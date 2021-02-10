@@ -1,3 +1,4 @@
+// Package client provides the pcopy client that can be used to its server
 package client
 
 import (
@@ -77,7 +78,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string, ttl time.Duration, mode s
 	} else if resp.StatusCode == http.StatusRequestEntityTooLarge {
 		return nil, server.ErrHTTPPayloadTooLarge
 	} else if resp.StatusCode != http.StatusOK {
-		return nil, &server.ErrHTTPNotOK{Code: resp.StatusCode, Status: resp.Status}
+		return nil, &server.ErrHTTP{Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	return c.parseFileInfoResponse(resp)
@@ -115,7 +116,7 @@ func (c *Client) Reserve(id string) (*server.File, error) {
 	if err != nil {
 		return nil, err
 	} else if resp.StatusCode != http.StatusOK {
-		return nil, &server.ErrHTTPNotOK{Code: resp.StatusCode, Status: resp.Status}
+		return nil, &server.ErrHTTP{Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	return c.parseFileInfoResponse(resp)
@@ -143,7 +144,7 @@ func (c *Client) Paste(writer io.Writer, id string) error {
 	} else if resp.Body == nil {
 		return errResponseBodyEmpty
 	} else if resp.StatusCode != http.StatusOK {
-		return &server.ErrHTTPNotOK{Code: resp.StatusCode, Status: resp.Status}
+		return &server.ErrHTTP{Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	var total int
@@ -214,7 +215,7 @@ func (c *Client) FileInfo(id string) (*server.File, error) {
 	if err != nil {
 		return nil, err
 	} else if resp.StatusCode != http.StatusOK {
-		return nil, &server.ErrHTTPNotOK{Code: resp.StatusCode, Status: resp.Status}
+		return nil, &server.ErrHTTP{Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	return c.parseFileInfoResponse(resp)
@@ -282,7 +283,7 @@ func (c *Client) Verify(cert *x509.Certificate, key *crypto.Key) error {
 	if err != nil {
 		return err
 	} else if resp.StatusCode != http.StatusOK {
-		return &server.ErrHTTPNotOK{Code: resp.StatusCode, Status: resp.Status}
+		return &server.ErrHTTP{Code: resp.StatusCode, Status: resp.Status}
 	}
 
 	return nil

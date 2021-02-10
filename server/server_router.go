@@ -82,7 +82,7 @@ func (r *Router) Start() error {
 	}
 
 	for _, s := range r.servers {
-		s.StartManager()
+		s.startManager()
 	}
 
 	r.mu.Unlock()
@@ -102,7 +102,7 @@ func (r *Router) Stop() error {
 		}
 	}
 	for _, s := range r.servers {
-		s.StopManager()
+		s.stopManager()
 	}
 	r.httpServers = nil
 	return nil
@@ -112,7 +112,7 @@ func createServers(configs []*config.Config) ([]*Server, error) {
 	servers := make([]*Server, len(configs))
 	for i, conf := range configs {
 		var err error
-		servers[i], err = NewServer(conf)
+		servers[i], err = New(conf)
 		if err != nil {
 			return nil, err
 		}

@@ -1,3 +1,4 @@
+// Package clipboard provides the disk based clipboard implementation
 package clipboard
 
 import (

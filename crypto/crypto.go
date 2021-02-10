@@ -1,3 +1,5 @@
+// Package crypto provides cryptography functions for generating keys and certificates,
+// deriving keys, calculating HMACs and such
 package crypto
 
 import (

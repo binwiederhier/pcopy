@@ -1,3 +1,4 @@
+// Package cmd provides the pcopy CLI application
 package cmd
 
 import (

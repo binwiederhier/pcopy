@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 func TestServer_NewServerInvalidListenAddr(t *testing.T) {
 	conf := config.New()
 	conf.ListenHTTPS = ""
-	_, err := NewServer(conf)
+	_, err := New(conf)
 	if err == nil {
 		t.Fatalf("expected error, got none")
 	}
@@ -44,7 +44,7 @@ func TestServer_NewServerInvalidKeyFile(t *testing.T) {
 	conf := config.New()
 	conf.KeyFile = ""
 	conf.CertFile = "something"
-	_, err := NewServer(conf)
+	_, err := New(conf)
 	if err == nil {
 		t.Fatalf("expected error, got none")
 	}
@@ -54,7 +54,7 @@ func TestServer_NewServerInvalidCertFile(t *testing.T) {
 	conf := config.New()
 	conf.KeyFile = "something"
 	conf.CertFile = ""
-	_, err := NewServer(conf)
+	_, err := New(conf)
 	if err == nil {
 		t.Fatalf("expected error, got none")
 	}
@@ -719,7 +719,7 @@ func TestServer_StartStopManager(t *testing.T) {
 	conf.ManagerInterval = 100 * time.Millisecond
 	server := newTestServer(t, conf)
 
-	server.StartManager()
+	server.startManager()
 	time.Sleep(10 * time.Millisecond)
 
 	meta := &clipboard.File{Mode: config.FileModeReadWrite, Expires: time.Now().Unix()}
@@ -734,7 +734,7 @@ func TestServer_StartStopManager(t *testing.T) {
 		t.Fatalf("expected testfile to have disappeared, but it did not")
 	}
 
-	server.StopManager()
+	server.stopManager()
 
 	meta = &clipboard.File{Mode: config.FileModeReadWrite, Expires: time.Now().Unix()}
 	server.clipboard.WriteFile("testfile2", meta, io.NopCloser(strings.NewReader("this is another test")))
@@ -745,7 +745,7 @@ func TestServer_StartStopManager(t *testing.T) {
 }
 
 func newTestServer(t *testing.T, config *config.Config) *Server {
-	server, err := NewServer(config)
+	server, err := New(config)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,3 +1,18 @@
+// Package server contains the pcopy server code. It contains a Server struct, which represents a single clipboard
+// server, and a Router struct, which can be used to multiplex multiple clipboard servers onto the same port.
+//
+// To instantiate a new clipboard Server, use New using a well-defined Config:
+//
+//   server := server.New(config.New())
+//   http.ListenAndServe(":9090", http.HandlerFunc(server.Handle))
+//
+// To use a Router, use NewRouter:
+//
+//   server1 := server.New(config1.New())
+//   server2 := server.New(config2.New())
+//   router := server.NewRouter(server1, server2)
+//   router.Start()
+//
 package server
 
 import (
@@ -198,9 +213,9 @@ type webTemplateConfig struct {
 	Config       *config.Config
 }
 
-// NewServer creates a new instance of a Server using the given config. It does a few sanity checks to ensure
+// New creates a new instance of a Server using the given config. It does a few sanity checks to ensure
 // the config will likely work.
-func NewServer(conf *config.Config) (*Server, error) {
+func New(conf *config.Config) (*Server, error) {
 	if conf.ListenHTTPS == "" && conf.ListenHTTP == "" {
 		return nil, errListenAddrMissing
 	}
@@ -235,7 +250,7 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 			if err := route.handler(w, r.WithContext(ctx)); err != nil {
 				if err == clipboard.ErrInvalidFileID {
 					s.fail(w, r, http.StatusBadRequest, err)
-				} else if e, ok := err.(*ErrHTTPNotOK); ok {
+				} else if e, ok := err.(*ErrHTTP); ok {
 					s.fail(w, r, e.Code, e)
 				} else {
 					s.fail(w, r, http.StatusInternalServerError, err)
@@ -717,9 +732,9 @@ func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	return nil
 }
 
-// StartManager will start the server manager background process that will update the stats and expire
+// startManager will start the server manager background process that will update the stats and expire
 // files for which the TTL has been reached. This method exits immediately and will spin up a goroutine.
-func (s *Server) StartManager() {
+func (s *Server) startManager() {
 	s.mu.Lock()
 	if s.managerChan != nil {
 		s.mu.Unlock()
@@ -744,8 +759,8 @@ func (s *Server) StartManager() {
 	}()
 }
 
-// StopManager will stop the existing manager goroutine if one is running.
-func (s *Server) StopManager() {
+// stopManager will stop the existing manager goroutine if one is running.
+func (s *Server) stopManager() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.managerChan != nil {
