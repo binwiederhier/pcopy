@@ -22,6 +22,17 @@ func FileInfoInstructions(info *File) string {
 	if id == config.DefaultID {
 		id = ""
 	}
+	if info.Expires.IsZero() {
+		return fmt.Sprintf(`# Direct link (never expires)
+%s
+
+# Paste via pcopy (you may need a prefix)
+ppaste %s
+
+# Paste via curl
+%s
+`, info.URL, id, info.Curl)
+	}
 	return fmt.Sprintf(`# Direct link (valid for %s, expires %s)
 %s
 
@@ -49,7 +60,7 @@ func generateURL(conf *config.Config, path string, ttl time.Duration) (string, e
 }
 
 // generateCurlCommand creates a curl command to download the given path
-func generateCurlCommand(conf *config.Config, path string, ttl time.Duration) (string, error) {
+func generateCurlCommand(conf *config.Config, url string) (string, error) {
 	args := make([]string, 0)
 	if conf.CertFile == "" {
 		args = append(args, "-sSL")
@@ -62,10 +73,6 @@ func generateCurlCommand(conf *config.Config, path string, ttl time.Duration) (s
 		} else {
 			args = append(args, "-sSL")
 		}
-	}
-	url, err := generateURL(conf, path, ttl)
-	if err != nil {
-		return "", err
 	}
 	return fmt.Sprintf("curl %s '%s'", strings.Join(args, " "), url), nil
 }

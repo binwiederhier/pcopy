@@ -704,6 +704,25 @@ func TestServer_ExpireSuccess(t *testing.T) {
 	clipboardtest.NotExist(t, conf, "new-thing")
 }
 
+func TestServer_ExpireNeverSuccess(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.FileExpireAfter = 0
+	server := newTestServer(t, conf)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/this-never-expires", strings.NewReader("something"))
+	server.Handle(rr, req)
+
+	expires, _ := strconv.Atoi(rr.Header().Get("X-Expires"))
+
+	test.Status(t, rr, http.StatusOK)
+	clipboardtest.Content(t, conf, "this-never-expires", "something")
+	test.Int64Equals(t, 0, int64(expires))
+
+	println(rr.Body.String())
+	t.Fail()
+}
+
 func TestServer_ReservedWordsFailure(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)

@@ -112,6 +112,7 @@ const (
 	defaultMaxAuthAge   = time.Minute
 	visitorExpungeAfter = 30 * time.Minute
 	reserveTTL          = 10 * time.Second
+	foreverTTL          = 100 * 365 * 24 * time.Hour
 )
 
 var (
@@ -406,7 +407,9 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 	expires := int64(0)
-	if ttl > 0 {
+	if ttl == 0 {
+		ttl = foreverTTL
+	} else if ttl > 0 {
 		expires = time.Now().Add(ttl).Unix()
 	}
 
@@ -507,14 +510,22 @@ func (s *Server) checkPUT(id string, remoteAddr string) error {
 }
 
 func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
+	urlTTL := ttl
+	if expires == 0 {
+		urlTTL = foreverTTL
+	}
 	path := fmt.Sprintf(clipboardPathFormat, id)
-	url, err := generateURL(s.config, path, ttl) // TODO this is horrible
+	url, err := generateURL(s.config, path, urlTTL) // TODO this is horrible
 	if err != nil {
 		return err
 	}
-	curl, err := generateCurlCommand(s.config, path, ttl)
+	curl, err := generateCurlCommand(s.config, url)
 	if err != nil {
 		curl = ""
+	}
+
+	if ttl < 0 {
+		ttl = 0
 	}
 
 	w.Header().Set(HeaderURL, url)
@@ -542,7 +553,6 @@ func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 			Expires: time.Unix(expires, 0),
 			Curl:    curl,
 		}
-
 		if _, err := w.Write([]byte(FileInfoInstructions(info))); err != nil {
 			return err
 		}
