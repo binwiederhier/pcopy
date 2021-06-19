@@ -7,11 +7,9 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.15.x'
+          go-version: '1.16.x'
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Install go1.16
-        run: go get golang.org/dl/go1.16rc1 && go1.16rc1 download
       - name: Run tests, formatting, vetting and linting
         run: make check
       - name: Run and upload coverage to codecov.io
