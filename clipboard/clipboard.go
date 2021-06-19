@@ -62,6 +62,7 @@ type File struct {
 	Pipe    bool      `json:"-"`
 	Mode    string    `json:"mode"`
 	Expires int64     `json:"expires"`
+	Secret  string    `json:"secret"`
 }
 
 // New creates a new Clipboard using the given config

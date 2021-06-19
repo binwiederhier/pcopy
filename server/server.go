@@ -275,10 +275,10 @@ func (s *Server) routeList() []route {
 		newRoute("GET", "/favicon.ico", s.limit(s.handleFavicon)),
 		newRoute("GET", "/info", s.limit(s.handleInfo)),
 		newRoute("GET", "/verify", s.limit(s.auth(s.handleVerify))),
-		newRoute("GET", fileRoute, s.limit(s.auth(s.handleClipboardGet))),
-		newRoute("HEAD", fileRoute, s.limit(s.auth(s.handleClipboardHead))),
-		newRoute("PUT", fileRoute, s.limit(s.auth(s.handleClipboardPut))),
-		newRoute("POST", fileRoute, s.limit(s.auth(s.handleClipboardPut))),
+		newRoute("PUT", fileRoute, s.limit(s.authFile(s.handleClipboardPut))),
+		newRoute("POST", fileRoute, s.limit(s.authFile(s.handleClipboardPut))),
+		newRoute("GET", fileRoute, s.limit(s.authFile(s.handleClipboardGet))),
+		newRoute("HEAD", fileRoute, s.limit(s.authFile(s.handleClipboardHead))),
 	}
 	return s.routes
 }
@@ -372,7 +372,10 @@ func (s *Server) handleClipboardHead(w http.ResponseWriter, r *http.Request) err
 		w.Header().Set("Length", fmt.Sprintf("%d", stat.Size))
 	}
 	ttl := time.Until(time.Unix(stat.Expires, 0))
-	return s.writeFileInfoOutput(w, id, stat.Expires, ttl, HeaderFormatNone)
+	if ttl < -1 {
+		ttl = 0
+	}
+	return s.writeFileInfoOutput(w, id, stat.Expires, ttl, HeaderFormatNone, stat.Secret)
 }
 
 func (s *Server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
@@ -409,6 +412,10 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if ttl > 0 {
 		expires = time.Now().Add(ttl).Unix()
 	}
+	secret := ""
+	if s.config.Key != nil {
+		secret = randomSecret()
+	}
 
 	// Always delete file first to avoid awkward FIFO/regular-file behavior
 	s.clipboard.DeleteFile(id)
@@ -416,17 +423,19 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Ensure that we update the limiters and such!
 	defer s.updateStatsAndExpire()
 
-	// TODO i hate this reservation stuff
+	// For streaming mode a short-time reservation is necessary
 	var meta *clipboard.File
 	if reserve {
 		meta = &clipboard.File{
 			Mode:    config.FileModeReadWrite,
 			Expires: time.Now().Add(reserveTTL).Unix(),
+			Secret:  secret,
 		}
 	} else {
 		meta = &clipboard.File{
 			Mode:    fileMode,
 			Expires: expires,
+			Secret:  secret,
 		}
 	}
 
@@ -456,7 +465,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 				}
 				body = io.NopCloser(bytes.NewReader(buf))
 			}
-			if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
+			if err := s.writeFileInfoOutput(w, id, expires, ttl, format, secret); err != nil {
 				return err
 			}
 		}
@@ -475,7 +484,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Output URL, TTL, etc.
 	if streamMode == HeaderStreamDisabled || streamMode == HeaderStreamDelayHeaders {
-		if err := s.writeFileInfoOutput(w, id, expires, ttl, format); err != nil {
+		if err := s.writeFileInfoOutput(w, id, expires, ttl, format, secret); err != nil {
 			s.clipboard.DeleteFile(id)
 			return err
 		}
@@ -506,13 +515,13 @@ func (s *Server) checkPUT(id string, remoteAddr string) error {
 	return nil
 }
 
-func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string) error {
+func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string, secret string) error {
 	path := fmt.Sprintf(clipboardPathFormat, id)
-	url, err := generateURL(s.config, path, ttl) // TODO this is horrible
+	url, err := generateURL(s.config, path, secret)
 	if err != nil {
 		return err
 	}
-	curl, err := generateCurlCommand(s.config, path, ttl)
+	curl, err := generateCurlCommand(s.config, url)
 	if err != nil {
 		curl = ""
 	}
@@ -626,6 +635,32 @@ func (s *Server) auth(next handleFunc) handleFunc {
 	}
 }
 
+func (s *Server) authFile(next handleFunc) handleFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		if err := s.authorizeFileWithFallback(r); err != nil {
+			return err
+		}
+		return next(w, r)
+	}
+}
+
+func (s *Server) authorizeFileWithFallback(r *http.Request) error {
+	fields := r.Context().Value(routeCtx{}).([]string)
+	id := fields[0]
+	stat, err := s.clipboard.Stat(id)
+	if err != nil {
+		return s.authorize(r)
+	}
+	if stat.Secret == "" {
+		return s.authorize(r)
+	}
+	secret, ok := r.URL.Query()[queryParamAuth]
+	if !ok || subtle.ConstantTimeCompare([]byte(stat.Secret), []byte(secret[0])) != 1 {
+		return s.authorize(r)
+	}
+	return nil
+}
+
 func (s *Server) authorize(r *http.Request) error {
 	if s.config.Key == nil {
 		return nil
@@ -646,7 +681,7 @@ func (s *Server) authorize(r *http.Request) error {
 	} else if m := authBasicRegex.FindStringSubmatch(auth); m != nil {
 		return s.authorizeBasic(r, m)
 	} else {
-		log.Printf("[%s] %s - %s %s - auth header missing", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
+		log.Printf("[%s] %s - %s %s - invalid or missing auth", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
 }
