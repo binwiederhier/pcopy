@@ -11,6 +11,7 @@ import (
 	"heckel.io/pcopy/util"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 var cmdJoin = &cli.Command{
@@ -52,7 +53,7 @@ func execJoin(c *cli.Context) error {
 	}
 
 	clipboard := config.DefaultClipboard
-	serverAddr := config.ExpandServerAddr(c.Args().Get(0))
+	rawServerAddr := c.Args().Get(0)
 	if c.NArg() > 1 {
 		clipboard = c.Args().Get(1)
 	}
@@ -65,19 +66,41 @@ func execJoin(c *cli.Context) error {
 	}
 
 	// Read basic info from server
+
+	// Here comes some weirdness
+	infoChan := make(chan *server.Info)
+	tryServerAddrs := config.ExpandServerAddrsGuess(rawServerAddr)
+	for _, tryServerAddr := range tryServerAddrs {
+		go func(tryServerAddr string) error {
+			println(tryServerAddr)
+			pclient, err := client.NewClient(&config.Config{
+				ServerAddr: tryServerAddr,
+			})
+			if err != nil {
+				return err
+			}
+			info, err := pclient.ServerInfo()
+			if err != nil {
+				return err
+			}
+			infoChan <- info
+			return nil
+		}(tryServerAddr)
+	}
+
+	var info *server.Info
+	select {
+	case info = <-infoChan:
+	case <-time.After(7 * time.Second):
+		return fmt.Errorf("failed to join clipboard: cannot connect to server %s", rawServerAddr)
+	}
+
 	pclient, err := client.NewClient(&config.Config{
-		ServerAddr: serverAddr,
+		ServerAddr: info.ServerAddr,
 	})
 	if err != nil {
 		return err
 	}
-
-	info, err := pclient.ServerInfo()
-	if err != nil {
-		return err
-	}
-
-	// TODO fix info.serverAddr handling
 
 	// Read and verify that password was correct (if server is secured with key)
 	var key *crypto.Key
@@ -104,7 +127,7 @@ func execJoin(c *cli.Context) error {
 
 	// Write config file
 	conf := &config.Config{
-		ServerAddr: serverAddr,
+		ServerAddr: info.ServerAddr,
 		Key:        key, // May be nil, but that's ok
 	}
 	if err := conf.WriteFile(configFile); err != nil {

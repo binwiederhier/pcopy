@@ -27,6 +27,19 @@ func ExpandServerAddr(serverAddr string) string {
 	return fmt.Sprintf("https://%s", strings.ReplaceAll(serverAddr, ":443", ""))
 }
 
+func ExpandServerAddrsGuess(serverAddr string) []string {
+	if strings.HasPrefix(serverAddr, "http://") || strings.HasPrefix(serverAddr, "https://") {
+		return []string{serverAddr}
+	}
+	if strings.Contains(serverAddr, ":") {
+		return []string{fmt.Sprintf("https://%s", serverAddr)}
+	}
+	return []string{
+		fmt.Sprintf("https://%s:443", serverAddr),
+		fmt.Sprintf("https://%s:%d", serverAddr, DefaultPort),
+	}
+}
+
 // CollapseServerAddr removes the default port from the given server address if the address contains
 // the default port, but leaves the address unchanged if it doesn't contain it.
 func CollapseServerAddr(serverAddr string) string {
