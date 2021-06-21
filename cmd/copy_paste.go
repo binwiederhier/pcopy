@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 var cmdCopy = &cli.Command{
@@ -35,7 +36,7 @@ var cmdCopy = &cli.Command{
 		&cli.BoolFlag{Name: "random", Aliases: []string{"r"}, Usage: "pick random file name and ignore name that has been passed"},
 		&cli.BoolFlag{Name: "read-only", Aliases: []string{"ro"}, Usage: "make remote file read-only (if supported by the server)"},
 		&cli.BoolFlag{Name: "read-write", Aliases: []string{"rw"}, Usage: "allow file to be overwritten (if supported by the server)"},
-		&cli.DurationFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "server default", Usage: "set duration the link is valid for to `TTL`"},
+		&cli.StringFlag{Name: "ttl", Aliases: []string{"t"}, DefaultText: "server default", Usage: "set duration the link is valid for to `TTL`"},
 	},
 	Description: `Without FILE arguments, this command reads STDIN and copies it to the remote clipboard. ID is
 the remote file name, and CLIPBOARD is the name of the clipboard (both default to 'default').
@@ -102,7 +103,6 @@ func execCopy(c *cli.Context) error {
 
 	stream := c.Bool("stream")
 	link := !c.Bool("nolink")
-	ttl := c.Duration("ttl")
 	random := c.Bool("random")
 	readonly := c.Bool("read-only")
 	readwrite := c.Bool("read-write")
@@ -110,11 +110,21 @@ func execCopy(c *cli.Context) error {
 	if readonly && readwrite {
 		return cli.Exit("error: either --read-only or --read-write are allowed, not both", 1)
 	}
+
 	fileMode := ""
 	if readonly {
 		fileMode = config.FileModeReadOnly
 	} else if readwrite {
 		fileMode = config.FileModeReadWrite
+	}
+
+	ttl := time.Duration(0)
+	ttlStr := c.String("ttl")
+	if ttlStr != "" {
+		ttl, err = util.ParseDuration(ttlStr)
+		if err != nil {
+			return err
+		}
 	}
 
 	if random {
