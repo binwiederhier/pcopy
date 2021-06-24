@@ -229,7 +229,7 @@ func (c *Client) ServerInfo() (*server.Info, error) {
 	var err error
 
 	// First attempt to retrieve info with secure HTTP client
-	info, err := c.retrieveInfo(util.NewHTTPClient())
+	info, err := c.retrieveInfo(util.WithTimeout(util.NewHTTPClient()))
 	if err != nil {
 		// If this is not a cert error, fail immediately; there is nothing we can do
 		if !errors.As(err, &x509.UnknownAuthorityError{}) {
@@ -238,7 +238,7 @@ func (c *Client) ServerInfo() (*server.Info, error) {
 
 		// Then attempt to retrieve ignoring bad certs; this is okay, we pin the cert if it's bad
 		// and warn the user about this.
-		info, err = c.retrieveInfo(util.NewHTTPClientWithInsecureTransport())
+		info, err = c.retrieveInfo(util.WithTimeout(util.NewHTTPClientWithInsecureTransport()))
 		if err != nil {
 			return nil, err
 		}

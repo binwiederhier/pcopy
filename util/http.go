@@ -21,14 +21,13 @@ var errNoTrustedCertMatch = errors.New("no trusted cert matches")
 
 // NewHTTPClient returns a HTTP client
 func NewHTTPClient() *http.Client {
-	return &http.Client{Timeout: getHTTPClientTimeout()}
+	return &http.Client{}
 }
 
 // NewHTTPClientWithInsecureTransport returns a HTTP client that will accept any TLS certificate. Use this
 // only for testing or unless you know what you're doing.
 func NewHTTPClientWithInsecureTransport() *http.Client {
 	return &http.Client{
-		Timeout: getHTTPClientTimeout(),
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
@@ -48,7 +47,6 @@ func NewHTTPClientWithPinnedCert(pinned *x509.Certificate) (*http.Client, error)
 	}
 
 	return &http.Client{
-		Timeout: getHTTPClientTimeout(),
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify:    true, // Certs are checked manually
@@ -56,6 +54,12 @@ func NewHTTPClientWithPinnedCert(pinned *x509.Certificate) (*http.Client, error)
 			},
 		},
 	}, nil
+}
+
+// WithTimeout adds a timeout to the given client
+func WithTimeout(client *http.Client) *http.Client {
+	client.Timeout = getHTTPClientTimeout()
+	return client
 }
 
 func getHTTPClientTimeout() time.Duration {
