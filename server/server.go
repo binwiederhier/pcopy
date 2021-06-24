@@ -594,8 +594,8 @@ func (s *Server) getTTL(r *http.Request) (time.Duration, error) {
 	if err != nil {
 		return 0, ErrHTTPBadRequest
 	}
-	if s.config.FileExpireAfter > 0 && ttl > s.config.FileExpireAfter {
-		ttl = s.config.FileExpireAfter
+	if s.config.FileExpireAfterMax > 0 && ttl > s.config.FileExpireAfterMax {
+		ttl = s.config.FileExpireAfterMax
 	}
 	return ttl, nil
 }

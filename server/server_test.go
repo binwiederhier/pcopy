@@ -366,7 +366,7 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 
 func TestServer_HandleClipboardPutWithTooLargeTTL(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
-	conf.FileExpireAfter = time.Hour
+	conf.FileExpireAfterMax = time.Hour
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -376,6 +376,21 @@ func TestServer_HandleClipboardPutWithTooLargeTTL(t *testing.T) {
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL")) // TODO X-TTL is inconsistent: request expects a human format, response is seconds
 	test.Int64Equals(t, int64(time.Hour), int64(time.Second*time.Duration(ttl)))
+}
+
+func TestServer_HandleClipboardPutWithoutTTL(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.FileExpireAfter = time.Hour
+	conf.FileExpireAfterMax = 2 * time.Hour
+	server := newTestServer(t, conf)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/no-ttl", nil)
+	server.Handle(rr, req)
+	test.Status(t, rr, http.StatusOK)
+
+	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
+	test.Int64Equals(t, int64(time.Hour), int64(time.Second*time.Duration(ttl))) // must be 1h, not 2h
 }
 
 func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {

@@ -183,6 +183,10 @@ func TestDurationToHuman_TenOfThings(t *testing.T) {
 	test.StrEquals(t, "10h10m10s", DurationToHuman(d))
 }
 
+func TestDurationToHuman_Zero(t *testing.T) {
+	test.StrEquals(t, "0", DurationToHuman(0))
+}
+
 func TestParseDuration_ZeroSuccess(t *testing.T) {
 	d, err := ParseDuration("0")
 	if err != nil {
@@ -227,6 +231,36 @@ func TestParseDuration_WithDaysAndHoursFailure(t *testing.T) {
 	_, err := ParseDuration("10d1h") // not supported
 	if err == nil {
 		t.Fatalf("expected error, got none")
+	}
+}
+
+func TestParseDuration_WithWeeksSuccess(t *testing.T) {
+	d, err := ParseDuration("2w")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d != 2*7*24*time.Hour {
+		t.Fatalf("expected %d, got %d", 2*7*24*time.Hour, d)
+	}
+}
+
+func TestParseDuration_WithMonthsSuccess(t *testing.T) {
+	d, err := ParseDuration("2mo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d != 2*30*24*time.Hour {
+		t.Fatalf("expected %d, got %d", 2*30*24*time.Hour, d)
+	}
+}
+
+func TestParseDuration_WithYearsSuccess(t *testing.T) {
+	d, err := ParseDuration("2y")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d != 2*365*24*time.Hour {
+		t.Fatalf("expected %d, got %d", 2*365*24*time.Hour, d)
 	}
 }
 

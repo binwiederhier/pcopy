@@ -116,6 +116,7 @@ type Config struct {
 	ClipboardCountLimit int
 	FileSizeLimit       int64
 	FileExpireAfter     time.Duration
+	FileExpireAfterMax  time.Duration
 	FileModesAllowed    []string
 	ProgressFunc        util.ProgressFunc
 	ManagerInterval     time.Duration
@@ -140,6 +141,7 @@ func New() *Config {
 		ClipboardCountLimit: DefaultClipboardCountLimit,
 		FileSizeLimit:       DefaultFileSizeLimit,
 		FileExpireAfter:     DefaultFileExpireAfter,
+		FileExpireAfterMax:  DefaultFileExpireAfter,
 		FileModesAllowed:    strings.Split(DefaultFileModesAllowed, " "),
 		ProgressFunc:        nil,
 		ManagerInterval:     defaultManagerInterval,
@@ -303,9 +305,25 @@ func loadConfig(reader io.Reader) (*Config, error) {
 
 	fileExpireAfter, ok := raw["FileExpireAfter"]
 	if ok {
-		config.FileExpireAfter, err = util.ParseDuration(fileExpireAfter)
-		if err != nil {
-			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+		if strings.Contains(fileExpireAfter, "/") {
+			parts := strings.SplitN(fileExpireAfter, "/", 2)
+			config.FileExpireAfter, err = util.ParseDuration(parts[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+			}
+			config.FileExpireAfterMax, err = util.ParseDuration(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+			}
+			if config.FileExpireAfterMax > 0 && config.FileExpireAfter > config.FileExpireAfterMax {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than max")
+			}
+		} else {
+			config.FileExpireAfter, err = util.ParseDuration(fileExpireAfter)
+			if err != nil {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+			}
+			config.FileExpireAfterMax = config.FileExpireAfter
 		}
 	}
 

@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	random                      = rand.New(rand.NewSource(time.Now().UnixNano()))
-	durationStrSecondsOnlyRegex = regexp.MustCompile(`(?i)^(\d+)$`)
-	durationStrDaysOnlyRegex    = regexp.MustCompile(`(?i)^(\d+)d$`)
-	sizeStrRegex                = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
+	random                         = rand.New(rand.NewSource(time.Now().UnixNano()))
+	durationStrSecondsOnlyRegex    = regexp.MustCompile(`(?i)^(\d+)$`)
+	durationStrLongPeriodOnlyRegex = regexp.MustCompile(`(?i)^(\d+)([dwy]|mo)$`)
+	sizeStrRegex                   = regexp.MustCompile(`(?i)^(\d+)([gmkb])?$`)
 )
 
 // ExpandHome replaces "~" with the user's home directory
@@ -55,6 +55,10 @@ func BytesToHuman(b int64) string {
 
 // DurationToHuman converts a duration to a human readable format
 func DurationToHuman(d time.Duration) (str string) {
+	if d == 0 {
+		return "0"
+	}
+
 	d = d.Round(time.Second)
 	days := d / time.Hour / 24
 	if days > 0 {
@@ -81,8 +85,13 @@ func DurationToHuman(d time.Duration) (str string) {
 	return
 }
 
-// ParseDuration is a wrapper around Go's time.ParseDuration to supports days ("2d") and values without any
-// unit ("1234"), which are interpreted as seconds. This is obviously inaccurate, but enough for the use case.
+// ParseDuration is a wrapper around Go's time.ParseDuration to supports days, weeks, months and years ("2y")
+// and values without any unit ("1234"), which are interpreted as seconds. This is obviously inaccurate,
+// but enough for the use case. In this function, the units are defined as follows:
+// - day = 24 hours
+// - week = 7 days
+// - month = 30 days
+// - year = 365 days
 func ParseDuration(s string) (time.Duration, error) {
 	matches := durationStrSecondsOnlyRegex.FindStringSubmatch(s)
 	if matches != nil {
@@ -92,13 +101,24 @@ func ParseDuration(s string) (time.Duration, error) {
 		}
 		return time.Duration(seconds) * time.Second, nil
 	}
-	matches = durationStrDaysOnlyRegex.FindStringSubmatch(s)
+	matches = durationStrLongPeriodOnlyRegex.FindStringSubmatch(s)
 	if matches != nil {
-		days, err := strconv.Atoi(matches[1])
+		number, err := strconv.Atoi(matches[1])
 		if err != nil {
 			return -1, fmt.Errorf("cannot convert number %s", matches[1])
 		}
-		return time.Duration(days) * time.Hour * 24, nil
+		switch unit := matches[2]; unit {
+		case "d":
+			return time.Duration(number) * 24 * time.Hour, nil
+		case "w":
+			return time.Duration(number) * 7 * 24 * time.Hour, nil
+		case "mo":
+			return time.Duration(number) * 30 * 24 * time.Hour, nil
+		case "y":
+			return time.Duration(number) * 365 * 24 * time.Hour, nil
+		default:
+			return -1, fmt.Errorf("unexpected unit %s", unit)
+		}
 	}
 	return time.ParseDuration(s)
 }
