@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/urfave/cli/v2"
@@ -168,20 +169,27 @@ func readServerInfo(c *cli.Context, rawServerAddr string) (*server.Info, error) 
 
 	// Format error message if none of the queries was successful
 	if info == nil {
-		var message string
 		if len(errs) == 1 {
-			message = fmt.Sprintf("Cannot connect to %s: %s", errs[0].addr, errs[0].err.Error())
-		} else {
-			messages := make([]string, 0)
-			for _, err := range errs {
-				messages = append(messages, fmt.Sprintf("- %s: %s", err.addr, err.err.Error()))
-			}
-			message = fmt.Sprintf("Cannot connect to any of the servers we tried:\n%s", strings.Join(messages, "\n"))
+			return nil, fmt.Errorf("failed.\nCannot connect to %s: %s", errs[0].addr, toHumanReadable(errs[0].err))
 		}
-		return nil, fmt.Errorf("failed.\n%s", message)
+		messages := make([]string, 0)
+		for _, err := range errs {
+			messages = append(messages, fmt.Sprintf("- %s: %s", err.addr, toHumanReadable(err.err)))
+		}
+		return nil, fmt.Errorf("failed.\nCannot connect to any of the servers we tried:\n%s", strings.Join(messages, "\n"))
 	}
 
 	return info, nil
+}
+
+func toHumanReadable(err error) string {
+	jsone := &json.SyntaxError{}
+	if errors.As(err, &jsone) { // why does this have to be a double pointer?
+		return "unexpected response; are you sure this a pcopy server?"
+	} else if strings.Contains(err.Error(), "context deadline exceeded") {
+		return "timed out waiting for server"
+	}
+	return err.Error()
 }
 
 func readPassword(c *cli.Context) ([]byte, error) {
