@@ -6,6 +6,7 @@ import (
 	"heckel.io/pcopy/config/configtest"
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/test"
+	"heckel.io/pcopy/util"
 	"os"
 	"path/filepath"
 	"testing"
@@ -35,6 +36,22 @@ func TestCLI_JoinAndList(t *testing.T) {
 	}
 	test.StrContains(t, stderr.String(), "default")
 	test.StrContains(t, stderr.String(), "localhost:12345")
+}
+
+func TestCLI_JoinFailedWithGuessedPorts(t *testing.T) {
+	configDir := t.TempDir()
+	os.Setenv(config.EnvConfigDir, configDir)
+	os.Setenv(util.EnvHTTPClientTimeout, "100ms")
+
+	app, _, _, stderr := newTestApp()
+	err := Run(app, "pcopy", "join", "example.com")
+	if err == nil {
+		t.Fatal("expected join command to fail, but it succeeded")
+	}
+	test.StrContains(t, stderr.String(), "Joining clipboard at example.com ...")
+	test.StrContains(t, err.Error(), "https://example.com")
+	test.StrContains(t, err.Error(), "https://example.com:2586")
+	test.StrContains(t, err.Error(), "Timeout exceeded")
 }
 
 func TestCLI_JoinWithPasswordAndCopyAndPaste(t *testing.T) {

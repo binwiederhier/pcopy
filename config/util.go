@@ -27,6 +27,9 @@ func ExpandServerAddr(serverAddr string) string {
 	return fmt.Sprintf("https://%s", strings.ReplaceAll(serverAddr, ":443", ""))
 }
 
+// ExpandServerAddrsGuess expands the server address (similar to ExpandServerAddr), except that it will return
+// two addresses if no explicit port is passed: one with the default port and one with port 443. This is to be
+// able to do "pcopy join example.com" and have it work unless it's not the default or not 443.
 func ExpandServerAddrsGuess(serverAddr string) []string {
 	if strings.HasPrefix(serverAddr, "http://") || strings.HasPrefix(serverAddr, "https://") {
 		return []string{serverAddr}
@@ -35,7 +38,7 @@ func ExpandServerAddrsGuess(serverAddr string) []string {
 		return []string{fmt.Sprintf("https://%s", serverAddr)}
 	}
 	return []string{
-		fmt.Sprintf("https://%s:443", serverAddr),
+		fmt.Sprintf("https://%s", serverAddr),
 		fmt.Sprintf("https://%s:%d", serverAddr, DefaultPort),
 	}
 }

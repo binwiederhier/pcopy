@@ -66,7 +66,7 @@ func execJoin(c *cli.Context) error {
 	}
 
 	// Read basic info from server
-	info, err := readServerInfo(rawServerAddr)
+	info, err := readServerInfo(c, rawServerAddr)
 	if err != nil {
 		return err
 	}
@@ -127,15 +127,17 @@ func execJoin(c *cli.Context) error {
 }
 
 type serverInfoResult struct {
-	addr   string
-	info   *server.Info
-	err    error
+	addr string
+	info *server.Info
+	err  error
 }
 
 // readServerInfo is doing a parallel lookup for all potential server addresses. For instance, "nopaste.net"
 // is expanded to ["https://nopaste.net:2586", "https://nopaste.net:443"] so we check both addresses in
 // parallel and return the first one that returns, or return an error with all errors.
-func readServerInfo(rawServerAddr string) (*server.Info, error) {
+func readServerInfo(c *cli.Context, rawServerAddr string) (*server.Info, error) {
+	fmt.Fprintf(c.App.ErrWriter, "Joining clipboard at %s ... ", rawServerAddr)
+
 	resultChan := make(chan *serverInfoResult)
 	serverAddrs := config.ExpandServerAddrsGuess(rawServerAddr)
 
@@ -156,7 +158,7 @@ func readServerInfo(rawServerAddr string) (*server.Info, error) {
 	var info *server.Info
 	errs := make([]*serverInfoResult, 0)
 	for i := 0; i < len(serverAddrs); i++ {
-		result := <- resultChan
+		result := <-resultChan
 		if result.err == nil {
 			info = result.info
 			break
@@ -168,22 +170,22 @@ func readServerInfo(rawServerAddr string) (*server.Info, error) {
 	if info == nil {
 		var message string
 		if len(errs) == 1 {
-			message = fmt.Sprintf("cannot connect to server %s: %s", errs[0].addr, errs[0].err.Error())
+			message = fmt.Sprintf("Cannot connect to %s: %s", errs[0].addr, errs[0].err.Error())
 		} else {
 			messages := make([]string, 0)
 			for _, err := range errs {
 				messages = append(messages, fmt.Sprintf("- %s: %s", err.addr, err.err.Error()))
 			}
-			message = fmt.Sprintf("cannot connect to servers:\n%s", strings.Join(messages, "\n"))
+			message = fmt.Sprintf("Cannot connect to any of the servers we tried:\n%s", strings.Join(messages, "\n"))
 		}
-		return nil, fmt.Errorf("failed to join clipboard: %s", message)
+		return nil, fmt.Errorf("failed.\n%s", message)
 	}
 
 	return info, nil
 }
 
 func readPassword(c *cli.Context) ([]byte, error) {
-	fmt.Fprint(c.App.ErrWriter, "Enter password to join clipboard: ")
+	fmt.Fprintf(c.App.ErrWriter, "\r%s\rEnter password to join clipboard: ", strings.Repeat(" ", 50)) // a hack ..
 	password, err := util.ReadPassword(c.App.Reader)
 	if err != nil {
 		return nil, err
@@ -199,9 +201,9 @@ func printInstructions(c *cli.Context, configFile string, clipboard string, info
 	}
 
 	if clipboard == config.DefaultClipboard {
-		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard, config written to %s\n", util.CollapseHome(configFile))
+		fmt.Fprintf(c.App.ErrWriter, "\rSuccessfully joined clipboard, config written to %s\n", util.CollapseHome(configFile))
 	} else {
-		fmt.Fprintf(c.App.ErrWriter, "Successfully joined clipboard as alias '%s', config written to %s\n", clipboard, util.CollapseHome(configFile))
+		fmt.Fprintf(c.App.ErrWriter, "\rSuccessfully joined clipboard as alias '%s', config written to %s\n", clipboard, util.CollapseHome(configFile))
 	}
 
 	if info.Cert != nil {

@@ -20,8 +20,8 @@ func TestCLI_Setup(t *testing.T) {
 	app, stdin, _, stderr := newTestApp()
 	stdin.WriteString(configFile + "\n")
 	stdin.WriteString(clipboardDir + "\n")
-	stdin.WriteString(":12345\n") // listen address
-	stdin.WriteString("bla\n")    // server address
+	stdin.WriteString(":12345\n")          // listen address
+	stdin.WriteString("localhost:12345\n") // server address
 	stdin.WriteString("i'm a password\n")
 	if usr.Uid == "0" {
 		stdin.WriteString("\n") // install systemd service
