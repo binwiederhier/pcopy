@@ -51,7 +51,7 @@ func TestCLI_JoinFailedWithGuessedPorts(t *testing.T) {
 	test.StrContains(t, stderr.String(), "Joining clipboard at example.com ...")
 	test.StrContains(t, err.Error(), "https://example.com")
 	test.StrContains(t, err.Error(), "https://example.com:2586")
-	test.StrContains(t, err.Error(), "Timeout exceeded")
+	test.StrContains(t, err.Error(), "timed out waiting for server")
 }
 
 func TestCLI_JoinWithPasswordAndCopyAndPaste(t *testing.T) {
