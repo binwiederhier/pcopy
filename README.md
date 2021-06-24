@@ -43,13 +43,13 @@ sudo apt install pcopy
 
 **Debian/Ubuntu** (*manual install*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.5.5/pcopy_0.5.5_amd64.deb
-dpkg -i pcopy_0.5.5_amd64.deb
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.5.6/pcopy_0.5.6_amd64.deb
+dpkg -i pcopy_0.5.6_amd64.deb
 ```
 
 **Fedora/RHEL/CentOS:**
 ```bash
-rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.5.5/pcopy_0.5.5_amd64.rpm
+rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.5.6/pcopy_0.5.6_amd64.rpm
 ```
 
 **Docker** (*see [detailed instructions](#docker-usage)*)**:**
@@ -65,8 +65,8 @@ go get -u heckel.io/pcopy
 
 **Manual install** (*any x86_64-based Linux*)**:**
 ```bash
-wget https://github.com/binwiederhier/pcopy/releases/download/v0.5.5/pcopy_0.5.5_linux_x86_64.tar.gz
-sudo tar -C /usr/bin -zxf pcopy_0.5.5_linux_x86_64.tar.gz pcopy
+wget https://github.com/binwiederhier/pcopy/releases/download/v0.5.6/pcopy_0.5.6_linux_x86_64.tar.gz
+sudo tar -C /usr/bin -zxf pcopy_0.5.6_linux_x86_64.tar.gz pcopy
 ```
 
 After installation, you may want to check out the [Bash/ZSH autocomplete instructions](#bashzsh-autocompletion).
