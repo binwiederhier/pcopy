@@ -23,6 +23,7 @@ import (
 
 const (
 	useDefaultAuthTTL = 0
+	serverInfoTimeout = 5 * time.Second
 )
 
 // Client represents a pcopy client. It can be used to communicate with the server to
@@ -229,11 +230,11 @@ func (c *Client) ServerInfo() (*server.Info, error) {
 	var err error
 
 	// First attempt to retrieve info with secure HTTP client
-	info, err := c.retrieveInfo(&http.Client{})
+	info, err := c.retrieveInfo(&http.Client{Timeout: serverInfoTimeout})
 	if err != nil {
 		// Then attempt to retrieve ignoring bad certs (this is okay, we pin the cert if it's bad)
 		insecureTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-		insecureClient := &http.Client{Transport: insecureTransport}
+		insecureClient := &http.Client{Transport: insecureTransport, Timeout: serverInfoTimeout}
 		info, err = c.retrieveInfo(insecureClient)
 		if err != nil {
 			return nil, err

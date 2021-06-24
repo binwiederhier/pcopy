@@ -11,7 +11,7 @@ import (
 	"heckel.io/pcopy/util"
 	"io/ioutil"
 	"os"
-	"time"
+	"strings"
 )
 
 var cmdJoin = &cli.Command{
@@ -66,38 +66,11 @@ func execJoin(c *cli.Context) error {
 	}
 
 	// Read basic info from server
-
-	// Here comes some weirdness
-	infoChan := make(chan *server.Info)
-	tryServerAddrs := config.ExpandServerAddrsGuess(rawServerAddr)
-	for _, tryServerAddr := range tryServerAddrs {
-		go func(tryServerAddr string) error {
-			println(tryServerAddr)
-			pclient, err := client.NewClient(&config.Config{
-				ServerAddr: tryServerAddr,
-			})
-			if err != nil {
-				return err
-			}
-			info, err := pclient.ServerInfo()
-			if err != nil {
-				return err
-			}
-			infoChan <- info
-			return nil
-		}(tryServerAddr)
+	info, err := readServerInfo(rawServerAddr)
+	if err != nil {
+		return err
 	}
-
-	var info *server.Info
-	select {
-	case info = <-infoChan:
-	case <-time.After(7 * time.Second):
-		return fmt.Errorf("failed to join clipboard: cannot connect to server %s", rawServerAddr)
-	}
-
-	pclient, err := client.NewClient(&config.Config{
-		ServerAddr: info.ServerAddr,
-	})
+	pclient, err := client.NewClient(&config.Config{ServerAddr: info.ServerAddr})
 	if err != nil {
 		return err
 	}
@@ -151,6 +124,62 @@ func execJoin(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+type serverInfoResult struct {
+	addr   string
+	info   *server.Info
+	err    error
+}
+
+// readServerInfo is doing a parallel lookup for all potential server addresses. For instance, "nopaste.net"
+// is expanded to ["https://nopaste.net:2586", "https://nopaste.net:443"] so we check both addresses in
+// parallel and return the first one that returns, or return an error with all errors.
+func readServerInfo(rawServerAddr string) (*server.Info, error) {
+	resultChan := make(chan *serverInfoResult)
+	serverAddrs := config.ExpandServerAddrsGuess(rawServerAddr)
+
+	// Kick off parallel server info query
+	for _, serverAddr := range serverAddrs {
+		go func(serverAddr string) {
+			pclient, _ := client.NewClient(&config.Config{ServerAddr: serverAddr})
+			serverInfo, err := pclient.ServerInfo()
+			if err != nil {
+				resultChan <- &serverInfoResult{addr: serverAddr, err: err}
+				return
+			}
+			resultChan <- &serverInfoResult{addr: serverAddr, info: serverInfo}
+		}(serverAddr)
+	}
+
+	// Read from server channel until a success is returned
+	var info *server.Info
+	errs := make([]*serverInfoResult, 0)
+	for i := 0; i < len(serverAddrs); i++ {
+		result := <- resultChan
+		if result.err == nil {
+			info = result.info
+			break
+		}
+		errs = append(errs, result)
+	}
+
+	// Format error message if none of the queries was successful
+	if info == nil {
+		var message string
+		if len(errs) == 1 {
+			message = fmt.Sprintf("cannot connect to server %s: %s", errs[0].addr, errs[0].err.Error())
+		} else {
+			messages := make([]string, 0)
+			for _, err := range errs {
+				messages = append(messages, fmt.Sprintf("- %s: %s", err.addr, err.err.Error()))
+			}
+			message = fmt.Sprintf("cannot connect to servers:\n%s", strings.Join(messages, "\n"))
+		}
+		return nil, fmt.Errorf("failed to join clipboard: %s", message)
+	}
+
+	return info, nil
 }
 
 func readPassword(c *cli.Context) ([]byte, error) {
