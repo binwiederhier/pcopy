@@ -1,4 +1,4 @@
-{{- /*gotype: heckel.io/pcopy.Config*/ -}}
+{{- /*gotype: heckel.io/pcopy/config.Config*/ -}}
 # pcopy config file
 
 # URL or hostname/port of the pcopy server.
@@ -34,8 +34,7 @@
 # Format:  string consisting only of 0-9a-z.-_, but has to start with 0-9a-z
 # Default: default
 #
-# DefaultID default
-{{if eq .DefaultID "default"}}# DefaultID default{{else}}DefaultID {{.DefaultID}}{{end}}
+{{if eq "default" .DefaultID}}# DefaultID default{{else}}DefaultID {{.DefaultID}}{{end}}
 
 # If a key is defined, clients need to auth whenever they want copy/paste values
 # to the clipboard. A key is derived from a password and can be generated using

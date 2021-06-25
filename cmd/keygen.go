@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"crypto/subtle"
+	"errors"
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/util"
+	"strings"
 )
 
 var cmdKeygen = &cli.Command{
@@ -26,6 +29,15 @@ func execKeygen(c *cli.Context) error {
 	password, err := util.ReadPassword(c.App.Reader)
 	if err != nil {
 		return err
+	}
+
+	fmt.Fprintf(c.App.ErrWriter, "\r%s\rConfirm: ", strings.Repeat(" ", 25))
+	confirm, err := util.ReadPassword(c.App.Reader)
+	if err != nil {
+		return err
+	}
+	if subtle.ConstantTimeCompare(confirm, password) != 1 {
+		return errors.New("Passwords do not match. Try it again, but this time type slooowwwlly.")
 	}
 
 	key, err := crypto.GenerateKey(password)

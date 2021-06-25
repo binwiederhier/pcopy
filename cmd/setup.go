@@ -53,7 +53,7 @@ type wizard struct {
 
 func execSetup(c *cli.Context) error {
 	setup := &wizard{
-		config:  &config.Config{},
+		config:  config.New(),
 		reader:  bufio.NewReader(c.App.Reader),
 		context: c,
 	}
