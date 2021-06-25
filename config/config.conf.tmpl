@@ -26,6 +26,17 @@
 #
 {{if and (eq ":2586" .ListenHTTPS) (eq "" .ListenHTTP)}}# ListenAddr :2586/https{{else if and .ListenHTTPS .ListenHTTP}}ListenAddr {{.ListenHTTPS}}/https {{.ListenHTTP}}/http{{else if .ListenHTTPS}}ListenAddr {{.ListenHTTPS}}/https{{else if .ListenHTTP}}ListenAddr {{.ListenHTTP}}/http{{else}}# ListenAddr :2586/https{{end}}
 
+# Default ID used when using the CLI without an ID. If this is left empty, a random ID
+# will be chosen by the server.
+#
+# This is a client-only option (pcp/ppaste). It has no effect for the server.
+#
+# Format:  string consisting only of 0-9a-z.-_, but has to start with 0-9a-z
+# Default: default
+#
+# DefaultID default
+{{if eq .DefaultID "default"}}# DefaultID default{{else}}DefaultID {{.DefaultID}}{{end}}
+
 # If a key is defined, clients need to auth whenever they want copy/paste values
 # to the clipboard. A key is derived from a password and can be generated using
 # the 'pcopy keygen' command.
@@ -34,6 +45,17 @@
 # Default: None
 #
 {{if .Key}}Key {{encodeKey .Key}}{{else}}# Key{{end}}
+
+# Path to the private key for the matching certificate. If not set, the config file path (with
+# a .key extension) is assumed to be the path to the private key, e.g. server.key (if the config
+# file is server.conf).
+#
+# This is a server-only option (pcopy serve). It has no effect for client commands.
+#
+# Format:  /some/path/to/server.key (PEM formatted)
+# Default: Config path, but with .key extension
+#
+{{if .KeyFile}}KeyFile {{.KeyFile}}{{else}}# KeyFile{{end}}
 
 # Path to the TLS certificate used for the HTTPS traffic. If not set, the config file path (with
 # a .crt extension) is assumed to be the path to the certificate, e.g. server.crt (if the config
@@ -47,17 +69,6 @@
 # Default: Config path, but with .crt extension
 #
 {{if .CertFile}}CertFile {{.CertFile}}{{else}}# CertFile{{end}}
-
-# Path to the private key for the matching certificate. If not set, the config file path (with
-# a .key extension) is assumed to be the path to the private key, e.g. server.key (if the config
-# file is server.conf).
-#
-# This is a server-only option (pcopy serve). It has no effect for client commands.
-#
-# Format:  /some/path/to/server.key (PEM formatted)
-# Default: Config path, but with .key extension
-#
-{{if .KeyFile}}KeyFile {{.KeyFile}}{{else}}# KeyFile{{end}}
 
 # Name of the clipboard as it is shown in the Web UI. This value is only used in the UI.
 # Make sure it's not too long, or things may look ugly.

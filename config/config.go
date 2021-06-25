@@ -107,6 +107,7 @@ type Config struct {
 	ListenHTTPS         string
 	ListenHTTP          string
 	ServerAddr          string
+	DefaultID           string
 	Key                 *crypto.Key
 	KeyFile             string
 	CertFile            string
@@ -135,6 +136,7 @@ func New() *Config {
 		Key:                 nil,
 		KeyFile:             "",
 		CertFile:            "",
+		DefaultID:           DefaultID,
 		ClipboardName:       DefaultClipboardName,
 		ClipboardDir:        DefaultClipboardDir,
 		ClipboardSizeLimit:  DefaultClipboardSizeLimit,
@@ -243,6 +245,15 @@ func loadConfig(reader io.Reader) (*Config, error) {
 	serverAddr, ok := raw["ServerAddr"]
 	if ok {
 		config.ServerAddr = ExpandServerAddr(serverAddr)
+	}
+
+	defaultID, ok := raw["DefaultID"]
+	if ok {
+		re := regexp.MustCompile(`^[a-z0-9][-_.a-z0-9]*$`)
+		if defaultID != "" && !re.MatchString(defaultID) {
+			return nil, fmt.Errorf("invalid config value for 'DefaultID'")
+		}
+		config.DefaultID = defaultID
 	}
 
 	key, ok := raw["Key"]

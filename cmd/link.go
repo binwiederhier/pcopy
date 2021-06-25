@@ -63,6 +63,9 @@ func parseLinkArgs(c *cli.Context) (*config.Config, string, error) {
 	}
 
 	// Load defaults
+	if id == "" {
+		id = conf.DefaultID
+	}
 	if conf.CertFile == "" {
 		conf.CertFile = config.DefaultCertFile(configFile, true)
 	}

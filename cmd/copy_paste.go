@@ -111,6 +111,15 @@ func execCopy(c *cli.Context) error {
 		return cli.Exit("error: either --read-only or --read-write are allowed, not both", 1)
 	}
 
+	// Override ID
+	if id == "" {
+		id = conf.DefaultID
+	}
+	if random {
+		id = ""
+	}
+
+	// Set file mode (ro, rw)
 	fileMode := ""
 	if readonly {
 		fileMode = config.FileModeReadOnly
@@ -118,6 +127,7 @@ func execCopy(c *cli.Context) error {
 		fileMode = config.FileModeReadWrite
 	}
 
+	// Set TTL
 	ttl := time.Duration(0)
 	ttlStr := c.String("ttl")
 	if ttlStr != "" {
@@ -125,10 +135,6 @@ func execCopy(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	if random {
-		id = ""
 	}
 
 	var fileInfo *server.File
@@ -214,11 +220,11 @@ func createInteractiveReader(reader io.Reader, errWriter io.Writer) io.ReadClose
 }
 
 func execPaste(c *cli.Context) error {
-	config, id, files, err := parseClientArgs(c)
+	conf, id, files, err := parseClientArgs(c)
 	if err != nil {
 		return err
 	}
-	pclient, err := client.NewClient(config)
+	pclient, err := client.NewClient(conf)
 	if err != nil {
 		return err
 	}
@@ -253,6 +259,9 @@ func parseClientArgs(c *cli.Context) (*config.Config, string, []string, error) {
 	}
 
 	// Load defaults
+	if id == "" {
+		id = conf.DefaultID
+	}
 	if conf.CertFile == "" {
 		conf.CertFile = config.DefaultCertFile(configFile, true)
 	}
@@ -280,8 +289,7 @@ func parseClientArgs(c *cli.Context) (*config.Config, string, []string, error) {
 }
 
 func parseClipboardIDAndFiles(args cli.Args, configFileOverride string) (string, string, []string, error) {
-	clipboard := config.DefaultClipboard
-	id := config.DefaultID
+	clipboard, id := config.DefaultClipboard, "" // special handling of Config.DefaultID
 	files := make([]string, 0)
 	if args.Len() > 0 {
 		var err error
@@ -297,8 +305,7 @@ func parseClipboardIDAndFiles(args cli.Args, configFileOverride string) (string,
 }
 
 func parseClipboardAndID(clipboardAndID string, configFileOverride string) (string, string, error) {
-	clipboard := config.DefaultClipboard
-	id := config.DefaultID
+	clipboard, id := config.DefaultClipboard, "" // special handling of Config.DefaultID
 	re := regexp.MustCompile(`^(?i)(?:([-_a-z0-9]*):)?(|[a-z0-9][-_.a-z0-9]*)$`)
 	parts := re.FindStringSubmatch(clipboardAndID)
 	if len(parts) != 3 {
@@ -363,7 +370,7 @@ func parseAndLoadConfig(filename string, clipboard string) (string, *config.Conf
 	}
 	conf, err := config.LoadFromFile(filename)
 	if err != nil {
-		return "", config.New(), nil
+		return "", nil, err
 	}
 	return filename, conf, nil
 }
