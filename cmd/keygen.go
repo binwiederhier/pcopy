@@ -37,7 +37,7 @@ func execKeygen(c *cli.Context) error {
 		return err
 	}
 	if subtle.ConstantTimeCompare(confirm, password) != 1 {
-		return errors.New("Passwords do not match. Try it again, but this time type slooowwwlly.")
+		return errors.New("passwords do not match: try it again, but this time type slooowwwlly")
 	}
 
 	key, err := crypto.GenerateKey(password)
