@@ -5,7 +5,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/server"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +15,7 @@ import (
 // This only contains helpers so far
 
 func TestMain(m *testing.M) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	os.Exit(m.Run())
 }
 

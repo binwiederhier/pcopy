@@ -2,7 +2,7 @@
 package util
 
 import (
-	"bufio"
+	"errors"
 	"fmt"
 	"golang.org/x/term"
 	"io"
@@ -157,6 +157,7 @@ func RandomStringWithCharset(length int, charset string) string {
 // ReadPassword will read a password from STDIN. If the terminal supports it, it will not print the
 // input characters to the screen. If not, it'll just read using normal readline semantics (useful for testing).
 func ReadPassword(in io.Reader) ([]byte, error) {
+	// If in is a file and a character device (a TTY), use term.ReadPassword
 	if f, ok := in.(*os.File); ok {
 		stat, err := f.Stat()
 		if err != nil {
@@ -170,12 +171,23 @@ func ReadPassword(in io.Reader) ([]byte, error) {
 			return password, nil
 		}
 	}
-	reader := bufio.NewReader(in)
-	password, err := reader.ReadString('\n')
-	if err != nil && err != io.EOF {
-		return nil, err
+
+	// Fallback: Manually read util \n if found, see #69 for details why this is so manual
+	password := make([]byte, 0)
+	buf := make([]byte, 1)
+	for {
+		_, err := in.Read(buf)
+		if err == io.EOF || buf[0] == '\n' {
+			break
+		} else if err != nil {
+			return nil, err
+		} else if len(password) > 10240 {
+			return nil, errors.New("passwords this long are not supported")
+		}
+		password = append(password, buf[0])
 	}
-	return []byte(strings.TrimRight(password, "\n")), nil
+
+	return password, nil
 }
 
 // commonPrefix determines the longest common prefix across a list of paths.
