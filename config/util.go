@@ -54,6 +54,9 @@ func CollapseServerAddr(serverAddr string) string {
 		if err != nil {
 			return serverAddr
 		}
+		if u.Port() == "" || u.Port() == "443" {
+			return fmt.Sprintf("%s:443", u.Host)
+		}
 		return strings.TrimSuffix(u.Host, fmt.Sprintf(":%d", DefaultPort))
 	}
 	return strings.TrimSuffix(serverAddr, fmt.Sprintf(":%d", DefaultPort))
@@ -78,6 +81,5 @@ func defaultFileWithNewExt(newExtension string, configFile string, mustExist boo
 			return ""
 		}
 	}
-
 	return file
 }

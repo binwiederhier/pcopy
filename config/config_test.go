@@ -104,6 +104,7 @@ D1OY3Axih+rz7mF2xHK20TxRuy1sqw==
 	config, err := loadConfig(strings.NewReader(fmt.Sprintf(`
 ListenAddr :1234
 ServerAddr hi.com
+DefaultID my-default-id
 Key Osz6osE1fRRirA==:XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I=
 KeyFile %s
 CertFile %s
@@ -122,6 +123,7 @@ FileModesAllowed ro rw
 	test.StrEquals(t, "https://hi.com:2586", config.ServerAddr)
 	test.BytesEquals(t, test.FromBase64(t, "Osz6osE1fRRirA=="), config.Key.Salt)
 	test.BytesEquals(t, test.FromBase64(t, "XEBZJjB/7w4eCugzQSkwGMe8QW4nbsPvPMlle1wvW4I="), config.Key.Bytes)
+	test.StrEquals(t, "my-default-id", config.DefaultID)
 	test.StrEquals(t, keyFile, config.KeyFile)
 	test.StrEquals(t, certFile, config.CertFile)
 	test.StrEquals(t, "Phil's Clipboard", config.ClipboardName)
@@ -134,51 +136,13 @@ FileModesAllowed ro rw
 	test.StrEquals(t, "ro", config.FileModesAllowed[0])
 	test.StrEquals(t, "rw", config.FileModesAllowed[1])
 }
-func TestExpandServerAddr_ExpandAllTheThings(t *testing.T) {
-	actual := ExpandServerAddr("myhost")
-	expected := "https://myhost:2586"
-	if actual != expected {
-		t.Fatalf("expected %s, got %s", expected, actual)
-	}
-}
-
-func TestExpandServerAddr_Expand4431(t *testing.T) {
-	test.StrEquals(t, "https://myhost:4431", ExpandServerAddr("https://myhost:4431"))
-}
-
-func TestExpandServerAddr_ExpandProto(t *testing.T) {
-	actual := ExpandServerAddr("myhost:1234")
-	expected := "https://myhost:1234"
-	if actual != expected {
-		t.Fatalf("expected %s, got %s", expected, actual)
-	}
-}
-
-func TestExpandServerAddr_NoExpand(t *testing.T) {
-	test.StrEquals(t, "http://myhost:1234", ExpandServerAddr("http://myhost:1234"))
-}
-
-func TestCollapseServerAddr_Collapse(t *testing.T) {
-	actual := CollapseServerAddr("myhost:2586")
-	expected := "myhost"
-	if actual != expected {
-		t.Fatalf("expected %s, got %s", expected, actual)
-	}
-}
-
-func TestCollapseServerAddr_NoCollapse(t *testing.T) {
-	test.StrEquals(t, "myhost:1234", CollapseServerAddr("myhost:1234"))
-}
-
-func TestCollapseServerAddr_FullHTTPSURL(t *testing.T) {
-	test.StrEquals(t, "myhost", CollapseServerAddr("https://myhost:2586"))
-}
 
 func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config := New()
 	config.ServerAddr = "some-host.com"
 	config.ListenHTTPS = ":8888"
 	config.ListenHTTP = ":8889"
+	config.DefaultID = "some-id"
 	config.Key = &crypto.Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	config.CertFile = "some cert file"
 	config.KeyFile = "some key file"
@@ -203,6 +167,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	contents := string(b)
 	test.StrContains(t, contents, "ServerAddr some-host.com")
 	test.StrContains(t, contents, "ListenAddr :8888/https :8889/http")
+	test.StrContains(t, contents, "DefaultID some-id")
 	test.StrContains(t, contents, "Key c29tZSBzYWx0:MTYgYnl0ZXMgZXhhY3RseQ==")
 	test.StrContains(t, contents, "CertFile some cert file")
 	test.StrContains(t, contents, "KeyFile some key file")
@@ -230,6 +195,7 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 	contents := string(b)
 	test.StrContains(t, contents, "# ServerAddr")
 	test.StrContains(t, contents, "# ListenAddr :2586")
+	test.StrContains(t, contents, "# DefaultID default")
 	test.StrContains(t, contents, "# Key")
 	test.StrContains(t, contents, "# CertFile")
 	test.StrContains(t, contents, "# KeyFile")
