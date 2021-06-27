@@ -185,7 +185,7 @@ func toHumanReadable(err error) string {
 	jsone := &json.SyntaxError{}
 	if errors.As(err, &jsone) { // why does this have to be a double pointer?
 		return "unexpected response; are you sure this a pcopy server?"
-	} else if strings.Contains(err.Error(), "context deadline exceeded") {
+	} else if strings.Contains(err.Error(), "deadline exceeded") || strings.Contains(err.Error(), "Timeout exceeded") {
 		return "timed out waiting for server"
 	}
 	return err.Error()
