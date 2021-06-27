@@ -225,7 +225,6 @@ func (c *Client) FileInfo(id string) (*server.File, error) {
 // fall back to skipping certificate verification. In the latter case, it will download and return
 // the server certificate so the client can pin them.
 func (c *Client) ServerInfo() (*server.Info, error) {
-	var cert *x509.Certificate
 	var err error
 
 	// First attempt to retrieve info with secure HTTP client
@@ -244,17 +243,13 @@ func (c *Client) ServerInfo() (*server.Info, error) {
 		}
 
 		// Retrieve bad cert(s) for cert pinning
-		cert, err = c.retrieveCert()
+		info.Cert, err = c.retrieveCert()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &server.Info{
-		ServerAddr: info.ServerAddr,
-		Salt:       info.Salt,
-		Cert:       cert,
-	}, nil
+	return info, nil
 }
 
 // Verify verifies that the given key (derived from the user password) is in fact correct

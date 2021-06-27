@@ -168,6 +168,7 @@ type visitor struct {
 // Info contains information about the server needed o join a server.
 type Info struct {
 	ServerAddr string            `json:"serverAddr"`
+	DefaultID  string            `json:"defaultID"`
 	Salt       []byte            `json:"salt"`
 	Cert       *x509.Certificate `json:"-"`
 }
@@ -293,6 +294,7 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 
 	response := &Info{
 		ServerAddr: s.config.ServerAddr,
+		DefaultID:  s.config.DefaultID,
 		Salt:       salt,
 	}
 

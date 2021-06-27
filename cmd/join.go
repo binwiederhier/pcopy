@@ -102,6 +102,7 @@ func execJoin(c *cli.Context) error {
 	// Write config file
 	conf := config.New()
 	conf.ServerAddr = config.CollapseServerAddr(info.ServerAddr)
+	conf.DefaultID = info.DefaultID
 	conf.Key = key // May be nil, but that's ok
 	if err := conf.WriteFile(configFile); err != nil {
 		return err

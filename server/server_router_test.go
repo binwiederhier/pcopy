@@ -62,7 +62,6 @@ func TestServerRouter_StartStopWithVhostOnSamePorts(t *testing.T) {
 	conf2.ListenHTTPS = ":11443"
 	conf2.ListenHTTP = ":11080"
 	serverRouter := startTestServerRouter(t, conf1, conf2)
-	defer serverRouter.Stop()
 
 	test.WaitForPortUp(t, "11443")
 	test.WaitForPortUp(t, "11080")

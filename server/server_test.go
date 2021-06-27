@@ -62,13 +62,14 @@ func TestServer_NewServerInvalidCertFile(t *testing.T) {
 
 func TestServer_HandleInfoUnprotected(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
+	conf.DefaultID = ""
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/info", nil)
 	server.Handle(rr, req)
 
-	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","salt":null}`)
+	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","defaultID":"","salt":null}`)
 }
 
 func TestServer_HandleVerify(t *testing.T) {
@@ -90,7 +91,7 @@ func TestServer_HandleInfoProtected(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/info", nil)
 	server.Handle(rr, req)
 
-	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","salt":"c29tZSBzYWx0"}`)
+	test.Response(t, rr, http.StatusOK, `{"serverAddr":"https://localhost:12345","defaultID":"default","salt":"c29tZSBzYWx0"}`)
 }
 
 func TestServer_HandleDoesNotExist(t *testing.T) {

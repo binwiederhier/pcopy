@@ -26,10 +26,9 @@
 #
 {{if and (eq ":2586" .ListenHTTPS) (eq "" .ListenHTTP)}}# ListenAddr :2586/https{{else if and .ListenHTTPS .ListenHTTP}}ListenAddr {{.ListenHTTPS}}/https {{.ListenHTTP}}/http{{else if .ListenHTTPS}}ListenAddr {{.ListenHTTPS}}/https{{else if .ListenHTTP}}ListenAddr {{.ListenHTTP}}/http{{else}}# ListenAddr :2586/https{{end}}
 
-# Default ID used when using the CLI without an ID. If this is left empty, a random ID
-# will be chosen by the server.
-#
-# This is a client-only option (pcp/ppaste). It has no effect for the server.
+# Default ID used when using the CLI without an ID. If this is left empty, a random ID will be chosen by
+# the server. When this option is set in the server-side config, new clients will receive the default ID
+# upon joining the clipboard.
 #
 # Format:  string consisting only of 0-9a-z.-_, but has to start with 0-9a-z
 # Default: default
