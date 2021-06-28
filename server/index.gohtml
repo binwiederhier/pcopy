@@ -1,4 +1,4 @@
-{{- /*gotype: heckel.io/pcopy.webTemplateConfig*/ -}}
+{{- /*gotype: heckel.io/pcopy/server.webTemplateConfig*/ -}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,16 +83,21 @@
             </div>
             <div class="col-auto">
                 <div class="divider"></div>
-                <label for="ttl">Expires: {{if lt .Config.FileExpireAfter.Seconds 1800.0}} {{.Config.FileExpireAfter | durationToHuman}}{{end}}</label>
+                <label for="ttl">Expires: {{if lt .Config.FileExpireAfterDefault.Seconds 600.0}} {{.Config.FileExpireAfterDefault | durationToHuman}}{{end}}</label>
                 <select id="ttl" class="button">
+                    <option value="600">10 min</option>
                     <option value="1800">30 min</option>
                     <option value="3600">1 hour</option>
                     <option value="10800">3 hours</option>
+                    <option value="21600">6 hours</option>
                     <option value="86400">1 day</option>
                     <option value="259200">3 days</option>
                     <option value="604800">1 week</option>
                     <option value="1814400">3 weeks</option>
-                    <option value="3628800">6 weeks</option>
+                    <option value="5184000">2 months</option>
+                    <option value="15552000">6 months</option>
+                    <option value="31536000">1 year</option>
+                    <option value="63072000">2 years</option>
                     <option value="0">never</option>
                 </select>
             </div>
@@ -136,7 +141,7 @@
                             <b>Total clipboard size limit:</b> <em>{{if .Config.ClipboardSizeLimit}}{{.Config.ClipboardSizeLimit | bytesToHuman }}{{else}}no limit{{end}}</em><br/>
                             <b>Total number of files:</b> <em>{{if .Config.ClipboardCountLimit}} max. {{.Config.ClipboardCountLimit }} files{{else}}no limit{{end}}</em><br/>
                             <b>Per-file size limit:</b> <em>{{if .Config.FileSizeLimit}}{{.Config.FileSizeLimit | bytesToHuman }}{{else}}no limit{{end}}</em><br/>
-                            <b>Per-file expiration:</b> <em>{{if .Config.FileExpireAfter}}deleted after {{.Config.FileExpireAfter | durationToHuman }}{{else}}never{{end}}</em>
+                            <b>Per-file expiration limits:</b> <em>{{if .Config.FileExpireAfterTextMax}}{{.Config.FileExpireAfterTextMax | durationToHuman }}{{else}}never{{end}} if text, {{if .Config.FileExpireAfterNonTextMax}}{{.Config.FileExpireAfterNonTextMax | durationToHuman }}{{else}}never{{end}} otherwise</em>
                         </p>
                     </div>
                     <div id="info-upload-header-active" class="info-header">
@@ -243,7 +248,9 @@
         KeyLenBytes: {{.KeyLenBytes}},
         DefaultPort: {{.DefaultPort}},
         FileSizeLimit: {{.Config.FileSizeLimit}},
-        FileExpireAfter: {{.Config.FileExpireAfter.Seconds}}
+        FileExpireAfterDefault: {{.Config.FileExpireAfterDefault.Seconds}},
+        FileExpireAfterTextMax: {{.Config.FileExpireAfterTextMax.Seconds}},
+        FileExpireAfterNonTextMax: {{.Config.FileExpireAfterNonTextMax.Seconds}}
     }
 </script>
 <script src="static/vendor/crypto-js.min.js"></script>

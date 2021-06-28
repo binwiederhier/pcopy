@@ -217,22 +217,55 @@ headerStream.addEventListener('change', (e) => { storeStreamEnabled(e.target.che
 
 headerTTL.addEventListener('change', (e) => {
     storeTTL(e.target.value)
+    changeWidth(e.target)
 })
 
 let ttl = getTTL()
 Array.from(headerTTL.options).forEach(function(option) {
-    const removeNeverOption = parseInt(option.value) === 0 && config.FileExpireAfter > 0
-    const removeHigherOption = option.value > config.FileExpireAfter && config.FileExpireAfter > 0
-    const isStoredTTL = ttl !== null && parseInt(option.value) === ttl
-    if (removeNeverOption || removeHigherOption) {
+    const value = parseInt(option.value)
+    const allowOptionText = config.FileExpireAfterTextMax === 0 || (value > 0 && value <= config.FileExpireAfterTextMax)
+    const allowOptionNonText = config.FileExpireAfterNonTextMax === 0 || (value > 0 && value <= config.FileExpireAfterNonTextMax)
+
+    // Remove option if not allowed
+    if (!allowOptionText && !allowOptionNonText) {
         headerTTL.removeChild(option)
-    } else if (isStoredTTL) {
+        return
+    }
+
+    // Change option text if only allowed for text or non-text
+    if (allowOptionText && !allowOptionNonText) {
+        option.text += " (text only)"
+    } else if (!allowOptionText && allowOptionNonText) {
+        option.text += " (non-text only)"
+    }
+
+    // Select option if stored in local storage
+    if (value === ttl || (value > 0 && value < ttl)) {
         option.selected = 'selected'
+        changeWidth(headerTTL)
     }
 })
 
 if (headerTTL.options.length === 0) {
     headerTTL.classList.add('hidden')
+}
+
+/* From: https://stackoverflow.com/a/35567280/1440785 & https://jsfiddle.net/Hatchet/a0xzz6mf/ */
+function changeWidth(select) {
+    var o = select.options[select.selectedIndex];
+    var s = document.createElement('span');
+
+    s.textContent = o.textContent;
+
+    var ostyles = getComputedStyle(o);
+    s.style.fontFamily = ostyles.fontFamily;
+    s.style.fontStyle = ostyles.fontStyle;
+    s.style.fontWeight = ostyles.fontWeight;
+    s.style.fontSize = ostyles.fontSize;
+
+    document.body.appendChild(s);
+    select.style.width = (s.offsetWidth + 30) + 'px';
+    document.body.removeChild(s);
 }
 
 /* Text field & saving text */
@@ -726,7 +759,7 @@ function getTTL() {
     if (localStorage.getItem('ttl') !== null) {
         return parseInt(localStorage.getItem('ttl'))
     } else {
-        return parseInt(headerTTL.value)
+        return parseInt(config.FileExpireAfterDefault)
     }
 }
 
@@ -749,6 +782,10 @@ function getPasteTab() {
 function secondsToHuman(seconds) {
     function numberEnding (number) {
         return (number > 1) ? 's' : '';
+    }
+    let years = Math.floor(seconds / 31536000)
+    if (years) {
+        return years + ' year' + numberEnding(years);
     }
     let days = Math.floor((seconds %= 31536000) / 86400);
     if (days) {
