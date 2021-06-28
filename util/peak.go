@@ -2,37 +2,50 @@ package util
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 )
 
+// PeakedReadCloser is a ReadCloser that allows peaking into a stream and buffering it in memory.
+// It can be instantiated using the Peak function. After a stream has been peaked, it can still be fully
+// read by reading the PeakedReadCloser. It first drained from the memory buffer, and then from the remaining
+// underlying reader.
 type PeakedReadCloser struct {
-	Peaked       []byte
+	PeakedBytes  []byte
 	LimitReached bool
 	peaked       io.Reader
 	underlying   io.ReadCloser
-	read         int
+	closed       bool
 }
 
+// ErrAlreadyClosed is returned if the PeakedReadCloser is already closed when trying to read from it
+var ErrAlreadyClosed = errors.New("stream already closed")
+
+// Peak reads the underlying ReadCloser into memory up until the limit and returns a PeakedReadCloser
 func Peak(underlying io.ReadCloser, limit int) (*PeakedReadCloser, error) {
 	if underlying == nil {
 		underlying = io.NopCloser(strings.NewReader(""))
 	}
-	prc := &PeakedReadCloser{
-		underlying: underlying,
-	}
 	peaked := make([]byte, limit)
-	read, err := underlying.Read(peaked)
-	if err != nil && err != io.EOF {
+	read, err := io.ReadFull(underlying, peaked)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
 		return nil, err
 	}
-	prc.peaked = bytes.NewReader(peaked[:read])
-	prc.Peaked = peaked[:read]
-	prc.LimitReached = read == limit
-	return prc, nil
+	return &PeakedReadCloser{
+		PeakedBytes:  peaked[:read],
+		LimitReached: read == limit,
+		underlying:   underlying,
+		peaked:       bytes.NewReader(peaked[:read]),
+		closed:       false,
+	}, nil
 }
 
+// Read reads from the peaked bytes and then from the underlying stream
 func (r *PeakedReadCloser) Read(p []byte) (n int, err error) {
+	if r.closed {
+		return 0, ErrAlreadyClosed
+	}
 	n, err = r.peaked.Read(p)
 	if err == io.EOF {
 		return r.underlying.Read(p)
@@ -42,6 +55,11 @@ func (r *PeakedReadCloser) Read(p []byte) (n int, err error) {
 	return
 }
 
+// Close closes the underlying stream
 func (r *PeakedReadCloser) Close() error {
+	if r.closed {
+		return ErrAlreadyClosed
+	}
+	r.closed = true
 	return r.underlying.Close()
 }

@@ -13,7 +13,7 @@ func TestPeak_LimitReached(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	test.BytesEquals(t, []byte("12345"), peaked.Peaked)
+	test.BytesEquals(t, []byte("12345"), peaked.PeakedBytes)
 	test.BoolEquals(t, true, peaked.LimitReached)
 
 	all, err := io.ReadAll(peaked)
@@ -21,7 +21,7 @@ func TestPeak_LimitReached(t *testing.T) {
 		t.Fatal(err)
 	}
 	test.BytesEquals(t, []byte("1234567890"), all)
-	test.BytesEquals(t, []byte("12345"), peaked.Peaked)
+	test.BytesEquals(t, []byte("12345"), peaked.PeakedBytes)
 	test.BoolEquals(t, true, peaked.LimitReached)
 }
 
@@ -36,6 +36,6 @@ func TestPeak_LimitNotReached(t *testing.T) {
 		t.Fatal(err)
 	}
 	test.BytesEquals(t, []byte("1234567890"), all)
-	test.BytesEquals(t, []byte("1234567890"), peaked.Peaked)
+	test.BytesEquals(t, []byte("1234567890"), peaked.PeakedBytes)
 	test.BoolEquals(t, false, peaked.LimitReached)
 }

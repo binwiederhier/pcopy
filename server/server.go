@@ -599,13 +599,13 @@ func (s *Server) getTTL(r *http.Request, peakedBody *util.PeakedReadCloser) (tim
 	// If the given TTL is larger than the max allowed value, set it to the max value.
 	// Special handling for text: if the body is a short text (as per our peaking), the text max value applies.
 	// It may be a little inefficient to always check for UTF-8, but I think it's fine.
-	expireAfterMax := s.config.FileExpireAfterMax
-	isShortText := !peakedBody.LimitReached && utf8.Valid(peakedBody.Peaked)
+	maxTTL := s.config.FileExpireAfterMax
+	isShortText := !peakedBody.LimitReached && utf8.Valid(peakedBody.PeakedBytes)
 	if isShortText {
-		expireAfterMax = s.config.FileExpireAfterTextMax
+		maxTTL = s.config.FileExpireAfterTextMax
 	}
-	if expireAfterMax > 0 && ttl > expireAfterMax {
-		ttl = expireAfterMax
+	if maxTTL > 0 && ttl > maxTTL {
+		ttl = maxTTL
 	}
 	return ttl, nil
 }
