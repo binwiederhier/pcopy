@@ -367,7 +367,7 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 
 func TestServer_HandleClipboardPutWithTextWithTooLargeTTL(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
-	//conf.FileExpireAfterMax = time.Hour
+	//conf.FileExpireAfterNonTextMax = time.Hour
 	// TODO
 	conf.FileExpireAfterTextMax = time.Hour
 	server := newTestServer(t, conf)
@@ -383,8 +383,8 @@ func TestServer_HandleClipboardPutWithTextWithTooLargeTTL(t *testing.T) {
 
 func TestServer_HandleClipboardPutWithoutTTL(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
-	conf.FileExpireAfter = time.Hour
-	conf.FileExpireAfterMax = 2 * time.Hour
+	conf.FileExpireAfterDefault = time.Hour
+	conf.FileExpireAfterNonTextMax = 2 * time.Hour
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
@@ -708,7 +708,7 @@ func TestServer_AuthorizeHmacFailureWrongKeyProtected(t *testing.T) {
 
 func TestServer_ExpireSuccess(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
-	conf.FileExpireAfter = time.Second
+	conf.FileExpireAfterDefault = time.Second
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()

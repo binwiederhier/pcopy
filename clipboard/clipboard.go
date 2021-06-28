@@ -172,7 +172,7 @@ func (c *Clipboard) Stat(id string) (*File, error) {
 	var cf File
 	if err := json.NewDecoder(mf).Decode(&cf); err != nil {
 		log.Printf("error reading meta file for %s: %s", id, err.Error())
-		cf.Expires = int64(c.config.FileExpireAfter.Seconds())
+		cf.Expires = int64(c.config.FileExpireAfterDefault.Seconds())
 	}
 	cf.ID = id
 	cf.Size = stat.Size()

@@ -131,8 +131,8 @@ FileModesAllowed ro rw
 	test.Int64Equals(t, 10*1024*1024, config.ClipboardSizeLimit)
 	test.Int64Equals(t, 101, int64(config.ClipboardCountLimit))
 	test.Int64Equals(t, 123*1024, config.FileSizeLimit)
-	test.Int64Equals(t, 10*24, int64(config.FileExpireAfter.Hours()))
-	test.Int64Equals(t, 12*24, int64(config.FileExpireAfterMax.Hours()))
+	test.Int64Equals(t, 10*24, int64(config.FileExpireAfterDefault.Hours()))
+	test.Int64Equals(t, 12*24, int64(config.FileExpireAfterNonTextMax.Hours()))
 	test.Int64Equals(t, 13*24, int64(config.FileExpireAfterTextMax.Hours()))
 	test.StrEquals(t, "ro", config.FileModesAllowed[0])
 	test.StrEquals(t, "rw", config.FileModesAllowed[1])
@@ -152,8 +152,8 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config.ClipboardCountLimit = 1234
 	config.ClipboardSizeLimit = 9876
 	config.FileSizeLimit = 777
-	config.FileExpireAfter = time.Hour
-	config.FileExpireAfterMax = 7 * time.Hour
+	config.FileExpireAfterDefault = time.Hour
+	config.FileExpireAfterNonTextMax = 7 * time.Hour
 	config.FileExpireAfterTextMax = 0
 	config.FileModesAllowed = []string{"ro", "rw"}
 

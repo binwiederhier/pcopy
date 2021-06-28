@@ -106,26 +106,26 @@ var (
 type Config struct {
 	ListenHTTPS            string
 	ListenHTTP             string
-	ServerAddr             string
-	DefaultID              string
-	Key                    *crypto.Key
-	KeyFile                string
-	CertFile               string
-	ClipboardName          string
-	ClipboardDir           string
-	ClipboardSizeLimit     int64
-	ClipboardCountLimit    int
-	FileSizeLimit          int64
-	FileExpireAfter        time.Duration
-	FileExpireAfterMax     time.Duration
-	FileExpireAfterTextMax time.Duration
-	FileModesAllowed       []string
-	ProgressFunc           util.ProgressFunc
-	ManagerInterval        time.Duration
-	LimitGET               rate.Limit
-	LimitGETBurst          int
-	LimitPUT               rate.Limit
-	LimitPUTBurst          int
+	ServerAddr                string
+	DefaultID                 string
+	Key                       *crypto.Key
+	KeyFile                   string
+	CertFile                  string
+	ClipboardName             string
+	ClipboardDir              string
+	ClipboardSizeLimit        int64
+	ClipboardCountLimit       int
+	FileSizeLimit             int64
+	FileExpireAfterDefault    time.Duration
+	FileExpireAfterNonTextMax time.Duration
+	FileExpireAfterTextMax    time.Duration
+	FileModesAllowed          []string
+	ProgressFunc              util.ProgressFunc
+	ManagerInterval           time.Duration
+	LimitGET                  rate.Limit
+	LimitGETBurst             int
+	LimitPUT                  rate.Limit
+	LimitPUTBurst             int
 }
 
 // New returns the default config
@@ -133,26 +133,26 @@ func New() *Config {
 	return &Config{
 		ListenHTTPS:            fmt.Sprintf(":%d", DefaultPort),
 		ListenHTTP:             "",
-		ServerAddr:             "",
-		Key:                    nil,
-		KeyFile:                "",
-		CertFile:               "",
-		DefaultID:              DefaultID,
-		ClipboardName:          DefaultClipboardName,
-		ClipboardDir:           DefaultClipboardDir,
-		ClipboardSizeLimit:     DefaultClipboardSizeLimit,
-		ClipboardCountLimit:    DefaultClipboardCountLimit,
-		FileSizeLimit:          DefaultFileSizeLimit,
-		FileExpireAfter:        DefaultFileExpireAfter,
-		FileExpireAfterMax:     DefaultFileExpireAfter,
-		FileExpireAfterTextMax: DefaultFileExpireAfter,
-		FileModesAllowed:       strings.Split(DefaultFileModesAllowed, " "),
-		ProgressFunc:           nil,
-		ManagerInterval:        defaultManagerInterval,
-		LimitGET:               defaultLimitGET,
-		LimitGETBurst:          defaultLimitGETBurst,
-		LimitPUT:               defaultLimitPUT,
-		LimitPUTBurst:          defaultLimitPUTBurst,
+		ServerAddr:                "",
+		Key:                       nil,
+		KeyFile:                   "",
+		CertFile:                  "",
+		DefaultID:                 DefaultID,
+		ClipboardName:             DefaultClipboardName,
+		ClipboardDir:              DefaultClipboardDir,
+		ClipboardSizeLimit:        DefaultClipboardSizeLimit,
+		ClipboardCountLimit:       DefaultClipboardCountLimit,
+		FileSizeLimit:             DefaultFileSizeLimit,
+		FileExpireAfterDefault:    DefaultFileExpireAfter,
+		FileExpireAfterNonTextMax: DefaultFileExpireAfter,
+		FileExpireAfterTextMax:    DefaultFileExpireAfter,
+		FileModesAllowed:          strings.Split(DefaultFileModesAllowed, " "),
+		ProgressFunc:              nil,
+		ManagerInterval:           defaultManagerInterval,
+		LimitGET:                  defaultLimitGET,
+		LimitGETBurst:             defaultLimitGETBurst,
+		LimitPUT:                  defaultLimitPUT,
+		LimitPUTBurst:             defaultLimitPUTBurst,
 	}
 }
 
@@ -319,17 +319,17 @@ func loadConfig(reader io.Reader) (*Config, error) {
 	fileExpireAfter, ok := raw["FileExpireAfter"]
 	if ok {
 		parts := strings.Split(fileExpireAfter, " ")
-		config.FileExpireAfter, err = util.ParseDuration(parts[0])
+		config.FileExpireAfterDefault, err = util.ParseDuration(parts[0])
 		if err != nil {
 			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 		}
 		if len(parts) > 1 {
-			config.FileExpireAfterMax, err = util.ParseDuration(parts[1])
+			config.FileExpireAfterNonTextMax, err = util.ParseDuration(parts[1])
 			if err != nil {
 				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 			}
 		} else {
-			config.FileExpireAfterMax = config.FileExpireAfter
+			config.FileExpireAfterNonTextMax = config.FileExpireAfterDefault
 		}
 		if len(parts) > 2 {
 			config.FileExpireAfterTextMax, err = util.ParseDuration(parts[2])
@@ -337,12 +337,12 @@ func loadConfig(reader io.Reader) (*Config, error) {
 				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 			}
 		} else {
-			config.FileExpireAfterTextMax = config.FileExpireAfterMax
+			config.FileExpireAfterTextMax = config.FileExpireAfterNonTextMax
 		}
-		if config.FileExpireAfterMax > 0 && config.FileExpireAfter > config.FileExpireAfterMax {
+		if config.FileExpireAfterNonTextMax > 0 && config.FileExpireAfterDefault > config.FileExpireAfterNonTextMax {
 			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than max")
 		}
-		if config.FileExpireAfterTextMax > 0 && config.FileExpireAfterMax > config.FileExpireAfterTextMax {
+		if config.FileExpireAfterTextMax > 0 && config.FileExpireAfterNonTextMax > config.FileExpireAfterTextMax {
 			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': max value cannot be larger than text-max")
 		}
 	}

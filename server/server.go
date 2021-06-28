@@ -589,8 +589,8 @@ func (s *Server) getTTL(r *http.Request, peakedBody *util.PeakedReadCloser) (tim
 		ttl, err = util.ParseDuration(r.URL.Query().Get(queryParamTTL))
 	} else if r.Header.Get(HeaderTTL) != "" {
 		ttl, err = util.ParseDuration(r.Header.Get(HeaderTTL))
-	} else if s.config.FileExpireAfter > 0 {
-		ttl = s.config.FileExpireAfter
+	} else if s.config.FileExpireAfterDefault > 0 {
+		ttl = s.config.FileExpireAfterDefault
 	}
 	if err != nil {
 		return 0, ErrHTTPBadRequest
@@ -599,7 +599,7 @@ func (s *Server) getTTL(r *http.Request, peakedBody *util.PeakedReadCloser) (tim
 	// If the given TTL is larger than the max allowed value, set it to the max value.
 	// Special handling for text: if the body is a short text (as per our peaking), the text max value applies.
 	// It may be a little inefficient to always check for UTF-8, but I think it's fine.
-	maxTTL := s.config.FileExpireAfterMax
+	maxTTL := s.config.FileExpireAfterNonTextMax
 	isShortText := !peakedBody.LimitReached && utf8.Valid(peakedBody.PeakedBytes)
 	if isShortText {
 		maxTTL = s.config.FileExpireAfterTextMax
