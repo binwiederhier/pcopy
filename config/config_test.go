@@ -210,6 +210,56 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 	test.StrContains(t, contents, "# FileModesAllowed rw ro")
 }
 
+func TestConfig_LoadConfigFileExpireAfterNoValue(t *testing.T) {
+	config, err := loadConfig(strings.NewReader(``))
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.DurationEquals(t, 7*24*time.Hour, config.FileExpireAfterDefault)
+	test.DurationEquals(t, 7*24*time.Hour, config.FileExpireAfterNonTextMax)
+	test.DurationEquals(t, 7*24*time.Hour, config.FileExpireAfterTextMax)
+}
+
+func TestConfig_LoadConfigFileExpireAfterOneValue(t *testing.T) {
+	config, err := loadConfig(strings.NewReader(`FileExpireAfter 1y`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.DurationEquals(t, 365*24*time.Hour, config.FileExpireAfterDefault)
+	test.DurationEquals(t, 365*24*time.Hour, config.FileExpireAfterNonTextMax)
+	test.DurationEquals(t, 365*24*time.Hour, config.FileExpireAfterTextMax)
+}
+
+func TestConfig_LoadConfigFileExpireAfterTwoValues(t *testing.T) {
+	config, err := loadConfig(strings.NewReader(`FileExpireAfter 6d 10d`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.DurationEquals(t, 6*24*time.Hour, config.FileExpireAfterDefault)
+	test.DurationEquals(t, 10*24*time.Hour, config.FileExpireAfterNonTextMax)
+	test.DurationEquals(t, 10*24*time.Hour, config.FileExpireAfterTextMax)
+}
+
+func TestConfig_LoadConfigFileExpireAfterThreeValues(t *testing.T) {
+	config, err := loadConfig(strings.NewReader(`FileExpireAfter 6d 10d 1w`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.DurationEquals(t, 6*24*time.Hour, config.FileExpireAfterDefault)
+	test.DurationEquals(t, 10*24*time.Hour, config.FileExpireAfterNonTextMax)
+	test.DurationEquals(t, 7*24*time.Hour, config.FileExpireAfterTextMax)
+}
+
+func TestConfig_LoadConfigFileExpireAfterThreeValuesInfiniteText(t *testing.T) {
+	config, err := loadConfig(strings.NewReader(`FileExpireAfter 6d 10d 0`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.DurationEquals(t, 6*24*time.Hour, config.FileExpireAfterDefault)
+	test.DurationEquals(t, 10*24*time.Hour, config.FileExpireAfterNonTextMax)
+	test.DurationEquals(t, 0, config.FileExpireAfterTextMax)
+}
+
 func TestConfig_LoadConfigFromFileFailedDueToMissingCert(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	contents := "CertFile some.crt"

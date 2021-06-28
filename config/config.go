@@ -104,8 +104,8 @@ var (
 // the client, others only to the server. Some apply to both. Many (but not all) of these settings can be set either
 // via the config file, or via command line parameters.
 type Config struct {
-	ListenHTTPS            string
-	ListenHTTP             string
+	ListenHTTPS               string
+	ListenHTTP                string
 	ServerAddr                string
 	DefaultID                 string
 	Key                       *crypto.Key
@@ -131,8 +131,8 @@ type Config struct {
 // New returns the default config
 func New() *Config {
 	return &Config{
-		ListenHTTPS:            fmt.Sprintf(":%d", DefaultPort),
-		ListenHTTP:             "",
+		ListenHTTPS:               fmt.Sprintf(":%d", DefaultPort),
+		ListenHTTP:                "",
 		ServerAddr:                "",
 		Key:                       nil,
 		KeyFile:                   "",
@@ -340,10 +340,10 @@ func loadConfig(reader io.Reader) (*Config, error) {
 			config.FileExpireAfterTextMax = config.FileExpireAfterNonTextMax
 		}
 		if config.FileExpireAfterNonTextMax > 0 && config.FileExpireAfterDefault > config.FileExpireAfterNonTextMax {
-			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than max")
+			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than nontext-max")
 		}
-		if config.FileExpireAfterTextMax > 0 && config.FileExpireAfterNonTextMax > config.FileExpireAfterTextMax {
-			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': max value cannot be larger than text-max")
+		if config.FileExpireAfterTextMax > 0 && config.FileExpireAfterDefault > config.FileExpireAfterTextMax {
+			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than text-max")
 		}
 	}
 

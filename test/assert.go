@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 // StrEquals tests two strings for equality and fails t if they are not equal
@@ -22,24 +23,31 @@ func StrContains(t *testing.T, s string, substr string) {
 	}
 }
 
-// Int64Equals tests if two int64s for equality and fails t if they are not equal
+// Int64Equals tests if two int64s match and fails t if they are not equal
 func Int64Equals(t *testing.T, expected int64, actual int64) {
 	if actual != expected {
 		t.Fatalf("expected %d, got %d", expected, actual)
 	}
 }
 
-// BoolEquals tests if two bools for equality and fails t if they are not equal
+// BoolEquals tests if two bools match and fails t if they are not equal
 func BoolEquals(t *testing.T, expected bool, actual bool) {
 	if actual != expected {
 		t.Fatalf("expected %t, got %t", expected, actual)
 	}
 }
 
-// BytesEquals tests if two byte arrays for equality and fails t if they are not equal
+// BytesEquals tests if two byte arrays match and fails t if they are not equal
 func BytesEquals(t *testing.T, expected []byte, actual []byte) {
 	if !bytes.Equal(actual, expected) {
 		t.Fatalf("expected %x, got %x", expected, actual)
+	}
+}
+
+// DurationEquals tests if two durations match and fails t if they are not equal
+func DurationEquals(t *testing.T, expected time.Duration, actual time.Duration) {
+	if actual != expected {
+		t.Fatalf("expected %d, got %d", expected, actual)
 	}
 }
 
