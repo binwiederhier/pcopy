@@ -16,6 +16,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -365,35 +366,73 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 	test.BoolEquals(t, true, time.Until(time.Unix(info.Expires, 0)) <= 2*time.Minute)
 }
 
-func TestServer_HandleClipboardPutWithTextWithTooLargeTTL(t *testing.T) {
+func TestServer_HandleClipboardPutTextWithTooLargeTTL(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
-	//conf.FileExpireAfterNonTextMax = time.Hour
-	// TODO
-	conf.FileExpireAfterTextMax = time.Hour
+	conf.FileExpireAfterDefault = time.Minute
+	conf.FileExpireAfterNonTextMax = time.Hour
+	conf.FileExpireAfterTextMax = 2 * time.Hour
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", nil)
-	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
-
-	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL")) // TODO X-TTL is inconsistent: request expects a human format, response is seconds
-	test.Int64Equals(t, int64(time.Hour), int64(time.Second*time.Duration(ttl)))
-}
-
-func TestServer_HandleClipboardPutWithoutTTL(t *testing.T) {
-	_, conf := configtest.NewTestConfig(t)
-	conf.FileExpireAfterDefault = time.Hour
-	conf.FileExpireAfterNonTextMax = 2 * time.Hour
-	server := newTestServer(t, conf)
-
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/no-ttl", nil)
+	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", nil) // empty file is "text"
 	server.Handle(rr, req)
 	test.Status(t, rr, http.StatusOK)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
-	test.Int64Equals(t, int64(time.Hour), int64(time.Second*time.Duration(ttl))) // must be 1h, not 2h
+	test.DurationEquals(t, 2 * time.Hour, time.Second*time.Duration(ttl))
+}
+
+func TestServer_HandleClipboardPutLongTextWithTooLargeTTL(t *testing.T) {
+	// If the text is longer than 512 KB, it is treated like non-text
+
+	_, conf := configtest.NewTestConfig(t)
+	conf.FileExpireAfterDefault = time.Minute
+	conf.FileExpireAfterNonTextMax = time.Hour
+	conf.FileExpireAfterTextMax = 2 * time.Hour
+	server := newTestServer(t, conf)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", strings.NewReader(strings.Repeat("12345", 120000))) // > 512 KB
+	server.Handle(rr, req)
+	test.Status(t, rr, http.StatusOK)
+
+	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
+	test.DurationEquals(t, time.Hour, time.Second*time.Duration(ttl))
+}
+
+func TestServer_HandleClipboardPutNonTextWithTooLargeTTL(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.FileExpireAfterDefault = time.Minute
+	conf.FileExpireAfterNonTextMax = time.Hour
+	conf.FileExpireAfterTextMax = 2 * time.Hour
+	server := newTestServer(t, conf)
+
+	body := make([]byte, 100)
+	rand.Read(body)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", bytes.NewReader(body))
+	server.Handle(rr, req)
+	test.Status(t, rr, http.StatusOK)
+
+	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
+	test.DurationEquals(t, time.Hour, time.Second*time.Duration(ttl))
+}
+
+func TestServer_HandleClipboardTextPutWithoutTTL(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.FileExpireAfterDefault = time.Minute
+	conf.FileExpireAfterNonTextMax = time.Hour
+	conf.FileExpireAfterTextMax = 2 * time.Hour
+	server := newTestServer(t, conf)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("PUT", "/no-ttl", nil) // empty body is "text"
+	server.Handle(rr, req)
+	test.Status(t, rr, http.StatusOK)
+
+	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
+	test.DurationEquals(t, time.Minute, time.Second*time.Duration(ttl))
 }
 
 func TestServer_HandleClipboardPutLargeFailed(t *testing.T) {
