@@ -230,8 +230,8 @@ func (c *Clipboard) WriteFile(id string, meta *File, rc io.ReadCloser) error {
 			return ErrBrokenPipe
 		}
 		return err // most likely this is errLimitReached
-
 	}
+
 	if err := rc.Close(); err != nil {
 		c.DeleteFile(id)
 		return err

@@ -365,9 +365,11 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 	test.BoolEquals(t, true, time.Until(time.Unix(info.Expires, 0)) <= 2*time.Minute)
 }
 
-func TestServer_HandleClipboardPutWithTooLargeTTL(t *testing.T) {
+func TestServer_HandleClipboardPutWithTextWithTooLargeTTL(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
-	conf.FileExpireAfterMax = time.Hour
+	//conf.FileExpireAfterMax = time.Hour
+	// TODO
+	conf.FileExpireAfterTextMax = time.Hour
 	server := newTestServer(t, conf)
 
 	rr := httptest.NewRecorder()

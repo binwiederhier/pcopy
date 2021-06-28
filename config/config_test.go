@@ -113,7 +113,7 @@ ClipboardDir %s
 ClipboardSizeLimit 10M
 ClipboardCountLimit 101
 FileSizeLimit 123k
-FileExpireAfter 10d/12d
+FileExpireAfter 10d 12d 13d
 FileModesAllowed ro rw
 `, keyFile, certFile, dir)))
 	if err != nil {
@@ -133,6 +133,7 @@ FileModesAllowed ro rw
 	test.Int64Equals(t, 123*1024, config.FileSizeLimit)
 	test.Int64Equals(t, 10*24, int64(config.FileExpireAfter.Hours()))
 	test.Int64Equals(t, 12*24, int64(config.FileExpireAfterMax.Hours()))
+	test.Int64Equals(t, 13*24, int64(config.FileExpireAfterTextMax.Hours()))
 	test.StrEquals(t, "ro", config.FileModesAllowed[0])
 	test.StrEquals(t, "rw", config.FileModesAllowed[1])
 }
@@ -152,7 +153,8 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	config.ClipboardSizeLimit = 9876
 	config.FileSizeLimit = 777
 	config.FileExpireAfter = time.Hour
-	config.FileExpireAfterMax = 0
+	config.FileExpireAfterMax = 7 * time.Hour
+	config.FileExpireAfterTextMax = 0
 	config.FileModesAllowed = []string{"ro", "rw"}
 
 	filename := filepath.Join(t.TempDir(), "some.conf")
@@ -176,7 +178,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 	test.StrContains(t, contents, "ClipboardCountLimit 1234")
 	test.StrContains(t, contents, "ClipboardSizeLimit 9876")
 	test.StrContains(t, contents, "FileSizeLimit 777")
-	test.StrContains(t, contents, "FileExpireAfter 1h/0")
+	test.StrContains(t, contents, "FileExpireAfter 1h 7h 0")
 	test.StrContains(t, contents, "FileModesAllowed ro rw")
 }
 

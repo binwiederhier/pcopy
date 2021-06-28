@@ -16,7 +16,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -32,7 +31,6 @@ import (
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/util"
 	htmltemplate "html/template"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -42,6 +40,7 @@ import (
 	"sync"
 	"text/template"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -112,6 +111,7 @@ const (
 	defaultMaxAuthAge   = time.Minute
 	visitorExpungeAfter = 30 * time.Minute
 	reserveTTL          = 10 * time.Second
+	peakLimitBytes      = 512 * 1024
 )
 
 var (
@@ -395,7 +395,21 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	// Read query params
+	// Peak body, i.e. read up to 512 KB of the body into memory. This is needed two things:
+	//
+	// 1. Text-only TTL: to be able to determine if the body is UTF-8, we need to read it all. I have not figured
+	//    out how to do this in a stream, so we only support long TTLs for short texts.
+	// 2. Immediate headers (HeaderStreamImmediateHeaders): For very short POST payloads, "curl -d.." will
+	//    (obviously) not send the "Expect: 100-continue" header, so the body is immediately consumed and closed
+	//    by Go's HTTP server, yielding a http.ErrBodyReadAfterClose error. To counter this behavior in streaming mode,
+	//    we consume the entire request body if it is short enough. In practice, curl will send "Expect: 100-continue"
+	//    for anything > ~1400 bytes.
+	body, err := util.Peak(r.Body, peakLimitBytes)
+	if err != nil {
+		return err
+	}
+
+	// Read query params & peak body
 	format := s.getOutputFormat(r)
 	reserve := s.isReserve(r)
 	streamMode, err := s.getStreamMode(r)
@@ -406,7 +420,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return err
 	}
-	ttl, err := s.getTTL(r)
+	ttl, err := s.getTTL(r, body)
 	if err != nil {
 		return err
 	}
@@ -441,12 +455,6 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
-	// Handle empty body
-	body := r.Body
-	if body == nil {
-		body = io.NopCloser(strings.NewReader(""))
-	}
-
 	// If this is a stream, make fifo device instead of file if type is set to "fifo".
 	// Also, we want to immediately output instructions.
 	if streamMode != HeaderStreamDisabled {
@@ -454,19 +462,8 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 			return err
 		}
 		if streamMode == HeaderStreamImmediateHeaders {
-			// Oh wow here comes a hack: for very short POST payloads, "curl -d.." will (obviously) not send the
-			// "Expect: 100-continue" header, so the body is immediately consumed and closed by Go's HTTP server,
-			// yielding a http.ErrBodyReadAfterClose error. To counter this behavior in streaming mode, we consume
-			// the entire request body if it is short enough (<50 KB). In practice, curl will send "Expect: 100-continue"
-			// for anything > ~1400 bytes.
-			if r.Header.Get("Expect") == "" && r.ContentLength < 50*1024 {
-				buf := make([]byte, r.ContentLength)
-				_, err := io.ReadFull(body, buf)
-				if err != nil {
-					return err
-				}
-				body = io.NopCloser(bytes.NewReader(buf))
-			}
+			// For this to work with curl, we have to have peaked the body for short payloads, since we're technically
+			// writing a response before fully reading the body. See above when we peak the body.
 			if err := s.writeFileInfoOutput(w, id, expires, ttl, format, secret); err != nil {
 				return err
 			}
@@ -583,9 +580,11 @@ func (s *Server) getFileMode(r *http.Request) (string, error) {
 	return "", ErrHTTPBadRequest
 }
 
-func (s *Server) getTTL(r *http.Request) (time.Duration, error) {
+func (s *Server) getTTL(r *http.Request, peakedBody *util.PeakedReadCloser) (time.Duration, error) {
 	var err error
 	var ttl time.Duration
+
+	// Get the TTL
 	if r.URL.Query().Get(queryParamTTL) != "" {
 		ttl, err = util.ParseDuration(r.URL.Query().Get(queryParamTTL))
 	} else if r.Header.Get(HeaderTTL) != "" {
@@ -596,8 +595,17 @@ func (s *Server) getTTL(r *http.Request) (time.Duration, error) {
 	if err != nil {
 		return 0, ErrHTTPBadRequest
 	}
-	if s.config.FileExpireAfterMax > 0 && ttl > s.config.FileExpireAfterMax {
-		ttl = s.config.FileExpireAfterMax
+
+	// If the given TTL is larger than the max allowed value, set it to the max value.
+	// Special handling for text: if the body is a short text (as per our peaking), the text max value applies.
+	// It may be a little inefficient to always check for UTF-8, but I think it's fine.
+	expireAfterMax := s.config.FileExpireAfterMax
+	isShortText := !peakedBody.LimitReached && utf8.Valid(peakedBody.Peaked)
+	if isShortText {
+		expireAfterMax = s.config.FileExpireAfterTextMax
+	}
+	if expireAfterMax > 0 && ttl > expireAfterMax {
+		ttl = expireAfterMax
 	}
 	return ttl, nil
 }
