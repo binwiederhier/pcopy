@@ -379,7 +379,7 @@ func TestServer_HandleClipboardPutTextWithTooLargeTTL(t *testing.T) {
 	test.Status(t, rr, http.StatusOK)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
-	test.DurationEquals(t, 2 * time.Hour, time.Second*time.Duration(ttl))
+	test.DurationEquals(t, 2*time.Hour, time.Second*time.Duration(ttl))
 }
 
 func TestServer_HandleClipboardPutLongTextWithTooLargeTTL(t *testing.T) {
