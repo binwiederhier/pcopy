@@ -26,6 +26,7 @@ To see what else pcopy can do, check out the **[live demo](#demo)** (aka [nopast
 * 🌎 Simple [Web UI](#web-ui-for-uploading-text-snippets-or-large-files) for uploading text snippets or large files
 * 🔗 Direct temporary links to clipboard content (with TTL/expiration) 
 * 💻 No-install `curl`-compatible clipboard usage (e.g. `curl nopaste.net`)
+* 👁️ Browser-only links that store your data in the URL fragment 
 
 ![pcopy demo](assets/demo-simple.gif)
 
@@ -181,13 +182,13 @@ can download the clipboard content without downloading the client or using any c
 ```bash
 $ pcopy link hi-there
 # Direct link (valid for 2d, expires 2021-01-29 22:35:09 -0500 EST)
-https://nopaste.net/hi-there?a=SE1BQyAxNjA5MTg0MjY1IDM2MDA...
+https://nopaste.net/hi-there?a=SE1BQyA
 
 # Paste via pcopy (you may need a prefix)
 ppaste hi-there 
 
 # Paste via curl
-curl -sSL 'https://nopaste.net/hi-there?a=SE1BQyAxNjA5MTg0MjY1IDM2MDA...'
+curl -sSL 'https://nopaste.net/hi-there?a=SE1BQyAxNjA'
 ```
 
 ### Limiting clipboard usage
@@ -200,6 +201,34 @@ to avoid abuse:
 * `FileExpireAfter`: Limits the age of a file (after which they will be deleted)
 
 The [demo clipboard](#demo) uses these settings very restrictively to avoid abuse.
+
+### Browser-only links that store your data in the URL fragment
+
+Inspired by [nopaste.ml](https://nopaste.ml) and [paste](https://github.com/topaz/paste), pcopy also supports links that 
+store all data in the URL fragment/anchor (the part in the URL after the `#`) and not on the server. 
+
+When the "Client-side" checkbox is checked in the Web UI, pcopy compresses the text in the editor using LZMA and then 
+encodes the result using Base64, e.g. `https://nopaste.net/#XQAAAQAKAA...`. As long as you have this link, this text can
+never be deleted and never expires.
+
+Here's an [example](https://nopaste.net/#XQAAAQD/AAAAAAAAAAAkGkAHQ30IXZA3jeQkZZItfPikpd4KaJ5EwL+3jkWf1npuHdpK3Miq3nr2jWTqjzbcQcfEp1beN+JG4OrP2U1B05NIVqx4SK5oEeVjzYaQ7c+ZeI6M28viSMa1/EwPhNjrfvPpa8sNufdVJxUtZX1KphQKpZwAO5ShztZNvnpvpsf2KTtyHw6z4Ybm/nBAKzuJF3fCz1qTnAuGTHA91Kp0s7GbEBP5bGgGNSsqaWesKd9AE59x0Uf27+z+dRdxLev/9U/BQw==). 
+When you open the link, pcopy reads, decodes, and decompresses whatever is after the `#`, and displays the result in the editor.
+This process is done entirely in your browser, and the web server hosting pcopy never has access to the fragment.
+
+The link is also compatible with the original implementations. Here's the same example for [nopaste.ml](https://nopaste.ml/#XQAAAQD/AAAAAAAAAAAkGkAHQ30IXZA3jeQkZZItfPikpd4KaJ5EwL+3jkWf1npuHdpK3Miq3nr2jWTqjzbcQcfEp1beN+JG4OrP2U1B05NIVqx4SK5oEeVjzYaQ7c+ZeI6M28viSMa1/EwPhNjrfvPpa8sNufdVJxUtZX1KphQKpZwAO5ShztZNvnpvpsf2KTtyHw6z4Ybm/nBAKzuJF3fCz1qTnAuGTHA91Kp0s7GbEBP5bGgGNSsqaWesKd9AE59x0Uf27+z+dRdxLev/9U/BQw==)
+and for [topaz's paste](https://topaz.github.io/paste/#XQAAAQD/AAAAAAAAAAAkGkAHQ30IXZA3jeQkZZItfPikpd4KaJ5EwL+3jkWf1npuHdpK3Miq3nr2jWTqjzbcQcfEp1beN+JG4OrP2U1B05NIVqx4SK5oEeVjzYaQ7c+ZeI6M28viSMa1/EwPhNjrfvPpa8sNufdVJxUtZX1KphQKpZwAO5ShztZNvnpvpsf2KTtyHw6z4Ybm/nBAKzuJF3fCz1qTnAuGTHA91Kp0s7GbEBP5bGgGNSsqaWesKd9AE59x0Uf27+z+dRdxLev/9U/BQw==).
+
+You can also generate the links from the command line (thanks to nopaste.ml for this):
+```
+# Linux
+echo -n 'Hello World' | lzma | base64 -w0 | xargs -0 printf "https://nopaste.net/#%s\n"
+
+# Mac
+echo -n 'Hello World' | lzma | base64 | xargs -0 printf "https://nopaste.net/#%s\n"
+
+# Windows / WSL / Linux
+echo -n 'Hello World' | xz --format=lzma | base64 -w0 | printf "https://nopaste.net/#%s\n" "$(cat -)"
+```
 
 ### Docker usage
 To use the [pcopy image](https://hub.docker.com/r/binwiederhier/pcopy), simply pull it and set up a few 
