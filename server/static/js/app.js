@@ -49,7 +49,10 @@ let infoStreamTitleActive = document.getElementById("info-stream-title-active")
 
 let infoClientSideHeaderActive = document.getElementById("info-clientside-header-active")
 let infoClientSideHeaderFinished = document.getElementById("info-clientside-header-finished")
+let infoClientSideLonglinkParagraph = document.getElementById("info-clientside-header-longlink")
+let infoClientSideLonglinkLength = document.getElementById("info-clientside-header-longlink-length")
 let infoClientSideTitleActive = document.getElementById("info-clientside-title-active")
+
 
 let infoExpireNever = document.getElementById("info-expire-never")
 let infoExpireSometime = document.getElementById("info-expire-sometime")
@@ -257,18 +260,19 @@ function changeClientSideEnabled(enabled) {
     }
 }
 
-let base64 = location.hash.substr(1);
-if (base64.length > 0) {
-    if (!clientSideEnabled()) {
-        headerClientSide.checked = true
-        changeClientSideEnabled(true)
+function handleHashChange() {
+    let base64 = location.hash.substr(1);
+    if (base64.length > 0) {
+        hideInfoArea()
+        if (!clientSideEnabled()) {
+            headerClientSide.checked = true
+            changeClientSideEnabled(true)
+        }
+        decompressClientSide(base64)
     }
-    decompressClientSide(base64)
 }
 
 function decompressClientSide(base64) {
-    text.value = 'Loading ...'
-
     const lzma = new LZMA("static/vendor/lzma_worker.js");
     const req = new XMLHttpRequest();
     req.open('GET', 'data:application/octet;base64,' + base64);
@@ -280,12 +284,15 @@ function decompressClientSide(base64) {
                 text.value = result
             },
             (progress) => {
-                text.value = Math.round(progress * 100.0) + '%';
+                //text.value = Math.round(progress * 100.0) + '%';
             }
         );
     };
     req.send();
 }
+
+window.addEventListener("hashchange", handleHashChange, false);
+handleHashChange()
 
 /* TTL dropdown */
 
@@ -511,6 +518,13 @@ function updateLinkFields(file, url, curl, ttl, expires, nameHint) {
     }
 
     if (clientSideEnabled()) {
+        // Google Chrome "limit", see https://github.com/bokub/nopaste
+        if (url.length > 10000) {
+            infoClientSideLonglinkLength.innerHTML = numberWithCommas(url.length) + ' characters'
+            infoClientSideLonglinkParagraph.classList.remove('hidden')
+        } else {
+            infoClientSideLonglinkParagraph.classList.add('hidden')
+        }
         infoTabGroupViewDownload.classList.add('hidden')
         infoCommandDirectLink.value = url
         infoCommandDirectLinkClientSide.href = url
@@ -966,4 +980,8 @@ function prependQueryParam(url, k, v) {
     } else {
         return `${u.origin}${u.pathname}?${k}=${encodeURIComponent(v)}`
     }
+}
+
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
