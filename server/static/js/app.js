@@ -130,7 +130,7 @@ function logout() {
 /* Drag & drop */
 
 function showDropZone() {
-    if (allowSubmit) {
+    if (allowSubmit()) {
         dropArea.style.visibility = "visible";
         hideInfoArea()
     }
@@ -141,7 +141,7 @@ function hideDropZone() {
 }
 
 function allowDrag(e) {
-    if (allowSubmit) {
+    if (allowSubmit()) {
         e.dataTransfer.dropEffect = 'copy';
         e.preventDefault();
     }
@@ -176,22 +176,30 @@ headerFileId.value = ''
 
 /* File ID: input validation */
 
-let allowSubmit = true
 headerFileId.addEventListener('keyup', fileIdChanged)
 headerFileId.addEventListener('paste', fileIdChanged)
 
 function fileIdChanged(e) {
-    let textValid = headerFileId.value === "" || /^[0-9a-z][-_.0-9a-z]*$/i.test(headerFileId.value)
-    if (textValid) {
-        allowSubmit = true
+    if (textValid()) {
         headerFileId.classList.remove('error')
         headerSaveButton.disabled = false
         headerUploadButton.disabled = false
     } else {
-        allowSubmit = false
         headerFileId.classList.add('error')
         headerSaveButton.disabled = true
         headerUploadButton.disabled = true
+    }
+}
+
+function textValid() {
+    return headerFileId.value === "" || /^[0-9a-z][-_.0-9a-z]*$/i.test(headerFileId.value)
+}
+
+function allowSubmit() {
+    if (clientSideEnabled()) {
+        return false
+    } else {
+        return textValid()
     }
 }
 
@@ -241,7 +249,7 @@ function changeClientSideEnabled(enabled) {
         headerStream.disabled = true
         headerUploadButton.disabled = true
     } else {
-        changeRandomFileIdEnabled(headerFileId.checked)
+        changeRandomFileIdEnabled(randomFileNameEnabled())
         headerRandomFileId.disabled = false
         headerTTL.disabled = false
         headerStream.disabled = false
@@ -384,7 +392,6 @@ async function saveClientSide() {
             reader.onload = () => {
                 const data = reader.result.substr(reader.result.indexOf(',') + 1)
                 const url = `${location.protocol}//${location.host}${location.pathname}#${data}`;
-                location.href = url // update #anchor
                 progressFinish(200, "", url, "", 0, false)
             };
             reader.readAsDataURL(new Blob([new Uint8Array(compressed)]));
@@ -396,7 +403,7 @@ async function saveClientSide() {
 }
 
 async function saveServerSide() {
-    if (!allowSubmit) {
+    if (!allowSubmit()) {
         return
     }
 
@@ -632,7 +639,7 @@ async function reserveAndUpdateLinkFields(file, nameHint) {
 }
 
 async function uploadFile(file) {
-    if (!allowSubmit) {
+    if (!allowSubmit()) {
         return
     }
 
