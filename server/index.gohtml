@@ -103,7 +103,7 @@
             </div>
             <div class="col"></div>
             <div class="col-auto col-last">
-                <button id="info-button" class="button">Info</button>
+                <button id="info-button" class="button">What is this?</button>
                 <button id="save-button" class="button">Save</button>
                 <button id="upload-button" class="button">Upload</button>
                 <button id="logout-button" class="button hidden">Logout</button>
@@ -122,11 +122,16 @@
             <div class="tc">
                 <div id="info-box">
                     <a id="info-close-button" href=""><svg width="20" height="20" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 96 96" enable-background="new 0 0 96 96" xml:space="preserve"><polygon fill="#AAAAAB" points="96,14 82,0 48,34 14,0 0,14 34,48 0,82 14,96 48,62 82,96 96,82 62,48 "/></svg></a>
-                    <div id="info-help-header" class="info-header">
-                        <h2>Join this clipboard</h2>
+                    <div id="info-help-header" class="info-header info-what-is-this">
+                        <h2>What is {{.Config.ClipboardName | htmlEscape}}?</h2>
                         <p>
-                            To join this clipboard, <a href="https://github.com/binwiederhier/pcopy#installation">install pcopy</a>
-                            and then run the following command:
+                            {{.Config.ClipboardName | htmlEscape}} is a temporary file host, nopaste and clipboard across machines. It is based on the open source software
+                            <a href="https://github.com/binwiederhier/pcopy">pcopy</a>.
+                        </p>
+                        <h2>Usage</h2>
+                        <p>
+                            You can use this clipboard from this web UI, <a href="{{.Config.ServerAddr | expandServerAddr}}/curl">via curl</a> (type <tt>curl {{.Config.ServerAddr}}</tt>, or
+                            using the <tt>pcopy</tt> CLI (<a href="https://github.com/binwiederhier/pcopy#installation">install instructions</a>):
                         </p>
                         <div class="code-area">
                             <input id="info-command-join" class="code-box" readonly />

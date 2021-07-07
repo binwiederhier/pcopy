@@ -270,6 +270,7 @@ func (s *Server) routeList() []route {
 	fileRoute := "/" + clipboard.FileRegexPart
 	s.routes = []route{
 		newRoute("GET", "/", s.limit(s.handleRoot)),
+		newRoute("GET", "/curl", s.limit(s.handleCurlRoot)),
 		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("GET", "/static/.+", s.limit(s.handleStatic)),
@@ -298,7 +299,9 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 		Salt:       salt,
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+
 	return json.NewEncoder(w).Encode(response)
 }
 

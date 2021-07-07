@@ -36,7 +36,7 @@ var (
 	ErrInvalidFileID = errors.New("invalid file id")
 
 	validIDRegex               = regexp.MustCompile("^" + FileRegexPart + "$")
-	reservedFiles              = []string{"help", "version", "info", "verify", "random", "static", "robots.txt", "favicon.ico"}
+	reservedFiles              = []string{"help", "version", "info", "verify", "random", "curl", "static", "robots.txt", "favicon.ico"}
 	errClipboardDirNotWritable = errors.New("clipboard dir not writable by user")
 )
 
