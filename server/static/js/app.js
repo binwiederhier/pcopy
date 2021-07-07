@@ -204,7 +204,11 @@ function changeRandomFileIdEnabled(enabled) {
     } else {
         headerFileId.value = previousFileId
         headerFileId.disabled = false
-        headerFileId.placeholder = 'default (optional)'
+        if (config.DefaultID) {
+            headerFileId.placeholder = getFileId() + ' (optional)'
+        } else {
+            headerFileId.placeholder = 'default (optional)'
+        }
     }
 }
 
@@ -724,7 +728,15 @@ function clearKey() {
 }
 
 function getFileId() {
-    return (randomFileNameEnabled()) ? "" : (headerFileId.value || 'default')
+    if (randomFileNameEnabled()) {
+        return ""
+    } else if (headerFileId.value) {
+        return headerFileId.value
+    } else if (config.DefaultID) {
+        return config.DefaultID
+    } else {
+        return "default"
+    }
 }
 
 function storeRandomFileIdEnabled(randomFileId) {

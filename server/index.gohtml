@@ -248,6 +248,7 @@
 
 <script>
     let config = {
+        DefaultID: "{{.Config.DefaultID}}",
         KeySalt: "{{if .Config.Key}}{{.Config.Key.Salt | encodeBase64}}{{end}}",
         KeyDerivIter: {{.KeyDerivIter}},
         KeyLenBytes: {{.KeyLenBytes}},

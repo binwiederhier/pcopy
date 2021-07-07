@@ -118,6 +118,17 @@ func TestServer_HandleCurlRoot(t *testing.T) {
 	test.StrContains(t, rr.Body.String(), "This is is the curl-endpoint for pcopy")
 }
 
+func TestServer_HandleCurlRootFromEndpoint(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	server := newTestServer(t, conf)
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/curl", nil)
+	server.Handle(rr, req)
+
+	test.StrContains(t, rr.Body.String(), "This is is the curl-endpoint for pcopy")
+}
+
 func TestServer_HandleWebRoot(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
@@ -128,7 +139,7 @@ func TestServer_HandleWebRoot(t *testing.T) {
 	server.Handle(rr, req)
 
 	test.Status(t, rr, http.StatusOK)
-	if !strings.Contains(rr.Body.String(), "<html") {
+	if !strings.Contains(rr.Body.String(), "</html>") { // Check for </html> to ensure rendering completed
 		t.Fatalf("expected html, got: %s", rr.Body.String())
 	}
 }
