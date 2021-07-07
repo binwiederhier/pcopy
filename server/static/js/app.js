@@ -19,6 +19,7 @@ let headerLogoutButton = document.getElementById("logout-button")
 let headerFileId = document.getElementById("file-id")
 let headerRandomFileId = document.getElementById("random-file-id")
 let headerStream = document.getElementById("stream")
+let headerClientSide = document.getElementById("client-side")
 let headerTTL = document.getElementById("ttl")
 let headerUploadButton = document.getElementById("upload-button")
 let headerFileUpload = document.getElementById("file-upload")
@@ -46,6 +47,10 @@ let infoStreamHeaderFinished = document.getElementById("info-stream-header-finis
 let infoStreamHeaderInterrupted = document.getElementById("info-stream-header-interrupted")
 let infoStreamTitleActive = document.getElementById("info-stream-title-active")
 
+let infoClientSideHeaderActive = document.getElementById("info-clientside-header-active")
+let infoClientSideHeaderFinished = document.getElementById("info-clientside-header-finished")
+let infoClientSideTitleActive = document.getElementById("info-clientside-title-active")
+
 let infoExpireNever = document.getElementById("info-expire-never")
 let infoExpireSometime = document.getElementById("info-expire-sometime")
 let infoExpireTTL = document.getElementById("info-expire-ttl")
@@ -59,13 +64,16 @@ let infoErrorTextNotAllowed = document.getElementById("info-error-text-not-allow
 let infoLinks = document.getElementById("info-links")
 let infoDirectLinkStream = document.getElementById("info-direct-link-stream")
 let infoDirectLinkDownload = document.getElementById("info-direct-link-download")
+let infoTabGroupViewDownload = document.getElementById("info-tabgroup-view-download")
 let infoTabLinkView = document.getElementById("info-tab-link-view")
 let infoTabLinkDownload = document.getElementById("info-tab-link-download")
 let infoTabLinkPcopy = document.getElementById("info-tab-link-pcopy")
 let infoTabLinkCurl = document.getElementById("info-tab-link-curl")
 let infoCommandDirectLink = document.getElementById("info-command-link")
+let infoCommandDirectLinkClientSide = document.getElementById("info-clientside-direct-link")
 let infoCommandDirectLinkCopy = document.getElementById("info-command-link-copy")
 let infoCommandDirectLinkTooltip = document.getElementById("info-command-link-tooltip")
+let infoCommandLineContainer = document.getElementById("info-command-line-container")
 let infoCommandLine = document.getElementById("info-command-line")
 let infoCommandLineCopy = document.getElementById("info-command-line-copy")
 let infoCommandLineTooltip = document.getElementById("info-command-line-tooltip")
@@ -217,6 +225,60 @@ function changeRandomFileIdEnabled(enabled) {
 headerStream.checked = streamEnabled()
 headerStream.addEventListener('change', (e) => { storeStreamEnabled(e.target.checked) })
 
+/* Client-side checkbox */
+
+headerClientSide.checked = clientSideEnabled()
+headerClientSide.addEventListener('change', (e) => { changeClientSideEnabled(e.target.checked) })
+changeClientSideEnabled(clientSideEnabled())
+
+function changeClientSideEnabled(enabled) {
+    storeClientSideEnabled(enabled)
+    if (enabled) {
+        headerFileId.disabled = true
+        headerFileId.placeholder = '(unavailable)'
+        headerRandomFileId.disabled = true
+        headerTTL.disabled = true
+        headerStream.disabled = true
+        headerUploadButton.disabled = true
+    } else {
+        changeRandomFileIdEnabled(headerFileId.checked)
+        headerRandomFileId.disabled = false
+        headerTTL.disabled = false
+        headerStream.disabled = false
+        headerUploadButton.disabled = false
+    }
+}
+
+let base64 = location.hash.substr(1);
+if (base64.length > 0) {
+    if (!clientSideEnabled()) {
+        headerClientSide.checked = true
+        changeClientSideEnabled(true)
+    }
+    decompressClientSide(base64)
+}
+
+function decompressClientSide(base64) {
+    text.value = 'Loading ...'
+
+    const lzma = new LZMA("static/vendor/lzma_worker.js");
+    const req = new XMLHttpRequest();
+    req.open('GET', 'data:application/octet;base64,' + base64);
+    req.responseType = 'arraybuffer';
+    req.onload = (e) => {
+        lzma.decompress(
+            new Uint8Array(e.target.response),
+            (result, err) => {
+                text.value = result
+            },
+            (progress) => {
+                text.value = Math.round(progress * 100.0) + '%';
+            }
+        );
+    };
+    req.send();
+}
+
 /* TTL dropdown */
 
 headerTTL.addEventListener('change', (e) => {
@@ -296,6 +358,44 @@ function keyHandler(e) {
 }
 
 async function save() {
+    if (clientSideEnabled()) {
+        await saveClientSide()
+    } else {
+        await saveServerSide()
+    }
+}
+
+async function saveClientSide() {
+    const lzma = new LZMA("static/vendor/lzma_worker.js");
+    let body = text.value
+
+    progressStart()
+
+    // Thank you to Boris K of https://nopaste.ml for this code, https://github.com/bokub/nopaste (MIT)
+    lzma.compress(
+        body,
+        1, // level
+        (compressed, err) => {
+            if (err) {
+                progressFailed(400)
+                return
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                const data = reader.result.substr(reader.result.indexOf(',') + 1)
+                const url = `${location.protocol}//${location.host}${location.pathname}#${data}`;
+                location.href = url // update #anchor
+                progressFinish(200, "", url, "", 0, false)
+            };
+            reader.readAsDataURL(new Blob([new Uint8Array(compressed)]));
+        },
+        (progress) => {
+            progressUpdate(Math.round(progress * 100.0))
+        }
+    )
+}
+
+async function saveServerSide() {
     if (!allowSubmit) {
         return
     }
@@ -373,7 +473,11 @@ function handleFile(file) {
 function progressStart() {
     progressHideHeaders()
 
-    if (streamEnabled()) {
+    if (clientSideEnabled()) {
+        infoClientSideTitleActive.innerHTML = 'Compressing ...'
+        infoLinks.classList.add('hidden')
+        infoClientSideHeaderActive.classList.remove('hidden')
+    } else if (streamEnabled()) {
         infoStreamTitleActive.innerHTML = 'Streaming ...'
         infoLinks.classList.remove('hidden')
         infoStreamHeaderActive.classList.remove('hidden')
@@ -398,42 +502,56 @@ function updateLinkFields(file, url, curl, ttl, expires, nameHint) {
     } else {
         infoCommandDirectLink.dataset.download = prependQueryParam(url, 'd', 1)
     }
-    if (getLinkTab() === 'download') {
-        infoTabLinkView.classList.remove('tab-active')
-        infoTabLinkDownload.classList.add('tab-active')
-        infoCommandDirectLink.value = infoCommandDirectLink.dataset.download
-    } else {
-        infoTabLinkView.classList.add('tab-active')
-        infoTabLinkDownload.classList.remove('tab-active')
-        infoCommandDirectLink.value = infoCommandDirectLink.dataset.view
-    }
 
-    infoCommandLine.dataset.pcopy = file === "default" ? 'ppaste' : 'ppaste ' + file
-    infoCommandLine.dataset.curl = curl
-    if (getPasteTab() === 'curl') {
-        infoTabLinkPcopy.classList.remove('tab-active')
-        infoTabLinkCurl.classList.add('tab-active')
-        infoCommandLine.value = infoCommandLine.dataset.curl
+    if (clientSideEnabled()) {
+        infoTabGroupViewDownload.classList.add('hidden')
+        infoCommandDirectLink.value = url
+        infoCommandDirectLinkClientSide.href = url
     } else {
-        infoTabLinkPcopy.classList.add('tab-active')
-        infoTabLinkCurl.classList.remove('tab-active')
-        infoCommandLine.value = infoCommandLine.dataset.pcopy
+        infoTabGroupViewDownload.classList.remove('hidden')
+        if (getLinkTab() === 'download') {
+            infoTabLinkView.classList.remove('tab-active')
+            infoTabLinkDownload.classList.add('tab-active')
+            infoCommandDirectLink.value = infoCommandDirectLink.dataset.download
+        } else {
+            infoTabLinkView.classList.add('tab-active')
+            infoTabLinkDownload.classList.remove('tab-active')
+            infoCommandDirectLink.value = infoCommandDirectLink.dataset.view
+        }
     }
-
-    if (expires === 0) {
-        infoExpireNever.classList.remove('hidden')
-        infoExpireSometime.classList.add('hidden')
+    if (clientSideEnabled()) {
+        infoCommandLineContainer.classList.add('hidden')
     } else {
-        var options = { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-        infoExpireNever.classList.add('hidden')
-        infoExpireSometime.classList.remove('hidden')
-        infoExpireTTL.innerHTML = secondsToHuman(ttl)
-        infoExpireDate.innerHTML = new Date(expires * 1000).toLocaleDateString('en-US', options)
+        infoCommandLineContainer.classList.remove('hidden')
+        infoCommandLine.dataset.pcopy = file === "default" ? 'ppaste' : 'ppaste ' + file
+        infoCommandLine.dataset.curl = curl
+        if (getPasteTab() === 'curl') {
+            infoTabLinkPcopy.classList.remove('tab-active')
+            infoTabLinkCurl.classList.add('tab-active')
+            infoCommandLine.value = infoCommandLine.dataset.curl
+        } else {
+            infoTabLinkPcopy.classList.add('tab-active')
+            infoTabLinkCurl.classList.remove('tab-active')
+            infoCommandLine.value = infoCommandLine.dataset.pcopy
+        }
+
+        if (expires === 0) {
+            infoExpireNever.classList.remove('hidden')
+            infoExpireSometime.classList.add('hidden')
+        } else {
+            var options = { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+            infoExpireNever.classList.add('hidden')
+            infoExpireSometime.classList.remove('hidden')
+            infoExpireTTL.innerHTML = secondsToHuman(ttl)
+            infoExpireDate.innerHTML = new Date(expires * 1000).toLocaleDateString('en-US', options)
+        }
     }
 }
 
 function progressUpdate(progress) {
-    if (streamEnabled()) {
+    if (clientSideEnabled()) {
+        infoClientSideTitleActive.innerHTML = `Compressing ... ${progress}%`
+    } else if (streamEnabled()) {
         infoStreamTitleActive.innerHTML = `Streaming ... ${progress}%`
     } else {
         infoUploadTitleActive.innerHTML = `Uploading ... ${progress}%`
@@ -443,7 +561,11 @@ function progressUpdate(progress) {
 function progressFinish(code, file, url, curl, ttl, expires, nameHint) {
     progressHideHeaders()
 
-    if (streamEnabled()) {
+    if (clientSideEnabled()) {
+        updateLinkFields(file, url, curl, ttl, expires, nameHint)
+        infoLinks.classList.remove('hidden')
+        infoClientSideHeaderFinished.classList.remove('hidden')
+    } else if (streamEnabled()) {
         infoLinks.classList.add('hidden')
         if (code === 206) {
             infoStreamHeaderInterrupted.classList.remove('hidden')
@@ -758,6 +880,18 @@ function storeStreamEnabled(streamEnabled) {
 function streamEnabled() {
     if (localStorage.getItem('streamEnabled') !== null) {
         return localStorage.getItem('streamEnabled') === 'true'
+    } else {
+        return false
+    }
+}
+
+function storeClientSideEnabled(clientSideEnabled) {
+    localStorage.setItem('clientSideEnabled', clientSideEnabled)
+}
+
+function clientSideEnabled() {
+    if (localStorage.getItem('clientSideEnabled') !== null) {
+        return localStorage.getItem('clientSideEnabled') === 'true'
     } else {
         return false
     }

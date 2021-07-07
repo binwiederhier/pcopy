@@ -450,6 +450,11 @@ html, body {
     background: #0074ba;
 }
 
+#header-area select:disabled {
+    background: #54656f;
+    cursor: not-allowed;
+}
+
 #header-area .divider {
     display: inline;
     width: 10px;

@@ -72,16 +72,21 @@
                 <label for="file-id">File name:</label>
                 <input id="file-id" type="text" class="textfield" placeholder="(randomly chosen)"/>
             </div>
-            <div class="col-auto">
+            <div class="col-auto" title="Choose a random file name after uploading the file.">
                 <input id="random-file-id" type="checkbox" checked/>
                 <label for="random-file-id">Random name</label>
             </div>
-            <div class="col-auto">
+            <div class="col-auto" title="Pipe file content through the server without permanently storing it. This is useful for streaming files or if they only ever have to be downloaded once.">
                 <div class="divider"></div>
                 <input id="stream" type="checkbox"/>
                 <label for="stream">Stream</label>
             </div>
-            <div class="col-auto">
+            <div class="col-auto" title="Don't upload or save anything to the server. The file contents will be encoded entirely in the URL. Links cannot be deleted and will never expire.">
+                <div class="divider"></div>
+                <input id="client-side" type="checkbox"/>
+                <label for="client-side">Client side</label>
+            </div>
+            <div class="col-auto" title="Pick a time after which the file will be permanently deleted from the server.">
                 <div class="divider"></div>
                 <label for="ttl">Expires: {{if lt .Config.FileExpireAfterDefault.Seconds 600.0}} {{.Config.FileExpireAfterDefault | durationToHuman}}{{end}}</label>
                 <select id="ttl" class="button">
@@ -130,7 +135,7 @@
                         </p>
                         <h2>Usage</h2>
                         <p>
-                            You can use this clipboard from this web UI, <a href="{{.Config.ServerAddr | expandServerAddr}}/curl">via curl</a> (type <tt>curl {{.Config.ServerAddr}}</tt>, or
+                            You can use this clipboard from this web UI, <a href="{{.Config.ServerAddr | expandServerAddr}}/curl">via curl</a> (type <tt>curl {{.Config.ServerAddr}}</tt>), or
                             using the <tt>pcopy</tt> CLI (<a href="https://github.com/binwiederhier/pcopy#installation">install instructions</a>):
                         </p>
                         <div class="code-area">
@@ -163,6 +168,20 @@
                             the <a href="" id="info-direct-link-download">direct link</a>.
                             <span id="info-expire-never">The file will <b>never expire</b>.</span>
                             <span id="info-expire-sometime">The file will expire in <b id="info-expire-ttl"></b> at <span id="info-expire-date"></span>.</span>
+                        </p>
+                    </div>
+                    <div id="info-clientside-header-active" class="info-header">
+                        <h1 id="info-clientside-title-active">Compressing ...</h1>
+                        <p>
+                            Your file is being compressed. Depending on the file size, this may take a while.
+                            Please be patient. As long as it's moving along, things are fine.
+                        </p>
+                    </div>
+                    <div id="info-clientside-header-finished" class="info-header">
+                        <h1>Your clipboard entry has been saved.</h1>
+                        <p>
+                            You may now share or copy the <a href="" id="info-clientside-direct-link">direct link</a>.
+                            The file is encoded in the link and not stored server-side. It <b>cannot be deleted</b> and it will <b>never expire</b>.
                         </p>
                     </div>
                     <div id="info-stream-header-active" class="info-header">
@@ -213,31 +232,35 @@
                         </div>
                     </div>
                     <div id="info-links">
-                        <p>Direct link:</p>
                         <div>
-                            <a id="info-tab-link-view" href="" class="tab tab-active tab-left">view</a>
-                            <a id="info-tab-link-download" href="" class="tab tab-right">download</a>
+                            <p>Direct link:</p>
+                            <div id="info-tabgroup-view-download">
+                                <a id="info-tab-link-view" href="" class="tab tab-active tab-left">view</a>
+                                <a id="info-tab-link-download" href="" class="tab tab-right">download</a>
+                            </div>
+                            <div class="code-area">
+                                <input id="info-command-link" class="code-box code-box-with-tabs" readonly />
+                                <button id="info-command-link-copy" class="tooltip">
+                                    <span id="info-command-link-tooltip" class="tooltiptext">Copy to clipboard</span>
+                                    <svg fill="#fff" aria-hidden="true" role="img" viewBox="0 0 14 16" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h4v1H2v-1z m5-6H2v1h5v-1z m2 3V7L6 10l3 3V11h5V9H9z m-4.5-1H2v1h2.5v-1zM2 11h2.5v-1H2v1z m9 1h1v2c-0.02 0.28-0.11 0.52-0.3 0.7s-0.42 0.28-0.7 0.3H1c-0.55 0-1-0.45-1-1V3c0-0.55 0.45-1 1-1h3C4 0.89 4.89 0 6 0s2 0.89 2 2h3c0.55 0 1 0.45 1 1v5h-1V5H1v9h10V12zM2 4h8c0-0.55-0.45-1-1-1h-1c-0.55 0-1-0.45-1-1s-0.45-1-1-1-1 0.45-1 1-0.45 1-1 1h-1c-0.55 0-1 0.45-1 1z"></path></svg>
+                                    Copy
+                                </button>
+                            </div>
                         </div>
-                        <div class="code-area">
-                            <input id="info-command-link" class="code-box code-box-with-tabs" readonly />
-                            <button id="info-command-link-copy" class="tooltip">
-                                <span id="info-command-link-tooltip" class="tooltiptext">Copy to clipboard</span>
-                                <svg fill="#fff" aria-hidden="true" role="img" viewBox="0 0 14 16" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h4v1H2v-1z m5-6H2v1h5v-1z m2 3V7L6 10l3 3V11h5V9H9z m-4.5-1H2v1h2.5v-1zM2 11h2.5v-1H2v1z m9 1h1v2c-0.02 0.28-0.11 0.52-0.3 0.7s-0.42 0.28-0.7 0.3H1c-0.55 0-1-0.45-1-1V3c0-0.55 0.45-1 1-1h3C4 0.89 4.89 0 6 0s2 0.89 2 2h3c0.55 0 1 0.45 1 1v5h-1V5H1v9h10V12zM2 4h8c0-0.55-0.45-1-1-1h-1c-0.55 0-1-0.45-1-1s-0.45-1-1-1-1 0.45-1 1-0.45 1-1 1h-1c-0.55 0-1 0.45-1 1z"></path></svg>
-                                Copy
-                            </button>
-                        </div>
-                        <p>Paste to command line:</p>
-                        <div>
-                            <a id="info-tab-link-pcopy" href="" class="tab tab-active tab-left">pcopy</a>
-                            <a id="info-tab-link-curl" href="" class="tab tab-right">curl</a>
-                        </div>
-                        <div class="code-area">
-                            <input id="info-command-line" class="code-box code-box-with-tabs" readonly />
-                            <button id="info-command-line-copy" class="tooltip">
-                                <span id="info-command-line-tooltip" class="tooltiptext">Copy to clipboard</span>
-                                <svg fill="#fff" aria-hidden="true" role="img" viewBox="0 0 14 16" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h4v1H2v-1z m5-6H2v1h5v-1z m2 3V7L6 10l3 3V11h5V9H9z m-4.5-1H2v1h2.5v-1zM2 11h2.5v-1H2v1z m9 1h1v2c-0.02 0.28-0.11 0.52-0.3 0.7s-0.42 0.28-0.7 0.3H1c-0.55 0-1-0.45-1-1V3c0-0.55 0.45-1 1-1h3C4 0.89 4.89 0 6 0s2 0.89 2 2h3c0.55 0 1 0.45 1 1v5h-1V5H1v9h10V12zM2 4h8c0-0.55-0.45-1-1-1h-1c-0.55 0-1-0.45-1-1s-0.45-1-1-1-1 0.45-1 1-0.45 1-1 1h-1c-0.55 0-1 0.45-1 1z"></path></svg>
-                                Copy
-                            </button>
+                        <div id="info-command-line-container">
+                            <p>Paste to command line:</p>
+                            <div>
+                                <a id="info-tab-link-pcopy" href="" class="tab tab-active tab-left">pcopy</a>
+                                <a id="info-tab-link-curl" href="" class="tab tab-right">curl</a>
+                            </div>
+                            <div class="code-area">
+                                <input id="info-command-line" class="code-box code-box-with-tabs" readonly />
+                                <button id="info-command-line-copy" class="tooltip">
+                                    <span id="info-command-line-tooltip" class="tooltiptext">Copy to clipboard</span>
+                                    <svg fill="#fff" aria-hidden="true" role="img" viewBox="0 0 14 16" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M2 12h4v1H2v-1z m5-6H2v1h5v-1z m2 3V7L6 10l3 3V11h5V9H9z m-4.5-1H2v1h2.5v-1zM2 11h2.5v-1H2v1z m9 1h1v2c-0.02 0.28-0.11 0.52-0.3 0.7s-0.42 0.28-0.7 0.3H1c-0.55 0-1-0.45-1-1V3c0-0.55 0.45-1 1-1h3C4 0.89 4.89 0 6 0s2 0.89 2 2h3c0.55 0 1 0.45 1 1v5h-1V5H1v9h10V12zM2 4h8c0-0.55-0.45-1-1-1h-1c-0.55 0-1-0.45-1-1s-0.45-1-1-1-1 0.45-1 1-0.45 1-1 1h-1c-0.55 0-1 0.45-1 1z"></path></svg>
+                                    Copy
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -260,6 +283,7 @@
     }
 </script>
 <script src="static/vendor/crypto-js.min.js"></script>
+<script src="static/vendor/lzma.js"></script>
 <script src="static/js/app.js"></script>
 
 </body>

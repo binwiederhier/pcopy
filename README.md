@@ -331,7 +331,7 @@ Thanks [nakabonne](https://github.com/nakabonne) for making [pbgopy](https://git
 [posting it on Reddit](https://www.reddit.com/r/golang/comments/k2nzyn/pbgopy_copy_and_paste_between_devices/gdwpy8u/?context=3). 
 It inspired me to make pcopy. 
 
-The Web UI is inspired by [nopaste.ml](https://nopaste.ml/).
+The Web UI as well as the client-side mode are inspired by [nopaste.ml](https://nopaste.ml/).
 
 As many may instantly notice, pcopy is similar to [pbcopy/pbpaste](https://osxdaily.com/2007/03/05/manipulating-the-clipboard-from-the-command-line/). 
 However, pcopy can copy/paste across the network. You can copy on your laptop and paste on your servers.
@@ -345,6 +345,7 @@ Made with ❤️ by [Philipp C. Heckel](https://heckel.io), distributed under th
 Third party libraries:
 * [github.com/urfave/cli/v2](https://github.com/urfave/cli/v2) (MIT) is used to drive the CLI
 * [CryptoJS](https://github.com/brix/crypto-js) (MIT) is used for key derivation and such in the Web UI
+* [LZMA-JS](https://github.com/LZMA-JS/LZMA-JS) (MIT) is used for client-side mode to compress text
 * [Lato Font](https://www.latofonts.com/) (OFL) is used as a font in the Web UI
 * [GoReleaser](https://goreleaser.com/) (MIT) is used to create releases 
 
