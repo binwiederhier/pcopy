@@ -553,7 +553,6 @@ func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 			Expires: time.Unix(expires, 0),
 			Curl:    curl,
 		}
-
 		if _, err := w.Write([]byte(FileInfoInstructions(info))); err != nil {
 			return err
 		}
