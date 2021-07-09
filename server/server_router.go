@@ -17,7 +17,7 @@ import (
 type Router struct {
 	servers       []*Server
 	httpServers   []*http.Server
-	tcpForwarders []*TCPForwarder
+	tcpForwarders []*tcpForwarder
 	mu            sync.Mutex
 }
 
@@ -86,8 +86,8 @@ func (r *Router) Start() error {
 		}(s)
 	}
 	for _, s := range r.tcpForwarders {
-		go func(s *TCPForwarder) {
-			if err := s.ListenAndServe(); err != nil {
+		go func(s *tcpForwarder) {
+			if err := s.listenAndServe(); err != nil {
 				errChan <- err
 			}
 		}(s)
@@ -201,11 +201,11 @@ func (r *Router) createServerOrAddHandler(servers map[string]*http.Server, serve
 	return server, nil
 }
 
-func (r *Router) createTCPForwarders() ([]*TCPForwarder, error) {
-	servers := make([]*TCPForwarder, 0)
+func (r *Router) createTCPForwarders() ([]*tcpForwarder, error) {
+	servers := make([]*tcpForwarder, 0)
 	for _, s := range r.servers {
 		if s.config.ListenTCP != "" {
-			server := NewTCPForwarder(s.config.ListenTCP, config.ExpandServerAddr(s.config.ServerAddr), s.Handle)
+			server := newTCPForwarder(s.config.ListenTCP, config.ExpandServerAddr(s.config.ServerAddr), s.Handle)
 			servers = append(servers, server)
 		}
 	}

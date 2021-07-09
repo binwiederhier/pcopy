@@ -66,6 +66,9 @@ const (
 	// HeaderReserveEnabled is a value for X-Reserve that enabled reservation mode; no other values are possible
 	HeaderReserveEnabled = "1"
 
+	// HeaderNoRedirect prevents the redirect handler from redirecting to HTTPS
+	HeaderNoRedirect = "X-No-Redirect"
+
 	// HeaderFormat can be set in PUT requests to define the response format (default if not set: HeaderFormatText)
 	HeaderFormat = "X-Format"
 
@@ -854,7 +857,7 @@ func (s *Server) printStats(stats *clipboard.Stats) {
 
 func (s *Server) redirectHTTPS(next handleFunc) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		if r.TLS == nil && s.config.ListenHTTPS != "" {
+		if r.Header.Get(HeaderNoRedirect) == "" && r.TLS == nil && s.config.ListenHTTPS != "" {
 			newURL := r.URL
 			newURL.Host = r.Host
 			newURL.Scheme = "https"
