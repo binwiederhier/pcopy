@@ -106,6 +106,7 @@ var (
 type Config struct {
 	ListenHTTPS               string
 	ListenHTTP                string
+	ListenTCP                 string
 	ServerAddr                string
 	DefaultID                 string
 	Key                       *crypto.Key
@@ -219,7 +220,8 @@ func loadConfig(reader io.Reader) (*Config, error) {
 	if ok {
 		config.ListenHTTP = ""
 		config.ListenHTTPS = ""
-		re := regexp.MustCompile(`^(?i)([^:]*:\d+)?(?:/(https?))?`)
+		config.ListenTCP = ""
+		re := regexp.MustCompile(`^(?i)([^:]*:\d+)?(?:/(https|http|tcp))?`)
 		addrs := strings.Split(listenAddr, " ")
 		for _, addr := range addrs {
 			matches := re.FindStringSubmatch(addr)
@@ -230,7 +232,12 @@ func loadConfig(reader io.Reader) (*Config, error) {
 			if len(matches) == 3 {
 				proto = strings.ToLower(matches[2])
 			}
-			if proto == "http" {
+			if proto == "tcp" {
+				if config.ListenTCP != "" {
+					return nil, fmt.Errorf("invalid config value for 'ListenAddr': TCP address defined more than once")
+				}
+				config.ListenTCP = matches[1]
+			} else if proto == "http" {
 				if config.ListenHTTP != "" {
 					return nil, fmt.Errorf("invalid config value for 'ListenAddr': HTTP address defined more than once")
 				}

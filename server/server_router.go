@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"heckel.io/pcopy/config"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Router is a simple vhost delegator to be able to run multiple clipboards on the same port.
@@ -17,6 +19,7 @@ import (
 type Router struct {
 	servers     []*Server
 	httpServers []*http.Server
+	tcpServers  []*tcpServer
 	mu          sync.Mutex
 }
 
@@ -59,6 +62,10 @@ func (r *Router) Start() error {
 	if err != nil {
 		return err
 	}
+	r.tcpServers, err = r.createTCPServers()
+	if err != nil {
+		return err
+	}
 	r.printListenInfo()
 
 	errChan := make(chan error)
@@ -77,6 +84,13 @@ func (r *Router) Start() error {
 				if err := s.ListenAndServe(); err != nil {
 					errChan <- err
 				}
+			}
+		}(s)
+	}
+	for _, s := range r.tcpServers {
+		go func(s *tcpServer) {
+			if err := s.ListenAndServe(); err != nil {
+				errChan <- err
 			}
 		}(s)
 	}
@@ -128,6 +142,9 @@ func (r *Router) printListenInfo() {
 			proto = "https"
 		}
 		listens = append(listens, fmt.Sprintf("%s/%s", s.Addr, proto))
+	}
+	for _, s := range r.tcpServers {
+		listens = append(listens, fmt.Sprintf("%s/tcp", s.Addr))
 	}
 	log.Printf("Listening on %s (%d clipboard(s))\n", strings.Join(listens, " "), len(r.servers))
 }
@@ -186,4 +203,68 @@ func (r *Router) createServerOrAddHandler(servers map[string]*http.Server, serve
 	return server, nil
 }
 
+func (r *Router) createTCPServers() ([]*tcpServer, error) {
+	servers := make([]*tcpServer, 0)
+	for _, s := range r.servers {
+		if s.config.ListenTCP != "" {
+			server := &tcpServer{
+				Addr:   s.config.ListenTCP,
+				config: s.config,
+			}
+			servers = append(servers, server)
+		}
+	}
+	return servers, nil
+}
+
 var errInvalidNumberOfConfigs = errors.New("invalid number of configs, need at least one")
+
+type tcpServer struct {
+	Addr   string
+	//config *config.Config
+}
+
+func (s *tcpServer) ListenAndServe() error {
+	listener, err := net.Listen("tcp", s.Addr)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("Error accepting new connection on TCP server %s: %s", s.Addr, err.Error())
+			continue
+		}
+		go s.handleConn(conn)
+	}
+}
+
+func (s *tcpServer) handleConn(conn net.Conn) {
+	defer conn.Close()
+
+	buf := make([]byte, 4096)
+	errChan := make(chan error)
+	readChan := make(chan int)
+readLoop:
+	for {
+		go func() {
+			println("reading")
+			read, err := conn.Read(buf)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			readChan <- read
+		}()
+		select {
+		case read := <-readChan:
+			println("read: " + string(buf[:read]))
+		case <-time.After(time.Second):
+			println("timeout")
+			break readLoop
+		}
+	}
+	println("end")
+}
