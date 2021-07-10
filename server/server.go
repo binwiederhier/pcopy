@@ -123,12 +123,13 @@ var (
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardPathFormat = "/%s"
 	templateFnMap       = template.FuncMap{
-		"expandServerAddr": config.ExpandServerAddr,
-		"encodeBase64":     base64.StdEncoding.EncodeToString,
-		"bytesToHuman":     util.BytesToHuman,
-		"durationToHuman":  util.DurationToHuman,
-		"stringsJoin":      strings.Join,
-		"htmlEscape":       htmltemplate.HTMLEscapeString,
+		"expandServerAddr":   config.ExpandServerAddr,
+		"collapseServerAddr": config.CollapseServerAddr,
+		"encodeBase64":       base64.StdEncoding.EncodeToString,
+		"bytesToHuman":       util.BytesToHuman,
+		"durationToHuman":    util.DurationToHuman,
+		"stringsJoin":        strings.Join,
+		"htmlEscape":         htmltemplate.HTMLEscapeString,
 	}
 
 	//go:embed "index.gohtml"
@@ -329,32 +330,33 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
-	return webTemplate.Execute(w, &webTemplateConfig{
-		KeyDerivIter: crypto.KeyDerivIter,
-		KeyLenBytes:  crypto.KeyLenBytes,
-		DefaultPort:  config.DefaultPort,
-		Config:       s.config,
-	})
+	return webTemplate.Execute(w, s.webTemplateConfig())
 }
 
 func (s *Server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
-	return curlTemplate.Execute(w, &webTemplateConfig{Config: s.config})
+	return curlTemplate.Execute(w, s.webTemplateConfig())
 }
 
 func (s *Server) handleNcRoot(w http.ResponseWriter, r *http.Request) error {
-	u, err := url.Parse(config.ExpandServerAddr(s.config.ServerAddr))
-	if err != nil {
-		return err
+	return ncTemplate.Execute(w, s.webTemplateConfig())
+}
+
+func (s *Server) webTemplateConfig() *webTemplateConfig {
+	tcpHost, tcpPort := "", ""
+	if u, err := url.Parse(config.ExpandServerAddr(s.config.ServerAddr)); err == nil {
+		tcpHost = u.Hostname()
 	}
-	_, port, err := net.SplitHostPort(s.config.ListenTCP)
-	if err != nil {
-		return err
+	if _, port, err := net.SplitHostPort(s.config.ListenTCP); err != nil {
+		tcpPort = port
 	}
-	return ncTemplate.Execute(w, &webTemplateConfig{
-		TCPHost: u.Hostname(),
-		TCPPort: port,
-		Config:  s.config,
-	})
+	return &webTemplateConfig{
+		KeyDerivIter: crypto.KeyDerivIter,
+		KeyLenBytes:  crypto.KeyLenBytes,
+		DefaultPort:  config.DefaultPort,
+		TCPHost:      tcpHost,
+		TCPPort:      tcpPort,
+		Config:       s.config,
+	}
 }
 
 func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) error {
