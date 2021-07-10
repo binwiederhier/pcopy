@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"heckel.io/pcopy/util"
@@ -27,6 +28,7 @@ type tcpForwarder struct {
 	UpstreamAddr    string
 	UpstreamHandler http.HandlerFunc
 	ReadTimeout     time.Duration
+	cancel          context.CancelFunc
 }
 
 func newTCPForwarder(addr string, upstreamAddr string, upstreamHandler http.HandlerFunc) *tcpForwarder {
@@ -45,20 +47,31 @@ func (s *tcpForwarder) listenAndServe() error {
 	}
 	defer listener.Close()
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Printf("error accepting connection on %s: %s", s.Addr, err.Error())
-			continue
-		}
-		go func(conn net.Conn) {
-			defer conn.Close()
-			if err := s.handleConn(conn); err != nil {
-				io.WriteString(conn, fmt.Sprintf("%s\n", err.Error())) // might fail
-				log.Printf("%s - tcp forward error: %s", conn.RemoteAddr().String(), err.Error())
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				log.Printf("error accepting connection on %s: %s", s.Addr, err.Error())
+				continue
 			}
-		}(conn)
-	}
+			go func(conn net.Conn) {
+				defer conn.Close()
+				if err := s.handleConn(conn); err != nil {
+					io.WriteString(conn, fmt.Sprintf("%s\n", err.Error())) // might fail
+					log.Printf("%s - tcp forward error: %s", conn.RemoteAddr().String(), err.Error())
+				}
+			}(conn)
+		}
+	}()
+
+	s.cancel = cancel
+	<-ctx.Done()
+	return nil
+}
+
+func (s *tcpForwarder) shutdown() {
+	s.cancel()
 }
 
 // handleConn reads from the TCP socket and forwards it to the HTTP handler. This method does NOT close the underlying
