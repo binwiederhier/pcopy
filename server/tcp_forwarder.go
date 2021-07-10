@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"heckel.io/pcopy/util"
 	"io"
 	"log"
 	"net"
@@ -60,8 +63,19 @@ func (s *tcpForwarder) listenAndServe() error {
 // handleConn reads from the TCP socket and forwards it to the HTTP handler. This method does NOT close the underlying
 // connection. This is done in the listenAndServe to ensure that error messages can be sent to the client.
 func (s *tcpForwarder) handleConn(conn net.Conn) error {
+	//connReadCloser := &connTimeoutReadCloser{conn: conn, timeout: s.ReadTimeout}
+	if err := conn.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
+		return fmt.Errorf("cannot set read deadline: %w", err)
+	}
+	peaked, err := util.Peak(conn, bufferSizeBytes)
+	if err != nil {
+		return fmt.Errorf("cannot peak: %w", err)
+	}
+	path, offset := extractPath(peaked.PeakedBytes)
+
 	pr, pw := io.Pipe()
-	request, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/", s.UpstreamAddr), pr)
+	body := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), pr)
+	request, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/%s", s.UpstreamAddr, path), body)
 	if err != nil {
 		return fmt.Errorf("cannot create forwarding request: %w", err)
 	}
@@ -84,6 +98,15 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	return nil
 }
 
+func extractPath(peaked []byte) (string, int) {
+	reader := bufio.NewReader(bytes.NewReader(peaked))
+	s, err := reader.ReadString('\n')
+	if err != nil || !strings.HasPrefix(s, "pcopy:") {
+		return "", 0
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(s, "pcopy:"), "\n"), len(s)
+}
+
 func (s *tcpForwarder) forwardRequest(conn net.Conn, upstreamWriter io.WriteCloser) error {
 	buf := make([]byte, bufferSizeBytes)
 	for {
@@ -91,19 +114,38 @@ func (s *tcpForwarder) forwardRequest(conn net.Conn, upstreamWriter io.WriteClos
 			return fmt.Errorf("cannot set read deadline: %w", err)
 		}
 		read, err := conn.Read(buf)
-		if err == io.EOF || (err != nil && strings.Contains(err.Error(), "i/o timeout")) { // poll.DeadlineExceededError is not accessible
-			if read > 0 {
-				if _, err := upstreamWriter.Write(buf[:read]); err != nil {
-					return fmt.Errorf("error while writing to upstream: %w", err)
-				}
-			}
-			return upstreamWriter.Close()
-		} else if err != nil {
+		isEOF := err == io.EOF || (err != nil && strings.Contains(err.Error(), "i/o timeout")) // poll.DeadlineExceededError is not accessible
+		if err != nil && !isEOF {
 			upstreamWriter.Close() // closing the upstream request will finish ServeHTTP()
 			return fmt.Errorf("cannot read from client: %w", err)
 		}
-		if _, err := upstreamWriter.Write(buf[:read]); err != nil {
-			return fmt.Errorf("cannot write to upstream: %w", err)
+		if read > 0 {
+			if _, err := upstreamWriter.Write(buf[:read]); err != nil {
+				return fmt.Errorf("cannot write to upstream: %w", err)
+			}
+		}
+		if isEOF {
+			return upstreamWriter.Close()
 		}
 	}
+}
+
+type connTimeoutReadCloser struct {
+	conn    net.Conn
+	timeout time.Duration
+}
+
+func (c *connTimeoutReadCloser) Read(p []byte) (n int, err error) {
+	if err := c.conn.SetReadDeadline(time.Now().Add(c.timeout)); err != nil {
+		return 0, fmt.Errorf("cannot set read deadline: %w", err)
+	}
+	read, err := c.conn.Read(p)
+	if err != nil && strings.Contains(err.Error(), "i/o timeout") { // poll.DeadlineExceededError is not accessible
+		err = io.EOF
+	}
+	return read, err
+}
+
+func (c *connTimeoutReadCloser) Close() error {
+	return c.conn.Close()
 }
