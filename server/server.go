@@ -383,7 +383,7 @@ func (s *Server) handleClipboardHead(w http.ResponseWriter, r *http.Request) err
 	if ttl < -1 {
 		ttl = 0
 	}
-	return s.writeFileInfoOutput(w, id, stat.Expires, ttl, HeaderFormatNone, stat.Secret)
+	return s.writeFileInfoOutput(w, http.StatusOK, id, stat.Expires, ttl, HeaderFormatNone, stat.Secret)
 }
 
 func (s *Server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
@@ -470,7 +470,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		if streamMode == HeaderStreamImmediateHeaders {
 			// For this to work with curl, we have to have peaked the body for short payloads, since we're technically
 			// writing a response before fully reading the body. See above when we peak the body.
-			if err := s.writeFileInfoOutput(w, id, expires, ttl, format, secret); err != nil {
+			if err := s.writeFileInfoOutput(w, http.StatusCreated, id, expires, ttl, format, secret); err != nil {
 				return err
 			}
 		}
@@ -489,7 +489,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Output URL, TTL, etc.
 	if streamMode == HeaderStreamDisabled || streamMode == HeaderStreamDelayHeaders {
-		if err := s.writeFileInfoOutput(w, id, expires, ttl, format, secret); err != nil {
+		if err := s.writeFileInfoOutput(w, http.StatusCreated, id, expires, ttl, format, secret); err != nil {
 			s.clipboard.DeleteFile(id)
 			return err
 		}
@@ -520,7 +520,7 @@ func (s *Server) checkPUT(id string, remoteAddr string) error {
 	return nil
 }
 
-func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string, secret string) error {
+func (s *Server) writeFileInfoOutput(w http.ResponseWriter, statusCode int, id string, expires int64, ttl time.Duration, format string, secret string) error {
 	path := fmt.Sprintf(clipboardPathFormat, id)
 	url, err := generateURL(s.config, path, secret)
 	if err != nil {
@@ -536,6 +536,7 @@ func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 	w.Header().Set(HeaderTTL, fmt.Sprintf("%d", int(ttl.Seconds())))
 	w.Header().Set(HeaderExpires, fmt.Sprintf("%d", expires))
 	w.Header().Set(HeaderCurl, curl)
+	w.WriteHeader(statusCode)
 
 	if format == HeaderFormatJSON {
 		response := &httpResponseFileInfo{

@@ -249,7 +249,7 @@ func TestServer_HandleClipboardPut(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/new-thing", strings.NewReader(content))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "new-thing", content)
 }
 
@@ -261,7 +261,7 @@ func TestServer_HandleClipboardPutRandom(t *testing.T) {
 	req, _ := http.NewRequest("PUT", "/", strings.NewReader("this is a thing"))
 	server.Handle(rr, req)
 
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	test.Int64Equals(t, 10, int64(len(rr.Header().Get("X-File"))))
 	test.StrEquals(t, fmt.Sprintf("%d", 3600*24*7), rr.Header().Get("X-TTL"))
@@ -276,12 +276,12 @@ func TestServer_HandleClipboardPutUntilLimitReached(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/", strings.NewReader("this is a thing"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/", strings.NewReader("this is a another thing"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/", strings.NewReader("this is a yet another thing"))
@@ -340,7 +340,7 @@ func TestServer_HandleClipboardPutGetSuccess(t *testing.T) {
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
 	expires, _ := strconv.Atoi(rr.Header().Get("X-Expires"))
 
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	test.StrEquals(t, "you-cant-always", rr.Header().Get("X-File"))
 	test.StrEquals(t, "https://localhost:12345/you-cant-always", rr.Header().Get("X-URL"))
 	test.StrContains(t, rr.Header().Get("X-Curl"), "https://localhost:12345/you-cant-always")
@@ -365,7 +365,7 @@ func TestServer_HandleClipboardPutWithJsonOutputSuccess(t *testing.T) {
 	req, _ := http.NewRequest("PUT", "/you-cant-always?f=json", strings.NewReader("get what you want"))
 	req.Header.Set("X-TTL", "2m")
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	var info httpResponseFileInfo
 	json.NewDecoder(rr.Body).Decode(&info)
@@ -387,7 +387,7 @@ func TestServer_HandleClipboardPutTextWithTooLargeTTL(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", nil) // empty file is "text"
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
 	test.DurationEquals(t, 2*time.Hour, time.Second*time.Duration(ttl))
@@ -405,7 +405,7 @@ func TestServer_HandleClipboardPutLongTextWithTooLargeTTL(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", strings.NewReader(strings.Repeat("12345", 120000))) // > 512 KB
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
 	test.DurationEquals(t, time.Hour, time.Second*time.Duration(ttl))
@@ -424,7 +424,7 @@ func TestServer_HandleClipboardPutNonTextWithTooLargeTTL(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/too-large-ttl?t=10d", bytes.NewReader(body))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
 	test.DurationEquals(t, time.Hour, time.Second*time.Duration(ttl))
@@ -440,7 +440,7 @@ func TestServer_HandleClipboardTextPutWithoutTTL(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/no-ttl", nil) // empty body is "text"
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	ttl, _ := strconv.Atoi(rr.Header().Get("X-TTL"))
 	test.DurationEquals(t, time.Minute, time.Second*time.Duration(ttl))
@@ -471,13 +471,13 @@ func TestServer_HandleClipboardPutManySmallFailed(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("lalala"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "file2", "another one")
 
 	rr = httptest.NewRecorder()
@@ -495,20 +495,20 @@ func TestServer_HandleClipboardPutManySmallOverwriteSuccess(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("lalala"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "file1", "lalala")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "file2", "another one")
 
 	// Overwrite file 2 should succeed
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("overwriting file 2"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "file2", "overwriting file 2")
 }
 
@@ -520,7 +520,7 @@ func TestServer_HandleClipboardPutOverwriteFailure(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "file2", "another one")
 
 	// Overwrite file 2 should fail
@@ -549,7 +549,7 @@ func TestServer_HandleClipboardPutReadOnlyDisallowOverwriteSuccess(t *testing.T)
 	req, _ := http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
 	req.Header.Set("X-Mode", "ro")
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest("PUT", "/file2", strings.NewReader("another one"))
@@ -565,7 +565,7 @@ func TestServer_HandleClipboardPutTotalSizeLimitFailed(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/file1", strings.NewReader("7 bytes"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "file1", "7 bytes")
 
 	rr = httptest.NewRecorder()
@@ -585,7 +585,7 @@ func TestServer_HandleClipboardPutStreamSuccess(t *testing.T) {
 		rr1 := httptest.NewRecorder()
 		req, _ := http.NewRequest("PUT", "/file1?s=1", strings.NewReader(payload))
 		server.Handle(rr1, req)
-		test.Status(t, rr1, http.StatusOK)
+		test.Status(t, rr1, http.StatusCreated)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -616,14 +616,14 @@ func TestServer_HandleClipboardPutStreamWithReserveSuccess(t *testing.T) {
 		rr1 := httptest.NewRecorder()
 		req, _ := http.NewRequest("PUT", "/file1?r=1", nil)
 		server.Handle(rr1, req)
-		test.Status(t, rr1, http.StatusOK)
+		test.Status(t, rr1, http.StatusCreated)
 		clipboardtest.Content(t, conf, "file1", "")
 
 		// Stream
 		rr1 = httptest.NewRecorder()
 		req, _ = http.NewRequest("PUT", "/file1?s=1", strings.NewReader(payload))
 		server.Handle(rr1, req)
-		test.Status(t, rr1, http.StatusOK)
+		test.Status(t, rr1, http.StatusCreated)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -764,7 +764,7 @@ func TestServer_ExpireSuccess(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("PUT", "/new-thing", strings.NewReader("something"))
 	server.Handle(rr, req)
-	test.Status(t, rr, http.StatusOK)
+	test.Status(t, rr, http.StatusCreated)
 	clipboardtest.Content(t, conf, "new-thing", "something")
 
 	time.Sleep(1050 * time.Millisecond)

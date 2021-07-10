@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"heckel.io/pcopy/util"
 	"io"
@@ -53,7 +54,7 @@ func (s *tcpForwarder) listenAndServe() error {
 		go func(conn net.Conn) {
 			defer conn.Close()
 			if err := s.handleConn(conn); err != nil {
-				io.WriteString(conn, err.Error()) // might fail
+				io.WriteString(conn, fmt.Sprintf("%s\n", err.Error())) // might fail
 				log.Printf("%s - tcp forward error: %s", conn.RemoteAddr().String(), err.Error())
 			}
 		}(conn)
@@ -63,32 +64,47 @@ func (s *tcpForwarder) listenAndServe() error {
 // handleConn reads from the TCP socket and forwards it to the HTTP handler. This method does NOT close the underlying
 // connection. This is done in the listenAndServe to ensure that error messages can be sent to the client.
 func (s *tcpForwarder) handleConn(conn net.Conn) error {
-	//connReadCloser := &connTimeoutReadCloser{conn: conn, timeout: s.ReadTimeout}
-	if err := conn.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
-		return fmt.Errorf("cannot set read deadline: %w", err)
-	}
-	peaked, err := util.Peak(conn, bufferSizeBytes)
+	// Peak connection to detect "pcopy:..." prefix and extract path
+	connReadCloser := &connTimeoutReadCloser{conn: conn, timeout: s.ReadTimeout}
+	peaked, err := util.Peak(connReadCloser, bufferSizeBytes)
 	if err != nil {
 		return fmt.Errorf("cannot peak: %w", err)
 	}
 	path, offset := extractPath(peaked.PeakedBytes)
 
-	pr, pw := io.Pipe()
-	body := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), pr)
-	request, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/%s", s.UpstreamAddr, path), body)
+	// Prepare upstream HTTP request
+	rawURL := fmt.Sprintf("%s/%s", s.UpstreamAddr, path)
+	requestBodyReader, requestBodyWriter := io.Pipe()
+	request, err := http.NewRequest(http.MethodPut, rawURL, requestBodyReader)
 	if err != nil {
 		return fmt.Errorf("cannot create forwarding request: %w", err)
 	}
+	request.RequestURI = fmt.Sprintf("/%s", path)
 	request.RemoteAddr = conn.RemoteAddr().String()
 	request.Header.Set(HeaderNoRedirect, "1")
 
+	// Read downstream connection and copy to HTTP request body, including peaked bytes
 	errChan := make(chan error)
 	go func() {
-		errChan <- s.forwardRequest(conn, pw)
+		requestBody := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), connReadCloser)
+		_, err := io.Copy(requestBodyWriter, requestBody)
+		if err != nil {
+			errChan <- err
+		} else {
+			errChan <- requestBodyWriter.Close() // closing the upstream request will finish ServeHTTP()
+		}
 	}()
 
+	// Record upstream response and forward downstream
 	rr := httptest.NewRecorder()
 	s.UpstreamHandler.ServeHTTP(rr, request)
+	defer func() {
+		requestBodyReader.Close()
+		requestBodyWriter.Close()
+	}()
+	if rr.Code != http.StatusCreated && rr.Code != http.StatusPartialContent {
+		return errors.New(rr.Result().Status)
+	}
 	if err := <-errChan; err != nil {
 		return err
 	}
@@ -107,35 +123,16 @@ func extractPath(peaked []byte) (string, int) {
 	return strings.TrimSuffix(strings.TrimPrefix(s, "pcopy:"), "\n"), len(s)
 }
 
-func (s *tcpForwarder) forwardRequest(conn net.Conn, upstreamWriter io.WriteCloser) error {
-	buf := make([]byte, bufferSizeBytes)
-	for {
-		if err := conn.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
-			return fmt.Errorf("cannot set read deadline: %w", err)
-		}
-		read, err := conn.Read(buf)
-		isEOF := err == io.EOF || (err != nil && strings.Contains(err.Error(), "i/o timeout")) // poll.DeadlineExceededError is not accessible
-		if err != nil && !isEOF {
-			upstreamWriter.Close() // closing the upstream request will finish ServeHTTP()
-			return fmt.Errorf("cannot read from client: %w", err)
-		}
-		if read > 0 {
-			if _, err := upstreamWriter.Write(buf[:read]); err != nil {
-				return fmt.Errorf("cannot write to upstream: %w", err)
-			}
-		}
-		if isEOF {
-			return upstreamWriter.Close()
-		}
-	}
-}
-
 type connTimeoutReadCloser struct {
 	conn    net.Conn
 	timeout time.Duration
+	lastErr error
 }
 
 func (c *connTimeoutReadCloser) Read(p []byte) (n int, err error) {
+	if c.lastErr == io.EOF {
+		return 0, io.EOF // No need to wait if we're at the end
+	}
 	if err := c.conn.SetReadDeadline(time.Now().Add(c.timeout)); err != nil {
 		return 0, fmt.Errorf("cannot set read deadline: %w", err)
 	}
@@ -143,6 +140,7 @@ func (c *connTimeoutReadCloser) Read(p []byte) (n int, err error) {
 	if err != nil && strings.Contains(err.Error(), "i/o timeout") { // poll.DeadlineExceededError is not accessible
 		err = io.EOF
 	}
+	c.lastErr = err
 	return read, err
 }
 
