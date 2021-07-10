@@ -5,12 +5,14 @@ import (
 	"heckel.io/pcopy/clipboard/clipboardtest"
 	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/config/configtest"
+	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/test"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
 	"regexp"
 	"testing"
+	"time"
 )
 
 func TestTCPForwarder_Help(t *testing.T) {
@@ -103,4 +105,74 @@ func TestTCPForwarder_WithLimitFailure(t *testing.T) {
 	cmd.Run()
 
 	test.StrEquals(t, stdout.String(), "413 Request Entity Too Large\n")
+}
+
+func TestTCPForwarder_WithPasswordProtectedClipboard(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.Key, _ = crypto.GenerateKey([]byte("this is a password"))
+	server := newTestServer(t, conf)
+	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
+	defer forwarder.shutdown()
+
+	go forwarder.listenAndServe()
+
+	var stdout bytes.Buffer
+	cmd := exec.Command("sh", "-c", "(echo \"pcopy:sup?a=this+is+a+password\"; echo -n something) | nc -N localhost 12386")
+	cmd.Stdout = &stdout
+	cmd.Run()
+
+	test.StrContains(t, stdout.String(), "https://localhost:12345/sup?a=")
+	clipboardtest.Content(t, conf, "sup", "something")
+}
+
+func TestTCPForwarder_WithPasswordProtectedClipboardInvalidPass(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.Key, _ = crypto.GenerateKey([]byte("this is a password"))
+	server := newTestServer(t, conf)
+	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
+	defer forwarder.shutdown()
+
+	go forwarder.listenAndServe()
+
+	var stdout bytes.Buffer
+	cmd := exec.Command("sh", "-c", "(echo \"pcopy:sup?a=INVALID\"; echo -n something) | nc -N localhost 12386")
+	cmd.Stdout = &stdout
+	cmd.Run()
+
+	clipboardtest.NotExist(t, conf, "sup")
+	test.StrEquals(t, stdout.String(), "401 Unauthorized\n")
+}
+
+func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	server := newTestServer(t, conf)
+	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
+	forwarder.ReadTimeout = 200 * time.Millisecond
+	defer forwarder.shutdown()
+
+	go forwarder.listenAndServe()
+
+	var stdout bytes.Buffer
+	cmd := exec.Command("sh", "-c", "(echo pcopy:test; echo 123; echo 456) | nc localhost 12386")
+	cmd.Stdout = &stdout
+	cmd.Run()
+
+	clipboardtest.Content(t, conf, "test", "123\n456\n")
+}
+
+func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	server := newTestServer(t, conf)
+	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
+	forwarder.ReadTimeout = 300 * time.Millisecond
+	defer forwarder.shutdown()
+
+	go forwarder.listenAndServe()
+
+	var stdout bytes.Buffer
+	cmd := exec.Command("sh", "-c", "(echo pcopy:test; echo 123; sleep .5; echo 456) | nc localhost 12386")
+	cmd.Stdout = &stdout
+	cmd.Run()
+
+	clipboardtest.Content(t, conf, "test", "123\n")
 }

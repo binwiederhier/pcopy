@@ -346,7 +346,7 @@ func (s *Server) webTemplateConfig() *webTemplateConfig {
 	if u, err := url.Parse(config.ExpandServerAddr(s.config.ServerAddr)); err == nil {
 		tcpHost = u.Hostname()
 	}
-	if _, port, err := net.SplitHostPort(s.config.ListenTCP); err != nil {
+	if _, port, err := net.SplitHostPort(s.config.ListenTCP); err == nil {
 		tcpPort = port
 	}
 	return &webTemplateConfig{
@@ -712,19 +712,16 @@ func (s *Server) authorize(r *http.Request) error {
 	}
 
 	auth := r.Header.Get("Authorization")
-	if encodedQueryAuth, ok := r.URL.Query()[queryParamAuth]; ok && len(encodedQueryAuth) > 0 {
-		queryAuth, err := base64.RawURLEncoding.DecodeString(encodedQueryAuth[0])
-		if err != nil {
-			log.Printf("[%s], %s - %s %s - cannot decode query auth override", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
-			return ErrHTTPUnauthorized
-		}
-		auth = string(queryAuth)
+	if authParams, ok := r.URL.Query()[queryParamAuth]; ok && len(authParams) > 0 {
+		auth = authParams[0]
 	}
 
 	if m := authHmacRegex.FindStringSubmatch(auth); m != nil {
 		return s.authorizeHmac(r, m)
 	} else if m := authBasicRegex.FindStringSubmatch(auth); m != nil {
 		return s.authorizeBasic(r, m)
+	} else if auth != "" {
+		return s.authorizePlain(r, auth)
 	} else {
 		log.Printf("[%s] %s - %s %s - invalid or missing auth", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
@@ -800,6 +797,19 @@ func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	key := crypto.DeriveKey(passwordBytes, s.config.Key.Salt)
 	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
 		log.Printf("[%s] %s - %s %s - basic invalid", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
+		return ErrHTTPUnauthorized
+	}
+
+	return nil
+}
+
+func (s *Server) authorizePlain(r *http.Request, auth string) error {
+	passwordBytes := []byte(auth)
+
+	// Compare HMAC in constant time (to prevent timing attacks)
+	key := crypto.DeriveKey(passwordBytes, s.config.Key.Salt)
+	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
+		log.Printf("[%s] %s - %s %s - plain invalid", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
 

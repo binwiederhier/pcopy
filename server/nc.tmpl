@@ -5,7 +5,7 @@ NAME
 
 USAGE:
   cat FILE | nc [-N] {{.TCPHost}} {{.TCPPort}}
-  (echo "pcopy:[FILENAME][?s=1][&m=rw|ro][&t=DURATION][&f=text|json]"; cat FILE) | nc [-N] {{.TCPHost}} {{.TCPPort}}
+  (echo "pcopy:[FILENAME][?a=PASS][&s=1][&m=rw|ro][&t=DURATION][&f=text|json]"; cat FILE) | nc [-N] {{.TCPHost}} {{.TCPPort}}
 
 DESCRIPTION:
   This is is the netcat-endpoint for pcopy, a tool to copy/paste across machines. You may only use
@@ -21,6 +21,7 @@ DESCRIPTION:
 
 OPTIONS:
   FILENAME      pick a remote file name; use "random" to pick a random one
+  ?a=PASS       password for the clipboard (if password-protected)
   ?s=1          stream data without storing on the server
   ?m=rw|ro      defines whether to set the file mode as read-write or read-only (default: {{index .Config.FileModesAllowed 0}}, allowed: {{stringsJoin .Config.FileModesAllowed ", "}})
   ?t=DURATION   time-to-live after which the file will be deleted (default: {{if .Config.FileExpireAfterDefault}}{{.Config.FileExpireAfterDefault | durationToHuman}}{{else}}never{{end}}, nontext-max: {{if .Config.FileExpireAfterNonTextMax}}{{.Config.FileExpireAfterNonTextMax | durationToHuman}}{{else}}never{{end}}, text-max: {{if .Config.FileExpireAfterTextMax}}{{.Config.FileExpireAfterTextMax | durationToHuman}}{{else}}never{{end}})

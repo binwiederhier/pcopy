@@ -207,13 +207,10 @@ func TestServer_HandleClipboardGetExistsWithAuthParam(t *testing.T) {
 	file := filepath.Join(conf.ClipboardDir, "this-exists-again")
 	metafile := filepath.Join(conf.ClipboardDir, "this-exists-again:meta")
 	ioutil.WriteFile(file, []byte("hi there again"), 0700)
-	ioutil.WriteFile(metafile, []byte("{}"), 0700)
-
-	hmac, _ := crypto.GenerateAuthHMAC(conf.Key.Bytes, "GET", "/this-exists-again", time.Minute)
-	hmacOverrideParam := base64.StdEncoding.EncodeToString([]byte(hmac))
+	ioutil.WriteFile(metafile, []byte(`{"secret":"abc"}`), 0700)
 
 	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/this-exists-again?a="+hmacOverrideParam, nil)
+	req, _ := http.NewRequest("GET", "/this-exists-again?a=abc", nil)
 	server.Handle(rr, req)
 	test.Response(t, rr, http.StatusOK, "hi there again")
 }
@@ -223,10 +220,13 @@ func TestServer_HandleClipboardGetExistsWithAuthParamFailure(t *testing.T) {
 	conf.Key = &crypto.Key{Salt: []byte("some salt"), Bytes: []byte("16 bytes exactly")}
 	server := newTestServer(t, conf)
 
-	hmacOverrideParam := base64.StdEncoding.EncodeToString([]byte("invalid auth"))
+	file := filepath.Join(conf.ClipboardDir, "this-exists-again")
+	metafile := filepath.Join(conf.ClipboardDir, "this-exists-again:meta")
+	ioutil.WriteFile(file, []byte("hi there again"), 0700)
+	ioutil.WriteFile(metafile, []byte(`{"secret":"abc"}`), 0700)
 
 	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/this-exists-again?a=invalid"+hmacOverrideParam, nil)
+	req, _ := http.NewRequest("GET", "/this-exists-again?a=invalid", nil)
 	server.Handle(rr, req)
 	test.Status(t, rr, http.StatusUnauthorized)
 }

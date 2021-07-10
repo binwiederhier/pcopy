@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	defaultReadTimeout = 3 * time.Second
+	defaultReadTimeout = 3 * time.Second // min upload speed: 16KB / 3s = 5KB/s
 	bufferSizeBytes    = 16 * 1024
 )
 
@@ -82,7 +82,7 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	peaked, err := util.Peak(connReadCloser, bufferSizeBytes)
 	if err != nil {
 		return fmt.Errorf("cannot peak: %w", err)
-	} else if strings.TrimSpace(string(peaked.PeakedBytes)) == "help" {
+	} else if strings.TrimSpace(string(peaked.PeakedBytes)) == "help" || strings.TrimSpace(string(peaked.PeakedBytes)) == "" {
 		return s.handleHelp(conn)
 	}
 	path, offset := extractPath(peaked.PeakedBytes)
