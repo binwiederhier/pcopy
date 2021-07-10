@@ -1,0 +1,39 @@
+{{- /*gotype: heckel.io/pcopy/server.webTemplateConfig*/ -}}
+{{- $url := .Config.ServerAddr | expandServerAddr -}}
+NAME
+  pcopy - copy/paste across machines
+
+USAGE:
+  cat FILE | nc [-N] {{.TCPHost}} {{.TCPPort}}
+  (echo "pcopy:[FILENAME][?s=1][&m=rw|ro][&t=DURATION][&f=text|json]"; cat FILE) | nc [-N] {{.TCPHost}} {{.TCPPort}}
+
+DESCRIPTION:
+  This is is the netcat-endpoint for pcopy, a tool to copy/paste across machines. You may only use
+  this endpoint to upload files from the command line. For more powerful features, use the Web UI
+  at {{$url}} or use the curl endpoint by typing "curl {{$url}}".
+
+  Examples:
+    echo hi | nc -N {{.TCPHost}} {{.TCPPort}}                             # Copy text "hi" to default file
+    cat hi.txt | nc -N {{.TCPHost}} {{.TCPPort}}                          # Copy file hi.txt to default file
+    (echo pcopy:random; cat hi.txt) | nc -N {{.TCPHost}} {{.TCPPort}}     # Copy file hi.txt to random file
+    (echo "pcopy:?t=30m"; echo cat.jpg) | nc -N {{.TCPHost}} {{.TCPPort}} # Copy file cat.jpg with with 30m TTL
+    echo help | nc [-N] {{.TCPHost}} {{.TCPPort}}                         # Display this help page
+
+OPTIONS:
+  FILENAME      pick a remote file name; use "random" to pick a random one
+  ?s=1          stream data without storing on the server
+  ?m=rw|ro      defines whether to set the file mode as read-write or read-only (default: {{index .Config.FileModesAllowed 0}}, allowed: {{stringsJoin .Config.FileModesAllowed ", "}})
+  ?t=DURATION   time-to-live after which the file will be deleted (default: {{if .Config.FileExpireAfterDefault}}{{.Config.FileExpireAfterDefault | durationToHuman}}{{else}}never{{end}}, nontext-max: {{if .Config.FileExpireAfterNonTextMax}}{{.Config.FileExpireAfterNonTextMax | durationToHuman}}{{else}}never{{end}}, text-max: {{if .Config.FileExpireAfterTextMax}}{{.Config.FileExpireAfterTextMax | durationToHuman}}{{else}}never{{end}})
+  ?f=text|json  output format for PUT/POSTs (default: text)
+
+WEB UI:
+  {{$url}}
+
+LIMITS:
+  Total clipboard size limit: {{if .Config.ClipboardSizeLimit}}{{.Config.ClipboardSizeLimit | bytesToHuman }}{{else}}no limit{{end}}
+  Total number of files: {{if .Config.ClipboardCountLimit}} max. {{.Config.ClipboardCountLimit }} files{{else}}no limit{{end}}
+  Per-file size limit: {{if .Config.FileSizeLimit}}{{.Config.FileSizeLimit | bytesToHuman }}{{else}}no limit{{end}}
+  Per-file expiration limits: {{if .Config.FileExpireAfterTextMax}}{{.Config.FileExpireAfterTextMax | durationToHuman }}{{else}}never{{end}} if text, {{if .Config.FileExpireAfterNonTextMax}}{{.Config.FileExpireAfterNonTextMax | durationToHuman }}{{else}}never{{end}} otherwise
+  Allowed file modes: {{stringsJoin .Config.FileModesAllowed ", "}}
+
+To find out more about pcopy, check out https://heckel.io/pcopy.

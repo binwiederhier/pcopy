@@ -34,6 +34,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -138,6 +139,10 @@ var (
 	curlTemplateSource string
 	curlTemplate       = template.Must(template.New("curl").Funcs(templateFnMap).Parse(curlTemplateSource))
 
+	//go:embed "nc.tmpl"
+	ncTemplateSource string
+	ncTemplate       = template.Must(template.New("nc").Funcs(templateFnMap).Parse(ncTemplateSource))
+
 	//go:embed static
 	webStaticFs embed.FS
 )
@@ -207,6 +212,8 @@ type webTemplateConfig struct {
 	KeyDerivIter int
 	KeyLenBytes  int
 	DefaultPort  int
+	TCPHost      string
+	TCPPort      string
 	Config       *config.Config
 }
 
@@ -274,6 +281,7 @@ func (s *Server) routeList() []route {
 	s.routes = []route{
 		newRoute("GET", "/", s.limit(s.handleRoot)),
 		newRoute("GET", "/curl", s.limit(s.handleCurlRoot)),
+		newRoute("GET", "/nc", s.limit(s.handleNcRoot)),
 		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("GET", "/static/.+", s.limit(s.handleStatic)),
@@ -331,6 +339,22 @@ func (s *Server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
 	return curlTemplate.Execute(w, &webTemplateConfig{Config: s.config})
+}
+
+func (s *Server) handleNcRoot(w http.ResponseWriter, r *http.Request) error {
+	u, err := url.Parse(config.ExpandServerAddr(s.config.ServerAddr))
+	if err != nil {
+		return err
+	}
+	_, port, err := net.SplitHostPort(s.config.ListenTCP)
+	if err != nil {
+		return err
+	}
+	return ncTemplate.Execute(w, &webTemplateConfig{
+		TCPHost: u.Hostname(),
+		TCPPort: port,
+		Config:  s.config,
+	})
 }
 
 func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) error {

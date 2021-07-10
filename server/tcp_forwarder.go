@@ -69,6 +69,8 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	peaked, err := util.Peak(connReadCloser, bufferSizeBytes)
 	if err != nil {
 		return fmt.Errorf("cannot peak: %w", err)
+	} else if strings.TrimSpace(string(peaked.PeakedBytes)) == "help" {
+		return s.handleHelp(conn)
 	}
 	path, offset := extractPath(peaked.PeakedBytes)
 
@@ -107,6 +109,26 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	}
 	if err := <-errChan; err != nil {
 		return err
+	}
+	if _, err := conn.Write(rr.Body.Bytes()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *tcpForwarder) handleHelp(conn net.Conn) error {
+	rawURL := fmt.Sprintf("%s/nc", s.UpstreamAddr)
+	request, err := http.NewRequest(http.MethodGet, rawURL, nil)
+	if err != nil {
+		return fmt.Errorf("cannot create forwarding request: %w", err)
+	}
+	request.RequestURI = "/nc"
+	request.RemoteAddr = conn.RemoteAddr().String()
+	request.Header.Set(HeaderNoRedirect, "1")
+	rr := httptest.NewRecorder()
+	s.UpstreamHandler.ServeHTTP(rr, request)
+	if rr.Code != http.StatusOK {
+		return errors.New(rr.Result().Status)
 	}
 	if _, err := conn.Write(rr.Body.Bytes()); err != nil {
 		return err
