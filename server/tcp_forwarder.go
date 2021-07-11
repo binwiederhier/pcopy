@@ -89,8 +89,8 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 
 	// Prepare upstream HTTP request
 	rawURL := fmt.Sprintf("%s/%s", s.UpstreamAddr, path)
-	requestBodyReader, requestBodyWriter := io.Pipe()
-	request, err := http.NewRequest(http.MethodPut, rawURL, requestBodyReader)
+	requestBody := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), connReadCloser)
+	request, err := http.NewRequest(http.MethodPut, rawURL, requestBody)
 	if err != nil {
 		return fmt.Errorf("cannot create forwarding request: %w", err)
 	}
@@ -98,30 +98,12 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	request.RemoteAddr = conn.RemoteAddr().String()
 	request.Header.Set(HeaderNoRedirect, "1")
 
-	// Read downstream connection and copy to HTTP request body, including peaked bytes
-	errChan := make(chan error)
-	go func() {
-		requestBody := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), connReadCloser)
-		_, err := io.Copy(requestBodyWriter, requestBody)
-		if err != nil {
-			errChan <- err
-		} else {
-			errChan <- requestBodyWriter.Close() // closing the upstream request will finish ServeHTTP()
-		}
-	}()
-
 	// Record upstream response and forward downstream
 	rr := httptest.NewRecorder()
 	s.UpstreamHandler.ServeHTTP(rr, request)
-	defer func() {
-		requestBodyReader.Close()
-		requestBodyWriter.Close()
-	}()
+
 	if rr.Code != http.StatusCreated && rr.Code != http.StatusPartialContent {
 		return errors.New(rr.Result().Status)
-	}
-	if err := <-errChan; err != nil {
-		return err
 	}
 	if _, err := conn.Write(rr.Body.Bytes()); err != nil {
 		return err
