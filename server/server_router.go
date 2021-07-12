@@ -15,9 +15,10 @@ import (
 // Router is a simple vhost delegator to be able to run multiple clipboards on the same port.
 // It runs the actual HTTP(S) servers and delegates based on the configured hostname.
 type Router struct {
-	servers     []*Server
-	httpServers []*http.Server
-	mu          sync.Mutex
+	servers       []*Server
+	httpServers   []*http.Server
+	tcpForwarders []*tcpForwarder
+	mu            sync.Mutex
 }
 
 // Serve starts a server and listens for incoming HTTPS requests. The server handles all management operations (info,
@@ -59,6 +60,10 @@ func (r *Router) Start() error {
 	if err != nil {
 		return err
 	}
+	r.tcpForwarders, err = r.createTCPForwarders()
+	if err != nil {
+		return err
+	}
 	r.printListenInfo()
 
 	errChan := make(chan error)
@@ -77,6 +82,13 @@ func (r *Router) Start() error {
 				if err := s.ListenAndServe(); err != nil {
 					errChan <- err
 				}
+			}
+		}(s)
+	}
+	for _, s := range r.tcpForwarders {
+		go func(s *tcpForwarder) {
+			if err := s.listenAndServe(); err != nil {
+				errChan <- err
 			}
 		}(s)
 	}
@@ -128,6 +140,9 @@ func (r *Router) printListenInfo() {
 			proto = "https"
 		}
 		listens = append(listens, fmt.Sprintf("%s/%s", s.Addr, proto))
+	}
+	for _, s := range r.tcpForwarders {
+		listens = append(listens, fmt.Sprintf("%s/tcp", s.Addr))
 	}
 	log.Printf("Listening on %s (%d clipboard(s))\n", strings.Join(listens, " "), len(r.servers))
 }
@@ -184,6 +199,17 @@ func (r *Router) createServerOrAddHandler(servers map[string]*http.Server, serve
 		handler.HandleFunc(fmt.Sprintf("%s/", serverURL.Hostname()), s.Handle)
 	}
 	return server, nil
+}
+
+func (r *Router) createTCPForwarders() ([]*tcpForwarder, error) {
+	servers := make([]*tcpForwarder, 0)
+	for _, s := range r.servers {
+		if s.config.ListenTCP != "" {
+			server := newTCPForwarder(s.config.ListenTCP, config.ExpandServerAddr(s.config.ServerAddr), s.Handle)
+			servers = append(servers, server)
+		}
+	}
+	return servers, nil
 }
 
 var errInvalidNumberOfConfigs = errors.New("invalid number of configs, need at least one")

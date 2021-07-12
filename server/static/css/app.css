@@ -24,6 +24,12 @@ p {
     font-size: 1.1em;
 }
 
+tt {
+    background: #ddd;
+    padding: 2px 7px;
+    border-radius: 3px;
+}
+
 .textfield {
     padding: 7px;
     border-radius: 3px;

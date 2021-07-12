@@ -31,9 +31,11 @@ import (
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/util"
 	htmltemplate "html/template"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -65,6 +67,9 @@ const (
 
 	// HeaderReserveEnabled is a value for X-Reserve that enabled reservation mode; no other values are possible
 	HeaderReserveEnabled = "1"
+
+	// HeaderNoRedirect prevents the redirect handler from redirecting to HTTPS
+	HeaderNoRedirect = "X-No-Redirect"
 
 	// HeaderFormat can be set in PUT requests to define the response format (default if not set: HeaderFormatText)
 	HeaderFormat = "X-Format"
@@ -119,12 +124,13 @@ var (
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardPathFormat = "/%s"
 	templateFnMap       = template.FuncMap{
-		"expandServerAddr": config.ExpandServerAddr,
-		"encodeBase64":     base64.StdEncoding.EncodeToString,
-		"bytesToHuman":     util.BytesToHuman,
-		"durationToHuman":  util.DurationToHuman,
-		"stringsJoin":      strings.Join,
-		"htmlEscape":       htmltemplate.HTMLEscapeString,
+		"expandServerAddr":   config.ExpandServerAddr,
+		"collapseServerAddr": config.CollapseServerAddr,
+		"encodeBase64":       base64.StdEncoding.EncodeToString,
+		"bytesToHuman":       util.BytesToHuman,
+		"durationToHuman":    util.DurationToHuman,
+		"stringsJoin":        strings.Join,
+		"htmlEscape":         htmltemplate.HTMLEscapeString,
 	}
 
 	//go:embed "index.gohtml"
@@ -134,6 +140,10 @@ var (
 	//go:embed "curl.tmpl"
 	curlTemplateSource string
 	curlTemplate       = template.Must(template.New("curl").Funcs(templateFnMap).Parse(curlTemplateSource))
+
+	//go:embed "nc.tmpl"
+	ncTemplateSource string
+	ncTemplate       = template.Must(template.New("nc").Funcs(templateFnMap).Parse(ncTemplateSource))
 
 	//go:embed static
 	webStaticFs embed.FS
@@ -204,6 +214,8 @@ type webTemplateConfig struct {
 	KeyDerivIter int
 	KeyLenBytes  int
 	DefaultPort  int
+	TCPHost      string
+	TCPPort      string
 	Config       *config.Config
 }
 
@@ -271,6 +283,7 @@ func (s *Server) routeList() []route {
 	s.routes = []route{
 		newRoute("GET", "/", s.limit(s.handleRoot)),
 		newRoute("GET", "/curl", s.limit(s.handleCurlRoot)),
+		newRoute("GET", "/nc", s.limit(s.handleNcRoot)),
 		newRoute("PUT", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("POST", "/(random)?", s.limit(s.auth(s.handleClipboardPutRandom))),
 		newRoute("GET", "/static/.+", s.limit(s.handleStatic)),
@@ -318,16 +331,33 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) handleWebRoot(w http.ResponseWriter, r *http.Request) error {
-	return webTemplate.Execute(w, &webTemplateConfig{
-		KeyDerivIter: crypto.KeyDerivIter,
-		KeyLenBytes:  crypto.KeyLenBytes,
-		DefaultPort:  config.DefaultPort,
-		Config:       s.config,
-	})
+	return webTemplate.Execute(w, s.webTemplateConfig())
 }
 
 func (s *Server) handleCurlRoot(w http.ResponseWriter, r *http.Request) error {
-	return curlTemplate.Execute(w, &webTemplateConfig{Config: s.config})
+	return curlTemplate.Execute(w, s.webTemplateConfig())
+}
+
+func (s *Server) handleNcRoot(w http.ResponseWriter, r *http.Request) error {
+	return ncTemplate.Execute(w, s.webTemplateConfig())
+}
+
+func (s *Server) webTemplateConfig() *webTemplateConfig {
+	tcpHost, tcpPort := "", ""
+	if u, err := url.Parse(config.ExpandServerAddr(s.config.ServerAddr)); err == nil {
+		tcpHost = u.Hostname()
+	}
+	if _, port, err := net.SplitHostPort(s.config.ListenTCP); err == nil {
+		tcpPort = port
+	}
+	return &webTemplateConfig{
+		KeyDerivIter: crypto.KeyDerivIter,
+		KeyLenBytes:  crypto.KeyLenBytes,
+		DefaultPort:  config.DefaultPort,
+		TCPHost:      tcpHost,
+		TCPPort:      tcpPort,
+		Config:       s.config,
+	}
 }
 
 func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) error {
@@ -380,7 +410,7 @@ func (s *Server) handleClipboardHead(w http.ResponseWriter, r *http.Request) err
 	if ttl < -1 {
 		ttl = 0
 	}
-	return s.writeFileInfoOutput(w, id, stat.Expires, ttl, HeaderFormatNone, stat.Secret)
+	return s.writeFileInfoOutput(w, http.StatusOK, id, stat.Expires, ttl, HeaderFormatNone, stat.Secret)
 }
 
 func (s *Server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
@@ -467,7 +497,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		if streamMode == HeaderStreamImmediateHeaders {
 			// For this to work with curl, we have to have peaked the body for short payloads, since we're technically
 			// writing a response before fully reading the body. See above when we peak the body.
-			if err := s.writeFileInfoOutput(w, id, expires, ttl, format, secret); err != nil {
+			if err := s.writeFileInfoOutput(w, http.StatusCreated, id, expires, ttl, format, secret); err != nil {
 				return err
 			}
 		}
@@ -486,7 +516,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 
 	// Output URL, TTL, etc.
 	if streamMode == HeaderStreamDisabled || streamMode == HeaderStreamDelayHeaders {
-		if err := s.writeFileInfoOutput(w, id, expires, ttl, format, secret); err != nil {
+		if err := s.writeFileInfoOutput(w, http.StatusCreated, id, expires, ttl, format, secret); err != nil {
 			s.clipboard.DeleteFile(id)
 			return err
 		}
@@ -517,7 +547,7 @@ func (s *Server) checkPUT(id string, remoteAddr string) error {
 	return nil
 }
 
-func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires int64, ttl time.Duration, format string, secret string) error {
+func (s *Server) writeFileInfoOutput(w http.ResponseWriter, statusCode int, id string, expires int64, ttl time.Duration, format string, secret string) error {
 	path := fmt.Sprintf(clipboardPathFormat, id)
 	url, err := generateURL(s.config, path, secret)
 	if err != nil {
@@ -533,6 +563,7 @@ func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 	w.Header().Set(HeaderTTL, fmt.Sprintf("%d", int(ttl.Seconds())))
 	w.Header().Set(HeaderExpires, fmt.Sprintf("%d", expires))
 	w.Header().Set(HeaderCurl, curl)
+	w.WriteHeader(statusCode)
 
 	if format == HeaderFormatJSON {
 		response := &httpResponseFileInfo{
@@ -553,7 +584,6 @@ func (s *Server) writeFileInfoOutput(w http.ResponseWriter, id string, expires i
 			Expires: time.Unix(expires, 0),
 			Curl:    curl,
 		}
-
 		if _, err := w.Write([]byte(FileInfoInstructions(info))); err != nil {
 			return err
 		}
@@ -683,19 +713,16 @@ func (s *Server) authorize(r *http.Request) error {
 	}
 
 	auth := r.Header.Get("Authorization")
-	if encodedQueryAuth, ok := r.URL.Query()[queryParamAuth]; ok && len(encodedQueryAuth) > 0 {
-		queryAuth, err := base64.RawURLEncoding.DecodeString(encodedQueryAuth[0])
-		if err != nil {
-			log.Printf("[%s], %s - %s %s - cannot decode query auth override", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
-			return ErrHTTPUnauthorized
-		}
-		auth = string(queryAuth)
+	if authParams, ok := r.URL.Query()[queryParamAuth]; ok && len(authParams) > 0 {
+		auth = authParams[0]
 	}
 
 	if m := authHmacRegex.FindStringSubmatch(auth); m != nil {
 		return s.authorizeHmac(r, m)
 	} else if m := authBasicRegex.FindStringSubmatch(auth); m != nil {
 		return s.authorizeBasic(r, m)
+	} else if auth != "" {
+		return s.authorizePlain(r, auth)
 	} else {
 		log.Printf("[%s] %s - %s %s - invalid or missing auth", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
@@ -771,6 +798,19 @@ func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	key := crypto.DeriveKey(passwordBytes, s.config.Key.Salt)
 	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
 		log.Printf("[%s] %s - %s %s - basic invalid", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
+		return ErrHTTPUnauthorized
+	}
+
+	return nil
+}
+
+func (s *Server) authorizePlain(r *http.Request, auth string) error {
+	passwordBytes := []byte(auth)
+
+	// Compare HMAC in constant time (to prevent timing attacks)
+	key := crypto.DeriveKey(passwordBytes, s.config.Key.Salt)
+	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
+		log.Printf("[%s] %s - %s %s - plain invalid", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
 
@@ -855,7 +895,7 @@ func (s *Server) printStats(stats *clipboard.Stats) {
 
 func (s *Server) redirectHTTPS(next handleFunc) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		if r.TLS == nil && s.config.ListenHTTPS != "" {
+		if r.Header.Get(HeaderNoRedirect) == "" && r.TLS == nil && s.config.ListenHTTPS != "" {
 			newURL := r.URL
 			newURL.Host = r.Host
 			newURL.Scheme = "https"
@@ -921,5 +961,5 @@ func (s *Server) getVisitor(remoteAddr string) *visitor {
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
 	log.Printf("[%s] %s - %s %s - %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
-	w.Write([]byte(http.StatusText(code)))
+	io.WriteString(w, fmt.Sprintf("%s\n", http.StatusText(code)))
 }

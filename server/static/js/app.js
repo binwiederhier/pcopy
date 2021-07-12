@@ -34,9 +34,7 @@ let infoArea = document.getElementById("info-area")
 let infoCloseButton = document.getElementById("info-close-button")
 
 let infoHelpHeader = document.getElementById("info-help-header")
-let infoHelpJoinCommand = document.getElementById("info-command-join")
-let infoHelpJoinCommandCopy = document.getElementById("info-command-join-copy")
-let infoHelpJoinCommandTooltip = document.getElementById("info-command-join-tooltip")
+let infoHelpJoinCommand = document.getElementById("info-help-command-join")
 
 let infoUploadHeaderActive = document.getElementById("info-upload-header-active")
 let infoUploadHeaderFinished = document.getElementById("info-upload-header-finished")
@@ -399,7 +397,7 @@ async function saveClientSide() {
             reader.onload = () => {
                 const data = reader.result.substr(reader.result.indexOf(',') + 1)
                 const url = `${location.protocol}//${location.host}${location.pathname}#${data}`;
-                progressFinish(200, "", url, "", 0, false)
+                progressFinish(201, "", url, "", 0, false)
             };
             reader.readAsDataURL(new Blob([new Uint8Array(compressed)]));
         },
@@ -431,7 +429,7 @@ async function saveServerSide() {
     progressStart()
     req('PUT', `/${file}`, body, headers)
         .then(response => {
-            if (response.status === 200 || response.status === 206) {
+            if (response.status === 201 || response.status === 206) {
                 progressFinish(
                     response.status,
                     response.headers.get("X-File"),
@@ -450,14 +448,8 @@ async function saveServerSide() {
 /* Info help */
 
 headerInfoButton.addEventListener('click', function() {
-    let serverAddr = ''
-    if (location.protocol === 'http:') {
-        serverAddr = 'http://' + location.hostname + (location.port ? ':' + location.port : '')
-    } else {
-        let port = location.port ? ':' + location.port : ''
-        serverAddr = `${location.hostname}${port}`.replace(':' + config.DefaultPort, '')
-    }
-    infoHelpJoinCommand.value = `pcopy join ${serverAddr}`
+    let serverAddr = config.ServerAddr.replace(':443', '')
+    infoHelpJoinCommand.innerHTML = `pcopy join ${serverAddr}`
 
     progressHideHeaders()
     infoLinks.classList.add('hidden')
@@ -466,15 +458,6 @@ headerInfoButton.addEventListener('click', function() {
     infoHelpHeader.classList.remove('hidden')
 })
 
-infoHelpJoinCommandCopy.addEventListener('click', function() {
-    infoHelpJoinCommand.select();
-    infoHelpJoinCommand.setSelectionRange(0, 99999); /* For mobile devices */
-    document.execCommand("copy");
-    infoHelpJoinCommand.setSelectionRange(0, 0);
-    infoHelpJoinCommand.blur()
-    infoHelpJoinCommandTooltip.innerHTML = 'Copied'
-    infoHelpJoinCommandTooltip.classList.add('copied')
-})
 
 /* Uploading */
 
@@ -635,7 +618,7 @@ async function req(method, path, body, headers) {
 async function reserveAndUpdateLinkFields(file, nameHint) {
     return await req('PUT', `/${file}`, null, {'X-Reserve': '1'})
         .then(response => {
-            if (response.status === 200) {
+            if (response.status === 201) {
                 updateLinkFields(
                     response.headers.get("X-File"),
                     response.headers.get("X-URL"),
@@ -685,7 +668,7 @@ async function uploadFile(file) {
 
     let xhr = new XMLHttpRequest()
     xhr.addEventListener('readystatechange', function (e) {
-        if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 206)) {
+        if (xhr.readyState === 4 && (xhr.status === 201 || xhr.status === 206)) {
             progressFinish(
                 xhr.status,
                 xhr.getResponseHeader("X-File"),
@@ -695,7 +678,7 @@ async function uploadFile(file) {
                 parseInt(xhr.getResponseHeader("X-Expires")),
                 file.name
             )
-        } else if (xhr.readyState === 4 && xhr.status !== 200) {
+        } else if (xhr.readyState === 4 && xhr.status !== 201) {
             progressFailed(xhr.status)
         }
     })

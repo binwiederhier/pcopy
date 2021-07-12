@@ -34,11 +34,12 @@ OPTIONS:
     ?m=rw|ro      defines whether to set the file mode as read-write or read-only (default: {{index .Config.FileModesAllowed 0}}, allowed: {{stringsJoin .Config.FileModesAllowed ", "}})
     ?t=DURATION   time-to-live after which the file will be deleted (default: {{if .Config.FileExpireAfterDefault}}{{.Config.FileExpireAfterDefault | durationToHuman}}{{else}}never{{end}}, nontext-max: {{if .Config.FileExpireAfterNonTextMax}}{{.Config.FileExpireAfterNonTextMax | durationToHuman}}{{else}}never{{end}}, text-max: {{if .Config.FileExpireAfterTextMax}}{{.Config.FileExpireAfterTextMax | durationToHuman}}{{else}}never{{end}})
     ?f=text|json  output format for PUT/POSTs (default: text)
+    ?a=PASS       password for the clipboard (if password-protected); alternative to -u :PASS (see below)
 
   Common curl options (see 'man curl' for more):
     -T FILE       uploads file FILE to the server
     -d DATA       uploads DATA to the server
-    -u :PASS      use password PASS for basic auth against server
+    -u :PASS      use password PASS for basic auth against server; alternative to ?a=PASS (see above)
 
 WEB UI:
   {{$url}}

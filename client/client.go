@@ -76,7 +76,7 @@ func (c *Client) Copy(reader io.ReadCloser, id string, ttl time.Duration, mode s
 		return nil, server.ErrHTTPPartialContent
 	} else if resp.StatusCode == http.StatusRequestEntityTooLarge {
 		return nil, server.ErrHTTPPayloadTooLarge
-	} else if resp.StatusCode != http.StatusOK {
+	} else if resp.StatusCode != http.StatusCreated {
 		return nil, &server.ErrHTTP{Code: resp.StatusCode, Status: resp.Status}
 	}
 
@@ -114,7 +114,7 @@ func (c *Client) Reserve(id string) (*server.File, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
-	} else if resp.StatusCode != http.StatusOK {
+	} else if resp.StatusCode != http.StatusCreated {
 		return nil, &server.ErrHTTP{Code: resp.StatusCode, Status: resp.Status}
 	}
 

@@ -10,6 +10,8 @@ jobs:
           go-version: '1.16.x'
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Install test dependencies
+        run: sudo apt-get install netcat-openbsd
       - name: Run tests, formatting, vetting and linting
         run: make check
       - name: Run and upload coverage to codecov.io

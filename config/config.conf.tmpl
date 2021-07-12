@@ -15,16 +15,20 @@
 #
 {{if .ServerAddr}}ServerAddr {{.ServerAddr}}{{else}}# ServerAddr{{end}}
 
-# Address and port to use to bind the server (HTTPS and HTTP). To bind to all addresses, you may omit the address
+# Address and port to use to bind the server (HTTPS, HTTP and raw TCP). To bind to all addresses, you may omit the address
 # and only pass the port, e.g. :2586. If no protocol suffix (/https or /http) is provided, /https is assumed.
+#
+# HTTP and HTTPS serve both Web UI and the curl-compatible API. The raw TCP socket only provides upload capabilities
+# and needs either HTTP or HTTPS to provide download-capabilities.
 #
 # This is a server-only option (pcopy serve). It has no effect for client commands.
 #
-# Format:  [ADDR]:PORT[/https|/http]
-# Default: :2586
-# Example: :443/https :80/http
+# Format:  [ADDR]:PORT[/(https|http|tcp)]
+# Default: :2586/https
+# Example: :443/https :80/http :9999/tcp
 #
-{{if and (eq ":2586" .ListenHTTPS) (eq "" .ListenHTTP)}}# ListenAddr :2586/https{{else if and .ListenHTTPS .ListenHTTP}}ListenAddr {{.ListenHTTPS}}/https {{.ListenHTTP}}/http{{else if .ListenHTTPS}}ListenAddr {{.ListenHTTPS}}/https{{else if .ListenHTTP}}ListenAddr {{.ListenHTTP}}/http{{else}}# ListenAddr :2586/https{{end}}
+{{if and (eq ":2586" .ListenHTTPS) (eq "" .ListenHTTP) (eq "" .ListenTCP)}}# ListenAddr :2586/https
+{{- else}}ListenAddr{{if .ListenHTTPS}} {{.ListenHTTPS}}/https{{end}}{{if .ListenHTTP}} {{.ListenHTTP}}/http{{end}}{{if .ListenTCP}} {{.ListenTCP}}/http{{end}}{{end}}
 
 # Default ID used when using the CLI without an ID. If this is left empty, a random ID will be chosen by
 # the server. When this option is set in the server-side config, new clients will receive the default ID

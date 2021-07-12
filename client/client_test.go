@@ -29,6 +29,7 @@ func TestClient_CopyNoAuthSuccess(t *testing.T) {
 		if body := readAllToString(t, r.Body); body != "something" {
 			t.Fatalf("expected body %s, got %s", "something", body)
 		}
+		w.WriteHeader(http.StatusCreated)
 	}))
 	defer serv.Close()
 
@@ -49,6 +50,7 @@ func TestClient_CopyWithHMACAuthSuccess(t *testing.T) {
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "HMAC ") {
 			t.Fatalf("expected auth header to have HMAC prefix, got %s", r.Header.Get("Authorization"))
 		}
+		w.WriteHeader(http.StatusCreated)
 	}))
 	defer serv.Close()
 
@@ -78,7 +80,7 @@ func TestClient_CopyFilesSuccess(t *testing.T) {
 				t.Fatalf("unexpected file in ZIP archive: %s", f.Name)
 			}
 		}
-
+		w.WriteHeader(http.StatusCreated)
 	}))
 	defer serv.Close()
 
@@ -277,6 +279,7 @@ func TestClient_ReserveSuccess(t *testing.T) {
 		w.Header().Set(server.HeaderExpires, "1611323111")
 		w.Header().Set(server.HeaderTTL, "360")
 		w.Header().Set(server.HeaderCurl, "curl https://sup.com/hi.txt")
+		w.WriteHeader(http.StatusCreated)
 	}))
 	defer serv.Close()
 
