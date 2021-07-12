@@ -113,6 +113,11 @@ func (r *Router) Stop() error {
 			}
 		}
 	}
+	if r.tcpForwarders != nil {
+		for _, s := range r.tcpForwarders {
+			s.shutdown()
+		}
+	}
 	for _, s := range r.servers {
 		s.stopManager()
 	}

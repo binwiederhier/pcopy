@@ -21,9 +21,8 @@ func TestTCPForwarder_Help(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "echo help | nc -N localhost 12386")
@@ -31,14 +30,15 @@ func TestTCPForwarder_Help(t *testing.T) {
 	cmd.Run()
 
 	test.StrContains(t, stdout.String(), `This is is the netcat-endpoint for pcopy`)
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_Basic(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12386")
 
@@ -56,14 +56,15 @@ func TestTCPForwarder_Basic(t *testing.T) {
 	rr := httptest.NewRecorder()
 	server.Handle(rr, req)
 	test.StrEquals(t, rr.Body.String(), "hi there\n")
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_WithOptions(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12386")
 
@@ -75,14 +76,15 @@ func TestTCPForwarder_WithOptions(t *testing.T) {
 	test.StrContains(t, stdout.String(), "https://localhost:12345/my-id")
 	test.StrContains(t, stdout.String(), "valid for 10m")
 	clipboardtest.Content(t, conf, "my-id", "hi there\n")
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_WithInvalidOptions(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12386")
 
@@ -93,6 +95,9 @@ func TestTCPForwarder_WithInvalidOptions(t *testing.T) {
 
 	test.StrEquals(t, "Bad Request\n", stdout.String())
 	clipboardtest.NotExist(t, conf, "my-id")
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_WithLimitFailure(t *testing.T) {
@@ -100,8 +105,6 @@ func TestTCPForwarder_WithLimitFailure(t *testing.T) {
 	conf.FileSizeLimit = 5
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12386")
 
@@ -111,6 +114,9 @@ func TestTCPForwarder_WithLimitFailure(t *testing.T) {
 	cmd.Run()
 
 	test.StrEquals(t, "Request Entity Too Large\n", stdout.String())
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_WithPasswordProtectedClipboard(t *testing.T) {
@@ -118,8 +124,6 @@ func TestTCPForwarder_WithPasswordProtectedClipboard(t *testing.T) {
 	conf.Key, _ = crypto.GenerateKey([]byte("this is a password"))
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12386")
 
@@ -130,6 +134,9 @@ func TestTCPForwarder_WithPasswordProtectedClipboard(t *testing.T) {
 
 	test.StrContains(t, stdout.String(), "https://localhost:12345/sup?a=")
 	clipboardtest.Content(t, conf, "sup", "something")
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_WithPasswordProtectedClipboardInvalidPass(t *testing.T) {
@@ -137,8 +144,6 @@ func TestTCPForwarder_WithPasswordProtectedClipboardInvalidPass(t *testing.T) {
 	conf.Key, _ = crypto.GenerateKey([]byte("this is a password"))
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12386")
 
@@ -149,6 +154,9 @@ func TestTCPForwarder_WithPasswordProtectedClipboardInvalidPass(t *testing.T) {
 
 	clipboardtest.NotExist(t, conf, "sup")
 	test.StrEquals(t, "Unauthorized\n", stdout.String())
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
@@ -156,8 +164,6 @@ func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
 	forwarder.ReadTimeout = time.Second // GitHub Actions is slowww...
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12386")
 
@@ -167,6 +173,9 @@ func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
 	cmd.Run()
 
 	clipboardtest.Content(t, conf, "test", "123\n456\n")
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12386")
 }
 
 func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
@@ -174,8 +183,6 @@ func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12387", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
 	forwarder.ReadTimeout = time.Second // GitHub Actions is slowww...
-	defer forwarder.shutdown()
-
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12387")
 
@@ -185,6 +192,9 @@ func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
 	cmd.Run()
 
 	clipboardtest.Content(t, conf, "test", "123\n")
+
+	forwarder.shutdown()
+	test.WaitForPortDown(t, "12387")
 }
 
 func TestTCPForwarder_Stream(t *testing.T) {
@@ -194,8 +204,6 @@ func TestTCPForwarder_Stream(t *testing.T) {
 	conf.ListenHTTPS = ":11443"
 	conf.ListenTCP = ":19999"
 	serverRouter := startTestServerRouter(t, conf)
-	defer serverRouter.Stop()
-
 	test.WaitForPortUp(t, "11443")
 	test.WaitForPortUp(t, "11080")
 	test.WaitForPortUp(t, "19999")
@@ -212,4 +220,9 @@ func TestTCPForwarder_Stream(t *testing.T) {
 	bodyBytes, _ := io.ReadAll(resp.Body)
 
 	test.StrEquals(t, "123\n", string(bodyBytes))
+
+	serverRouter.Stop()
+	test.WaitForPortDown(t, "11443")
+	test.WaitForPortDown(t, "11080")
+	test.WaitForPortDown(t, "19999")
 }
