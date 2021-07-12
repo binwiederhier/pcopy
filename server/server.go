@@ -31,6 +31,7 @@ import (
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/util"
 	htmltemplate "html/template"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -960,5 +961,5 @@ func (s *Server) getVisitor(remoteAddr string) *visitor {
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, code int, err error) {
 	log.Printf("[%s] %s - %s %s - %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 	w.WriteHeader(code)
-	w.Write([]byte(http.StatusText(code)))
+	io.WriteString(w, fmt.Sprintf("%s\n", http.StatusText(code)))
 }

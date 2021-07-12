@@ -4,14 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"heckel.io/pcopy/util"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 )
@@ -98,16 +96,8 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	request.RemoteAddr = conn.RemoteAddr().String()
 	request.Header.Set(HeaderNoRedirect, "1")
 
-	// Record upstream response and forward downstream
-	rr := httptest.NewRecorder()
-	s.UpstreamHandler.ServeHTTP(rr, request)
-
-	if rr.Code != http.StatusCreated && rr.Code != http.StatusPartialContent {
-		return errors.New(rr.Result().Status)
-	}
-	if _, err := conn.Write(rr.Body.Bytes()); err != nil {
-		return err
-	}
+	// Forward downstream response
+	s.UpstreamHandler.ServeHTTP(newStreamingResponseWriter(conn), request)
 	return nil
 }
 
@@ -120,14 +110,7 @@ func (s *tcpForwarder) handleHelp(conn net.Conn) error {
 	request.RequestURI = "/nc"
 	request.RemoteAddr = conn.RemoteAddr().String()
 	request.Header.Set(HeaderNoRedirect, "1")
-	rr := httptest.NewRecorder()
-	s.UpstreamHandler.ServeHTTP(rr, request)
-	if rr.Code != http.StatusOK {
-		return errors.New(rr.Result().Status)
-	}
-	if _, err := conn.Write(rr.Body.Bytes()); err != nil {
-		return err
-	}
+	s.UpstreamHandler.ServeHTTP(newStreamingResponseWriter(conn), request)
 	return nil
 }
 
@@ -163,4 +146,28 @@ func (c *connTimeoutReadCloser) Read(p []byte) (n int, err error) {
 
 func (c *connTimeoutReadCloser) Close() error {
 	return c.conn.Close()
+}
+
+type streamingResponseWriter struct {
+	underlying io.Writer
+	header     http.Header
+}
+
+func newStreamingResponseWriter(underlying io.Writer) *streamingResponseWriter {
+	return &streamingResponseWriter{
+		underlying: underlying,
+		header:     http.Header{},
+	}
+}
+
+func (s *streamingResponseWriter) Header() http.Header {
+	return s.header
+}
+
+func (s *streamingResponseWriter) Write(b []byte) (int, error) {
+	return s.underlying.Write(b)
+}
+
+func (s *streamingResponseWriter) WriteHeader(statusCode int) {
+	// We don't care about the status code
 }

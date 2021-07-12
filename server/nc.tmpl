@@ -13,11 +13,13 @@ DESCRIPTION:
   at {{$url}} or use the curl endpoint by typing "curl {{$url}}".
 
   Examples:
-    echo hi | nc -N {{.TCPHost}} {{.TCPPort}}                             # Copy text "hi" to default file
-    cat hi.txt | nc -N {{.TCPHost}} {{.TCPPort}}                          # Copy file hi.txt to default file
-    (echo pcopy:random; cat hi.txt) | nc -N {{.TCPHost}} {{.TCPPort}}     # Copy file hi.txt to random file
-    (echo "pcopy:?t=30m"; echo cat.jpg) | nc -N {{.TCPHost}} {{.TCPPort}} # Copy file cat.jpg with with 30m TTL
-    echo help | nc [-N] {{.TCPHost}} {{.TCPPort}}                         # Display this help page
+    echo hi | nc -N {{.TCPHost}} {{.TCPPort}}                             # Copy text "hi" to random file
+    cat hi.txt | nc -N {{.TCPHost}} {{.TCPPort}}                          # Copy file hi.txt to random file
+    (echo pcopy:hi; cat hi.txt) | nc -N {{.TCPHost}} {{.TCPPort}}         # Copy file hi.txt to file "hi"
+    (echo "pcopy:?t=30m"; cat dog.jpg) | nc -N {{.TCPHost}} {{.TCPPort}}  # Copy file dog.jpg with with 30m TTL
+    (echo "pcopy:?s=1"; cat dog.jpg) | nc -N {{.TCPHost}} {{.TCPPort}}    # Stream file dog.jpg to receiver
+    (echo "pcopy:?a=mypass"; echo hi) | nc -N {{.TCPHost}} {{.TCPPort}}   # Use password "mypass" to log in
+    echo help | nc -N {{.TCPHost}} {{.TCPPort}}                           # Display this help page
 
 OPTIONS:
   FILENAME      pick a remote file name; use "random" to pick a random one

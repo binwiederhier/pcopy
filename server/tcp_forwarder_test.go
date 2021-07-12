@@ -7,6 +7,8 @@ import (
 	"heckel.io/pcopy/config/configtest"
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/test"
+	"heckel.io/pcopy/util"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -86,7 +88,7 @@ func TestTCPForwarder_WithInvalidOptions(t *testing.T) {
 	cmd.Stdout = &stdout
 	cmd.Run()
 
-	test.StrEquals(t, stdout.String(), "400 Bad Request\n")
+	test.StrEquals(t, "Bad Request\n", stdout.String())
 	clipboardtest.NotExist(t, conf, "my-id")
 }
 
@@ -104,7 +106,7 @@ func TestTCPForwarder_WithLimitFailure(t *testing.T) {
 	cmd.Stdout = &stdout
 	cmd.Run()
 
-	test.StrEquals(t, stdout.String(), "413 Request Entity Too Large\n")
+	test.StrEquals(t, "Request Entity Too Large\n", stdout.String())
 }
 
 func TestTCPForwarder_WithPasswordProtectedClipboard(t *testing.T) {
@@ -140,7 +142,7 @@ func TestTCPForwarder_WithPasswordProtectedClipboardInvalidPass(t *testing.T) {
 	cmd.Run()
 
 	clipboardtest.NotExist(t, conf, "sup")
-	test.StrEquals(t, stdout.String(), "401 Unauthorized\n")
+	test.StrEquals(t, "Unauthorized\n", stdout.String())
 }
 
 func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
@@ -175,4 +177,31 @@ func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
 	cmd.Run()
 
 	clipboardtest.Content(t, conf, "test", "123\n")
+}
+
+func TestTCPForwarder_Stream(t *testing.T) {
+	_, conf := configtest.NewTestConfig(t)
+	conf.ServerAddr = "localhost:11443"
+	conf.ListenHTTP = ":11080"
+	conf.ListenHTTPS = ":11443"
+	conf.ListenTCP = ":19999"
+	serverRouter := startTestServerRouter(t, conf)
+	defer serverRouter.Stop()
+
+	test.WaitForPortUp(t, "11443")
+	test.WaitForPortUp(t, "11080")
+	test.WaitForPortUp(t, "19999")
+
+	cmd := exec.Command("sh", "-c", "(echo \"pcopy:?s=1\"; echo 123) | nc -N localhost 19999")
+	stdoutPipe, _ := cmd.StdoutPipe()
+	cmd.Start()
+	out := test.WaitForOutput(t, stdoutPipe, 1*time.Second, 100*time.Millisecond)
+
+	pasteURL := regexp.MustCompile(`https://localhost\S+`).FindStringSubmatch(out)
+	cert, _ := crypto.LoadCertFromFile(conf.CertFile)
+	client, _ := util.NewHTTPClientWithPinnedCert(cert)
+	resp, _ := client.Get(pasteURL[0])
+	bodyBytes, _ := io.ReadAll(resp.Body)
+
+	test.StrEquals(t, "123\n", string(bodyBytes))
 }
