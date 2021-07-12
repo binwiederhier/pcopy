@@ -166,6 +166,7 @@ func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
 	cmd.Stdout = &stdout
 	cmd.Run()
 
+	time.Sleep(200 * time.Millisecond)
 	clipboardtest.Content(t, conf, "test", "123\n456\n")
 }
 
@@ -184,6 +185,7 @@ func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
 	cmd.Stdout = &stdout
 	cmd.Run()
 
+	time.Sleep(200 * time.Millisecond) // Sigh ...
 	clipboardtest.Content(t, conf, "test", "123\n")
 }
 
