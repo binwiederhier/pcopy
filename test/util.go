@@ -19,10 +19,10 @@ func FromBase64(t *testing.T, s string) []byte {
 	return b
 }
 
-// WaitForPortUp waits up to 5s for a port to come up and fails t if that fails
+// WaitForPortUp waits up to 7s for a port to come up and fails t if that fails
 func WaitForPortUp(t *testing.T, port string) {
 	success := false
-	for i := 0; i < 120; i++ {
+	for i := 0; i < 140; i++ {
 		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("localhost", port), 50*time.Millisecond)
 		if conn != nil {
 			success = true
