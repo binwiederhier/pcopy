@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,6 +28,7 @@ type tcpForwarder struct {
 	UpstreamHandler http.HandlerFunc
 	ReadTimeout     time.Duration
 	cancel          context.CancelFunc
+	mu              sync.Mutex
 }
 
 func newTCPForwarder(addr string, upstreamAddr string, upstreamHandler http.HandlerFunc) *tcpForwarder {
@@ -63,13 +65,19 @@ func (s *tcpForwarder) listenAndServe() error {
 		}
 	}()
 
+	s.mu.Lock()
 	s.cancel = cancel
+	s.mu.Unlock()
 	<-ctx.Done()
 	return nil
 }
 
 func (s *tcpForwarder) shutdown() {
-	s.cancel()
+	s.mu.Lock()
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.mu.Unlock()
 }
 
 // handleConn reads from the TCP socket and forwards it to the HTTP handler. This method does NOT close the underlying
@@ -101,6 +109,8 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	return nil
 }
 
+// handleHelp writes the netcat help page to the connection and exits; it does this
+// by forwarding the request to the upstream /nc page.
 func (s *tcpForwarder) handleHelp(conn net.Conn) error {
 	rawURL := fmt.Sprintf("%s/nc", s.UpstreamAddr)
 	request, err := http.NewRequest(http.MethodGet, rawURL, nil)
@@ -114,6 +124,9 @@ func (s *tcpForwarder) handleHelp(conn net.Conn) error {
 	return nil
 }
 
+// extractPath reads the path from the peaked bytes if the bytes start with "pcopy:" and returns the
+// extracted path and the offset of the actual payload. An input of "pcopy:abc?a=123\npayload" will
+// yield ("abc?a=123", 16). If there is no "pcopy:" prefix, then ("", 0) will be returned.
 func extractPath(peaked []byte) (string, int) {
 	reader := bufio.NewReader(bytes.NewReader(peaked))
 	s, err := reader.ReadString('\n')
@@ -123,6 +136,8 @@ func extractPath(peaked []byte) (string, int) {
 	return strings.TrimSuffix(strings.TrimPrefix(s, "pcopy:"), "\n"), len(s)
 }
 
+// connTimeoutReadCloser implements an io.ReadCloser that will call SetReadDeadline before
+// every Read and will return io.EOF if a Read times out.
 type connTimeoutReadCloser struct {
 	conn    net.Conn
 	timeout time.Duration
@@ -148,6 +163,8 @@ func (c *connTimeoutReadCloser) Close() error {
 	return c.conn.Close()
 }
 
+// streamingResponseWriter implements a http.ResponseWriter that only passes the body through to the
+// underlying io.Writer and ignores all headers and the status code.
 type streamingResponseWriter struct {
 	underlying io.Writer
 	header     http.Header
