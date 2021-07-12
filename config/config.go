@@ -134,6 +134,7 @@ func New() *Config {
 	return &Config{
 		ListenHTTPS:               fmt.Sprintf(":%d", DefaultPort),
 		ListenHTTP:                "",
+		ListenTCP:                 "",
 		ServerAddr:                "",
 		Key:                       nil,
 		KeyFile:                   "",

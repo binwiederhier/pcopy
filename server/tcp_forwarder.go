@@ -40,6 +40,8 @@ func newTCPForwarder(addr string, upstreamAddr string, upstreamHandler http.Hand
 	}
 }
 
+// listenAndServe listens on the configured TCP address and delegates incoming connections to handleConn
+// in a new goroutine. This function does not return unless there is an error or until shutdown is called.
 func (s *tcpForwarder) listenAndServe() error {
 	listener, err := net.Listen("tcp", s.Addr)
 	if err != nil {
@@ -72,6 +74,7 @@ func (s *tcpForwarder) listenAndServe() error {
 	return nil
 }
 
+// shutdown cancels the listenAndServe function gracefully
 func (s *tcpForwarder) shutdown() {
 	s.mu.Lock()
 	if s.cancel != nil {
@@ -81,7 +84,7 @@ func (s *tcpForwarder) shutdown() {
 }
 
 // handleConn reads from the TCP socket and forwards it to the HTTP handler. This method does NOT close the underlying
-// connection. This is done in the listenAndServe to ensure that error messages can be sent to the client.
+// connection. This is done in listenAndServe to ensure that error messages (if any) can be sent to the client.
 func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	// Peak connection to detect "pcopy:..." prefix and extract path
 	connReadCloser := &connTimeoutReadCloser{conn: conn, timeout: s.ReadTimeout}
@@ -93,7 +96,7 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	}
 	path, offset := extractPath(peaked.PeakedBytes)
 
-	// Prepare upstream HTTP request
+	// Forward upstream HTTP request to UpstreamHandler and response to downstream conn
 	rawURL := fmt.Sprintf("%s/%s", s.UpstreamAddr, path)
 	requestBody := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), connReadCloser)
 	request, err := http.NewRequest(http.MethodPut, rawURL, requestBody)
@@ -103,9 +106,7 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	request.RequestURI = fmt.Sprintf("/%s", path)
 	request.RemoteAddr = conn.RemoteAddr().String()
 	request.Header.Set(HeaderNoRedirect, "1")
-
-	// Forward downstream response
-	s.UpstreamHandler.ServeHTTP(newStreamingResponseWriter(conn), request)
+	s.UpstreamHandler.ServeHTTP(newTCPResponseWriter(conn), request)
 	return nil
 }
 
@@ -120,7 +121,7 @@ func (s *tcpForwarder) handleHelp(conn net.Conn) error {
 	request.RequestURI = "/nc"
 	request.RemoteAddr = conn.RemoteAddr().String()
 	request.Header.Set(HeaderNoRedirect, "1")
-	s.UpstreamHandler.ServeHTTP(newStreamingResponseWriter(conn), request)
+	s.UpstreamHandler.ServeHTTP(newTCPResponseWriter(conn), request)
 	return nil
 }
 
@@ -163,28 +164,28 @@ func (c *connTimeoutReadCloser) Close() error {
 	return c.conn.Close()
 }
 
-// streamingResponseWriter implements a http.ResponseWriter that only passes the body through to the
+// tcpResponseWriter implements a http.ResponseWriter that only passes the body through to the
 // underlying io.Writer and ignores all headers and the status code.
-type streamingResponseWriter struct {
+type tcpResponseWriter struct {
 	underlying io.Writer
 	header     http.Header
 }
 
-func newStreamingResponseWriter(underlying io.Writer) *streamingResponseWriter {
-	return &streamingResponseWriter{
+func newTCPResponseWriter(underlying io.Writer) *tcpResponseWriter {
+	return &tcpResponseWriter{
 		underlying: underlying,
-		header:     http.Header{},
+		header: http.Header{},
 	}
 }
 
-func (s *streamingResponseWriter) Header() http.Header {
+func (s *tcpResponseWriter) Header() http.Header {
 	return s.header
 }
 
-func (s *streamingResponseWriter) Write(b []byte) (int, error) {
+func (s *tcpResponseWriter) Write(b []byte) (int, error) {
 	return s.underlying.Write(b)
 }
 
-func (s *streamingResponseWriter) WriteHeader(statusCode int) {
+func (s *tcpResponseWriter) WriteHeader(statusCode int) {
 	// We don't care about the status code
 }
