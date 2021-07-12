@@ -155,7 +155,7 @@ func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	forwarder.ReadTimeout = 600 * time.Millisecond
+	forwarder.ReadTimeout = time.Second // GitHub Actions is slowww...
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
@@ -166,7 +166,6 @@ func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
 	cmd.Stdout = &stdout
 	cmd.Run()
 
-	time.Sleep(200 * time.Millisecond)
 	clipboardtest.Content(t, conf, "test", "123\n456\n")
 }
 
@@ -174,18 +173,17 @@ func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12387", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	forwarder.ReadTimeout = 600 * time.Millisecond
+	forwarder.ReadTimeout = time.Second // GitHub Actions is slowww...
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
 	test.WaitForPortUp(t, "12387")
 
 	var stdout bytes.Buffer
-	cmd := exec.Command("sh", "-c", "(echo pcopy:test; echo 123; sleep .8; echo 456) | nc localhost 12387")
+	cmd := exec.Command("sh", "-c", "(echo pcopy:test; echo 123; sleep 2; echo 456) | nc localhost 12387")
 	cmd.Stdout = &stdout
 	cmd.Run()
 
-	time.Sleep(200 * time.Millisecond) // Sigh ...
 	clipboardtest.Content(t, conf, "test", "123\n")
 }
 
