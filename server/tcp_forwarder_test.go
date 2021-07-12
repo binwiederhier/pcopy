@@ -40,6 +40,7 @@ func TestTCPForwarder_Basic(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "echo hi there | nc -N localhost 12386")
@@ -64,6 +65,7 @@ func TestTCPForwarder_WithOptions(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "(echo \"pcopy:my-id?t=10m\"; echo hi there) | nc -N localhost 12386")
@@ -82,6 +84,7 @@ func TestTCPForwarder_WithInvalidOptions(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "(echo \"pcopy://my-id?t=10m\"; echo hi there) | nc -N localhost 12386")
@@ -100,6 +103,7 @@ func TestTCPForwarder_WithLimitFailure(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "echo 123456 | nc -N localhost 12386")
@@ -117,6 +121,7 @@ func TestTCPForwarder_WithPasswordProtectedClipboard(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "(echo \"pcopy:sup?a=this+is+a+password\"; echo -n something) | nc -N localhost 12386")
@@ -135,6 +140,7 @@ func TestTCPForwarder_WithPasswordProtectedClipboardInvalidPass(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "(echo \"pcopy:sup?a=INVALID\"; echo -n something) | nc -N localhost 12386")
@@ -153,6 +159,7 @@ func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "(echo pcopy:test; echo 123; echo 456) | nc localhost 12386")
@@ -170,6 +177,7 @@ func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
+	test.WaitForPortUp(t, "12386")
 
 	var stdout bytes.Buffer
 	cmd := exec.Command("sh", "-c", "(echo pcopy:test; echo 123; sleep .5; echo 456) | nc localhost 12386")
