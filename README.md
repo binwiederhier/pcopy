@@ -21,12 +21,12 @@ To see what else pcopy can do, check out the **[live demo](#demo)** (aka [nopast
 **Features:**
 * 📋 Copy/paste across computers (via STDIN/STDOUT)
 * 🔒 HTTPS secure server (via cert-pinning)
-* 🔑 Clipboards can be password-protected, or they can be open for everyone
-* 📚 Support for multiple clipboards (e.g. personal, work, ...)
+* 🔑 Clipboards can be [password-protected](#password-protected-clipboard), or they can be open for everyone
+* 📚 Support for [multiple clipboards](#support-for-multiple-clipboards) (e.g. personal, work, ...)
 * 🌎 Simple [Web UI](#web-ui-for-uploading-text-snippets-or-large-files) for uploading text snippets or large files
-* 🔗 Direct temporary links to clipboard content (with TTL/expiration) 
-* 💻 No-install `curl`-compatible clipboard usage (e.g. `curl nopaste.net`)
-* 👁️ Browser-only links that store your data in the URL fragment 
+* 🔗 Direct [temporary links](#direct-temporary-links-to-clipboard-content-with-ttlexpiration) to clipboard content (with TTL/expiration) 
+* 💻 No-install usage via [curl](#curl-compatible-usage) (`curl nopaste.net`) and [netcat](#nc-compatible-usage) (`echo help | nc -N nopaste.net 9999`)
+* 👁️ [Browser-only links](#browser-only-links-that-store-your-data-in-the-url-fragment) that store your data in the URL fragment 
 
 ![pcopy demo](assets/demo-simple.gif)
 
@@ -148,7 +148,7 @@ pcopy comes with a Web UI. You can check out the [demo](#demo).
 
 ### `curl`-compatible usage 
 If you don't want to install `pcopy` on a server, you can use simple HTTP GET/PUT/POSTs, e.g. via `curl`. There's an entire
-`curl` help page available too if you just type `curl <hostname>`. You may use `-u :<password>` to provide the clipboard
+`curl` [help page](https://nopaste.net/curl) available too if you just type `curl <hostname>`. You may use `-u :<password>` to provide the clipboard
  password (if any). Here's an example for the [demo clipboard](#demo):
 ```bash
 # Show curl help page
@@ -160,6 +160,21 @@ curl -T germany.jpg https://nopaste.net/germany
 
 # Paste/download from clipboard
 curl https://nopaste.net/hi-there
+```
+
+### `nc`-compatible usage 
+Similar to the `curl` API, you can upload files via netcat (`nc`). There's a detailed [help page](https://nopaste.net/nc) available by typing `echo help | nc <hostname> <port>`, e.g. `echo help | nc -N nopaste.net 9999`. Unlike the curl-API, the netcat usage is limited to uploading files only.
+
+```bash
+# Show nc help page
+echo help | nc -N nopaste.net 9999
+
+# Upload to clipboard
+echo check this out | nc -N nopaste.net 9999
+cat dog.jpg | nc -N nopaste.net 9999
+
+# Upload with  TTL
+(echo "pcopy:?t=30m"; cat dog.jpg) | nc -N nopaste.net 9999
 ```
 
 ### Streaming contents (without storing them on server)
