@@ -155,7 +155,7 @@ func TestTCPForwarder_WithTimeoutWithoutNParam(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	forwarder.ReadTimeout = 200 * time.Millisecond
+	forwarder.ReadTimeout = 400 * time.Millisecond
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
@@ -173,7 +173,7 @@ func TestTCPForwarder_WithTimeoutWithoutNParamContentCutoff(t *testing.T) {
 	_, conf := configtest.NewTestConfig(t)
 	server := newTestServer(t, conf)
 	forwarder := newTCPForwarder(":12386", config.ExpandServerAddr(conf.ServerAddr), server.Handle)
-	forwarder.ReadTimeout = 300 * time.Millisecond
+	forwarder.ReadTimeout = 400 * time.Millisecond
 	defer forwarder.shutdown()
 
 	go forwarder.listenAndServe()
