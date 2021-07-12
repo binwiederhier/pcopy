@@ -174,7 +174,7 @@ type tcpResponseWriter struct {
 func newTCPResponseWriter(underlying io.Writer) *tcpResponseWriter {
 	return &tcpResponseWriter{
 		underlying: underlying,
-		header: http.Header{},
+		header:     http.Header{},
 	}
 }
 
