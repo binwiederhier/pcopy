@@ -291,9 +291,10 @@ for p in pcopy pcp ppaste; do echo "PROG=$p source ~/.config/pcopy/autocomplete_
 I run a small nopaste service on **[nopaste.net](https://nopaste.net)** that you can play with. It has quite a few 
 limits in place, but you'll be able to get a feel for it:
 
-- To join via the command line: `pcopy join nopaste.net:443` (see [join instructions](#join-an-existing-clipboard))
+- To join via the command line: `pcopy join nopaste.net` (see [join instructions](#join-an-existing-clipboard))
 - Or use the [web UI](https://nopaste.net) (this is *work in progress*, I'm not a web designer, please help!)
 - Or simply type `curl nopaste.net` (see [curl usage](#curl-compatible-usage)) 
+- Or simply type `echo help | nc -N nopaste.net 9999` (see [netcat usage](#nc-compatible-usage)) 
 
 **Limits:**   
 Since [nopaste.net](https://nopaste.net) is publicly available, I put quite strict limits in place. It is limited to 
