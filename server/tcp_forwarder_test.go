@@ -47,6 +47,7 @@ func TestTCPForwarder_Basic(t *testing.T) {
 	cmd.Stdout = &stdout
 	cmd.Run()
 
+	println(stdout.String())
 	matches := regexp.MustCompile(`https://localhost:12345/(\S+)`).FindStringSubmatch(stdout.String())
 	req, _ := http.NewRequest(http.MethodGet, matches[0], nil)
 

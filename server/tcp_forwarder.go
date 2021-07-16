@@ -87,7 +87,7 @@ func (s *tcpForwarder) shutdown() {
 // connection. This is done in listenAndServe to ensure that error messages (if any) can be sent to the client.
 func (s *tcpForwarder) handleConn(conn net.Conn) error {
 	// Peak connection to detect "pcopy:..." prefix and extract path
-	connReadCloser := &connTimeoutReadCloser{conn: conn, timeout: s.ReadTimeout}
+	connReadCloser := io.NopCloser(&connTimeoutReader{conn: conn, timeout: s.ReadTimeout}) // Closing happens in listenAndServe!
 	peaked, err := util.Peak(connReadCloser, bufferSizeBytes)
 	if err != nil {
 		return fmt.Errorf("cannot peak: %w", err)
@@ -98,8 +98,8 @@ func (s *tcpForwarder) handleConn(conn net.Conn) error {
 
 	// Forward upstream HTTP request to UpstreamHandler and response to downstream conn
 	rawURL := fmt.Sprintf("%s/%s", s.UpstreamAddr, path)
-	requestBody := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), connReadCloser)
-	request, err := http.NewRequest(http.MethodPut, rawURL, requestBody)
+	body := io.MultiReader(bytes.NewReader(peaked.PeakedBytes[offset:]), connReadCloser)
+	request, err := http.NewRequest(http.MethodPut, rawURL, body)
 	if err != nil {
 		return fmt.Errorf("cannot create forwarding request: %w", err)
 	}
@@ -137,15 +137,15 @@ func extractPath(peaked []byte) (string, int) {
 	return strings.TrimSuffix(strings.TrimPrefix(s, "pcopy:"), "\n"), len(s)
 }
 
-// connTimeoutReadCloser implements an io.ReadCloser that will call SetReadDeadline before
+// connTimeoutReader implements an io.Reader that will call SetReadDeadline before
 // every Read and will return io.EOF if a Read times out.
-type connTimeoutReadCloser struct {
+type connTimeoutReader struct {
 	conn    net.Conn
 	timeout time.Duration
 	lastErr error
 }
 
-func (c *connTimeoutReadCloser) Read(p []byte) (n int, err error) {
+func (c *connTimeoutReader) Read(p []byte) (n int, err error) {
 	if c.lastErr == io.EOF {
 		return 0, io.EOF // No need to wait if we're at the end
 	}
@@ -158,10 +158,6 @@ func (c *connTimeoutReadCloser) Read(p []byte) (n int, err error) {
 	}
 	c.lastErr = err
 	return read, err
-}
-
-func (c *connTimeoutReadCloser) Close() error {
-	return c.conn.Close()
 }
 
 // tcpResponseWriter implements a http.ResponseWriter that only passes the body through to the

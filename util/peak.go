@@ -2,7 +2,6 @@ package util
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 )
@@ -18,9 +17,6 @@ type PeakedReadCloser struct {
 	underlying   io.ReadCloser
 	closed       bool
 }
-
-// ErrAlreadyClosed is returned if the PeakedReadCloser is already closed when trying to read from it
-var ErrAlreadyClosed = errors.New("stream already closed")
 
 // Peak reads the underlying ReadCloser into memory up until the limit and returns a PeakedReadCloser
 func Peak(underlying io.ReadCloser, limit int) (*PeakedReadCloser, error) {
@@ -44,7 +40,7 @@ func Peak(underlying io.ReadCloser, limit int) (*PeakedReadCloser, error) {
 // Read reads from the peaked bytes and then from the underlying stream
 func (r *PeakedReadCloser) Read(p []byte) (n int, err error) {
 	if r.closed {
-		return 0, ErrAlreadyClosed
+		return 0, io.EOF
 	}
 	n, err = r.peaked.Read(p)
 	if err == io.EOF {
@@ -58,7 +54,7 @@ func (r *PeakedReadCloser) Read(p []byte) (n int, err error) {
 // Close closes the underlying stream
 func (r *PeakedReadCloser) Close() error {
 	if r.closed {
-		return ErrAlreadyClosed
+		return io.EOF
 	}
 	r.closed = true
 	return r.underlying.Close()
