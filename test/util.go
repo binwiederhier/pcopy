@@ -23,11 +23,15 @@ func FromBase64(t *testing.T, s string) []byte {
 func WaitForPortUp(t *testing.T, port string) {
 	success := false
 	for i := 0; i < 140; i++ {
+		startTime := time.Now()
 		conn, _ := net.DialTimeout("tcp", net.JoinHostPort("localhost", port), 50*time.Millisecond)
 		if conn != nil {
 			success = true
 			conn.Close()
 			break
+		}
+		if time.Since(startTime) < 50*time.Millisecond {
+			time.Sleep(50*time.Millisecond - time.Since(startTime))
 		}
 	}
 	if !success {
