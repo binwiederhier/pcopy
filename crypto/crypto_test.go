@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestGenerateKey(t *testing.T) {
@@ -273,4 +274,11 @@ eTzmbC8o65uD4keYyszxUIk8bBPGM74=
 
 	pin, _ := ReadCurlPinnedPublicKeyFromFile("this is not a file")
 	test.StrEquals(t, "", pin)
+}
+
+func TestGenerateAuthHMAC(t *testing.T) {
+	timestamp := int64(1626482338)
+	key := bytes.Repeat([]byte{0x86}, 32)
+	hmacAuth, _ := generateAuthHMAC(timestamp, key, "GET", "/abcdef", time.Hour)
+	test.StrEquals(t, "HMAC 1626482338 3600 Z4Z5hOFyX2i+GHBUEV5Ft8CVnuQuts+3lC0yz8uDj8U=", hmacAuth)
 }

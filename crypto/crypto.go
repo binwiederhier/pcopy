@@ -174,7 +174,10 @@ func ReadCurlPinnedPublicKeyFromFile(filename string) (string, error) {
 // The result can be used in the HTTP "Authorization" header. If the TTL is non-zero, the authorization
 // header will only be valid for the given duration.
 func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration) (string, error) {
-	timestamp := time.Now().Unix()
+	return generateAuthHMAC(time.Now().Unix(), key, method, path, ttl)
+}
+
+func generateAuthHMAC(timestamp int64, key []byte, method string, path string, ttl time.Duration) (string, error) {
 	ttlSecs := int(ttl.Seconds())
 	data := []byte(fmt.Sprintf("%d:%d:%s:%s", timestamp, ttlSecs, method, path))
 	hash := hmac.New(sha256.New, key)
