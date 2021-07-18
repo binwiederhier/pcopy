@@ -41,6 +41,9 @@ const (
 	// DefaultID is the default file name if none is passed by the user.
 	DefaultID = "default"
 
+	// DefaultUser is the default username if no API or Web user is passed in
+	DefaultUser = Username("default")
+
 	// DefaultClipboardSizeLimit is the total size in bytes that the server will allow to be written to the
 	// clipboard directory. This setting is only relevant for the server.
 	DefaultClipboardSizeLimit = 0
@@ -100,61 +103,71 @@ var (
 	defaultLimitPUTBurst = 50
 )
 
+type Username string
+
 // Config is the configuration struct used to configure the client and the server. Some settings only apply to
 // the client, others only to the server. Some apply to both. Many (but not all) of these settings can be set either
 // via the config file, or via command line parameters.
 type Config struct {
-	ListenHTTPS               string
-	ListenHTTP                string
-	ListenTCP                 string
-	ServerAddr                string
-	DefaultID                 string
+	ListenHTTPS         string
+	ListenHTTP          string
+	ListenTCP           string
+	ServerAddr          string
+	DefaultID           string
+	KeyFile             string
+	CertFile            string
+	ClipboardName       string
+	ClipboardDir        string
+	ClipboardSizeLimit  int64
+	ClipboardCountLimit int
+	Users               map[Username]*User
+	ProgressFunc        util.ProgressFunc
+	ManagerInterval     time.Duration
+	LimitGET            rate.Limit
+	LimitGETBurst       int
+	LimitPUT            rate.Limit
+	LimitPUTBurst       int
+}
+
+type User struct {
 	Key                       *crypto.Key
-	KeyFile                   string
-	CertFile                  string
-	ClipboardName             string
-	ClipboardDir              string
-	ClipboardSizeLimit        int64
-	ClipboardCountLimit       int
 	FileSizeLimit             int64
 	FileExpireAfterDefault    time.Duration
 	FileExpireAfterNonTextMax time.Duration
 	FileExpireAfterTextMax    time.Duration
 	FileModesAllowed          []string
-	ProgressFunc              util.ProgressFunc
-	ManagerInterval           time.Duration
-	LimitGET                  rate.Limit
-	LimitGETBurst             int
-	LimitPUT                  rate.Limit
-	LimitPUTBurst             int
 }
 
 // New returns the default config
 func New() *Config {
 	return &Config{
-		ListenHTTPS:               fmt.Sprintf(":%d", DefaultPort),
-		ListenHTTP:                "",
-		ListenTCP:                 "",
-		ServerAddr:                "",
-		Key:                       nil,
-		KeyFile:                   "",
-		CertFile:                  "",
-		DefaultID:                 DefaultID,
-		ClipboardName:             DefaultClipboardName,
-		ClipboardDir:              DefaultClipboardDir,
-		ClipboardSizeLimit:        DefaultClipboardSizeLimit,
-		ClipboardCountLimit:       DefaultClipboardCountLimit,
-		FileSizeLimit:             DefaultFileSizeLimit,
-		FileExpireAfterDefault:    DefaultFileExpireAfter,
-		FileExpireAfterNonTextMax: DefaultFileExpireAfter,
-		FileExpireAfterTextMax:    DefaultFileExpireAfter,
-		FileModesAllowed:          strings.Split(DefaultFileModesAllowed, " "),
-		ProgressFunc:              nil,
-		ManagerInterval:           defaultManagerInterval,
-		LimitGET:                  defaultLimitGET,
-		LimitGETBurst:             defaultLimitGETBurst,
-		LimitPUT:                  defaultLimitPUT,
-		LimitPUTBurst:             defaultLimitPUTBurst,
+		ListenHTTPS:         fmt.Sprintf(":%d", DefaultPort),
+		ListenHTTP:          "",
+		ListenTCP:           "",
+		ServerAddr:          "",
+		KeyFile:             "",
+		CertFile:            "",
+		DefaultID:           DefaultID,
+		ClipboardName:       DefaultClipboardName,
+		ClipboardDir:        DefaultClipboardDir,
+		ClipboardSizeLimit:  DefaultClipboardSizeLimit,
+		ClipboardCountLimit: DefaultClipboardCountLimit,
+		Users: map[Username]*User{
+			DefaultUser: {
+				Key:                       nil,
+				FileSizeLimit:             DefaultFileSizeLimit,
+				FileExpireAfterDefault:    DefaultFileExpireAfter,
+				FileExpireAfterNonTextMax: DefaultFileExpireAfter,
+				FileExpireAfterTextMax:    DefaultFileExpireAfter,
+				FileModesAllowed:          strings.Split(DefaultFileModesAllowed, " "),
+			},
+		},
+		ProgressFunc:    nil,
+		ManagerInterval: defaultManagerInterval,
+		LimitGET:        defaultLimitGET,
+		LimitGETBurst:   defaultLimitGETBurst,
+		LimitPUT:        defaultLimitPUT,
+		LimitPUTBurst:   defaultLimitPUTBurst,
 	}
 }
 
@@ -217,7 +230,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		return nil, err
 	}
 
-	listenAddr, ok := raw["ListenAddr"]
+	listenAddr, ok := raw[DefaultUser]["ListenAddr"]
 	if ok {
 		config.ListenHTTP = ""
 		config.ListenHTTPS = ""
@@ -252,12 +265,12 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		}
 	}
 
-	serverAddr, ok := raw["ServerAddr"]
+	serverAddr, ok := raw[DefaultUser]["ServerAddr"]
 	if ok {
 		config.ServerAddr = ExpandServerAddr(serverAddr)
 	}
 
-	defaultID, ok := raw["DefaultID"]
+	defaultID, ok := raw[DefaultUser]["DefaultID"]
 	if ok {
 		re := regexp.MustCompile(`^[a-z0-9][-_.a-z0-9]*$`)
 		if defaultID != "" && !re.MatchString(defaultID) {
@@ -266,15 +279,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		config.DefaultID = defaultID
 	}
 
-	key, ok := raw["Key"]
-	if ok {
-		config.Key, err = crypto.DecodeKey(key)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	keyFile, ok := raw["KeyFile"]
+	keyFile, ok := raw[DefaultUser]["KeyFile"]
 	if ok {
 		if _, err := os.Stat(keyFile); err != nil {
 			return nil, err
@@ -282,7 +287,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		config.KeyFile = keyFile
 	}
 
-	certFile, ok := raw["CertFile"]
+	certFile, ok := raw[DefaultUser]["CertFile"]
 	if ok {
 		if _, err := os.Stat(certFile); err != nil {
 			return nil, err
@@ -290,17 +295,17 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		config.CertFile = certFile
 	}
 
-	clipboardName, ok := raw["ClipboardName"]
+	clipboardName, ok := raw[DefaultUser]["ClipboardName"]
 	if ok {
 		config.ClipboardName = clipboardName
 	}
 
-	clipboardDir, ok := raw["ClipboardDir"]
+	clipboardDir, ok := raw[DefaultUser]["ClipboardDir"]
 	if ok {
 		config.ClipboardDir = util.ExpandHome(clipboardDir)
 	}
 
-	clipboardSizeLimit, ok := raw["ClipboardSizeLimit"]
+	clipboardSizeLimit, ok := raw[DefaultUser]["ClipboardSizeLimit"]
 	if ok {
 		config.ClipboardSizeLimit, err = util.ParseSize(clipboardSizeLimit)
 		if err != nil {
@@ -308,7 +313,7 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		}
 	}
 
-	clipboardCountLimit, ok := raw["ClipboardCountLimit"]
+	clipboardCountLimit, ok := raw[DefaultUser]["ClipboardCountLimit"]
 	if ok {
 		config.ClipboardCountLimit, err = strconv.Atoi(clipboardCountLimit)
 		if err != nil {
@@ -316,68 +321,81 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		}
 	}
 
-	fileSizeLimit, ok := raw["FileSizeLimit"]
-	if ok {
-		config.FileSizeLimit, err = util.ParseSize(fileSizeLimit)
-		if err != nil {
-			return nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
-		}
-	}
+	for username, userRaw := range raw {
+		userConfig := config.Users[username]
 
-	fileExpireAfter, ok := raw["FileExpireAfter"]
-	if ok {
-		parts := strings.Split(fileExpireAfter, " ")
-		config.FileExpireAfterDefault, err = util.ParseDuration(parts[0])
-		if err != nil {
-			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+		key, ok := userRaw["Key"]
+		if ok {
+			userConfig.Key, err = crypto.DecodeKey(key)
+			if err != nil {
+				return nil, err
+			}
 		}
-		if len(parts) > 1 {
-			config.FileExpireAfterNonTextMax, err = util.ParseDuration(parts[1])
+
+		fileSizeLimit, ok := userRaw["FileSizeLimit"]
+		if ok {
+			userConfig.FileSizeLimit, err = util.ParseSize(fileSizeLimit)
+			if err != nil {
+				return nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
+			}
+		}
+
+		fileExpireAfter, ok := userRaw["FileExpireAfter"]
+		if ok {
+			parts := strings.Split(fileExpireAfter, " ")
+			userConfig.FileExpireAfterDefault, err = util.ParseDuration(parts[0])
 			if err != nil {
 				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
 			}
-		} else {
-			config.FileExpireAfterNonTextMax = config.FileExpireAfterDefault
-		}
-		if len(parts) > 2 {
-			config.FileExpireAfterTextMax, err = util.ParseDuration(parts[2])
-			if err != nil {
-				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+			if len(parts) > 1 {
+				userConfig.FileExpireAfterNonTextMax, err = util.ParseDuration(parts[1])
+				if err != nil {
+					return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+				}
+			} else {
+				userConfig.FileExpireAfterNonTextMax = userConfig.FileExpireAfterDefault
 			}
-		} else {
-			config.FileExpireAfterTextMax = config.FileExpireAfterNonTextMax
+			if len(parts) > 2 {
+				userConfig.FileExpireAfterTextMax, err = util.ParseDuration(parts[2])
+				if err != nil {
+					return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+				}
+			} else {
+				userConfig.FileExpireAfterTextMax = userConfig.FileExpireAfterNonTextMax
+			}
+			if userConfig.FileExpireAfterNonTextMax > 0 && userConfig.FileExpireAfterDefault > userConfig.FileExpireAfterNonTextMax {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than nontext-max")
+			}
+			if userConfig.FileExpireAfterTextMax > 0 && userConfig.FileExpireAfterDefault > userConfig.FileExpireAfterTextMax {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than text-max")
+			}
 		}
-		if config.FileExpireAfterNonTextMax > 0 && config.FileExpireAfterDefault > config.FileExpireAfterNonTextMax {
-			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than nontext-max")
-		}
-		if config.FileExpireAfterTextMax > 0 && config.FileExpireAfterDefault > config.FileExpireAfterTextMax {
-			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than text-max")
-		}
-	}
 
-	fileModesAllowed, ok := raw["FileModesAllowed"]
-	if ok {
-		modes := strings.Split(fileModesAllowed, " ")
-		if len(modes) == 0 || len(modes) > 2 {
-			return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': max two, but at least one value expected")
-		}
-		for _, m := range modes {
-			if m != FileModeReadOnly && m != FileModeReadWrite {
-				return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': %s", m)
+		fileModesAllowed, ok := userRaw["FileModesAllowed"]
+		if ok {
+			modes := strings.Split(fileModesAllowed, " ")
+			if len(modes) == 0 || len(modes) > 2 {
+				return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': max two, but at least one value expected")
 			}
+			for _, m := range modes {
+				if m != FileModeReadOnly && m != FileModeReadWrite {
+					return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': %s", m)
+				}
+			}
+			userConfig.FileModesAllowed = modes
 		}
-		config.FileModesAllowed = modes
 	}
 
 	return config, nil
 }
 
-func loadRawConfig(reader io.Reader) (map[string]string, error) {
-	config := make(map[string]string)
-	scanner := bufio.NewScanner(reader)
-
+func loadRawConfig(reader io.Reader) (map[Username]map[string]string, error) {
+	username := DefaultUser
 	comment := regexp.MustCompile(`^\s*#`)
 	value := regexp.MustCompile(`^\s*(\S+)(?:\s+(.*)|\s*)$`)
+
+	config := make(map[Username]map[string]string)
+	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -385,10 +403,12 @@ func loadRawConfig(reader io.Reader) (map[string]string, error) {
 		if !comment.MatchString(line) {
 			parts := value.FindStringSubmatch(line)
 
-			if len(parts) == 3 {
-				config[parts[1]] = strings.TrimSpace(parts[2])
+			if parts[1] == "User" {
+				username = Username(strings.TrimSpace(parts[2]))
+			} else if len(parts) == 3 {
+				config[username][parts[1]] = strings.TrimSpace(parts[2])
 			} else if len(parts) == 2 {
-				config[parts[1]] = ""
+				config[username][parts[1]] = ""
 			}
 		}
 	}

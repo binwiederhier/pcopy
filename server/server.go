@@ -206,8 +206,14 @@ func newRoute(method, pattern string, handler handleFunc) route {
 	return route{method, regexp.MustCompile("^" + pattern + "$"), handler}
 }
 
-// routeCtx is a marker struct used to find fields in route matches
-type routeCtx struct{}
+// requestCtxKey is a marker struct used to find fields in route matches
+type requestCtxKey struct{}
+
+// requestCtx is the value holding the route fields and the current config.User
+type requestCtx struct {
+	fields []string
+	user   *config.User
+}
 
 // webTemplateConfig is a struct defining all the things required to render the web root
 type webTemplateConfig struct {
@@ -252,7 +258,10 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 		matches := route.regex.FindStringSubmatch(r.URL.Path)
 		if len(matches) > 0 && r.Method == route.method {
 			log.Printf("[%s] %s - %s %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
-			ctx := context.WithValue(r.Context(), routeCtx{}, matches[1:])
+			ctx := context.WithValue(r.Context(), requestCtxKey{}, requestCtx{
+				fields: matches[1:],
+				user:   s.config.Users[config.DefaultUser],
+			})
 			if err := route.handler(w, r.WithContext(ctx)); err != nil {
 				if err == clipboard.ErrInvalidFileID {
 					s.fail(w, r, http.StatusBadRequest, err)
@@ -371,8 +380,7 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) handleClipboardGet(w http.ResponseWriter, r *http.Request) error {
-	fields := r.Context().Value(routeCtx{}).([]string)
-	id := fields[0]
+	id := s.requestContext(r).fields[0]
 	download := false
 	filename := id
 	if r.URL.Query().Get(queryParamFilename) != "" {
@@ -397,8 +405,7 @@ func (s *Server) handleClipboardGet(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (s *Server) handleClipboardHead(w http.ResponseWriter, r *http.Request) error {
-	fields := r.Context().Value(routeCtx{}).([]string)
-	id := fields[0]
+	id := s.requestContext(r).fields[0]
 	stat, err := s.clipboard.Stat(id)
 	if err != nil {
 		return ErrHTTPNotFound
@@ -414,14 +421,16 @@ func (s *Server) handleClipboardHead(w http.ResponseWriter, r *http.Request) err
 }
 
 func (s *Server) handleClipboardPutRandom(w http.ResponseWriter, r *http.Request) error {
-	ctx := context.WithValue(r.Context(), routeCtx{}, []string{randomFileID()})
-	return s.handleClipboardPut(w, r.WithContext(ctx))
+	ctx := s.requestContext(r)
+	ctx.fields = []string{randomFileID()}
+	return s.handleClipboardPut(w, r.WithContext(context.WithValue(r.Context(), requestCtxKey{}, ctx)))
 }
 
 func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) error {
 	// Parse request: file ID, stream
-	fields := r.Context().Value(routeCtx{}).([]string)
-	id := fields[0]
+	ctx := s.requestContext(r)
+	id := ctx.fields[0]
+	userConfig := ctx.user
 
 	// Check if file exists
 	if err := s.checkPUT(id, r.RemoteAddr); err != nil {
@@ -462,7 +471,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 		expires = time.Now().Add(ttl).Unix()
 	}
 	secret := ""
-	if s.config.Key != nil {
+	if userConfig.Key != nil {
 		secret = randomSecret()
 	}
 
@@ -598,14 +607,19 @@ func (s *Server) writeFileInfoOutput(w http.ResponseWriter, statusCode int, id s
 	return nil
 }
 
+func (s *Server) requestContext(r *http.Request) requestCtx {
+	return r.Context().Value(requestCtxKey{}).(requestCtx)
+}
+
 func (s *Server) getFileMode(r *http.Request) (string, error) {
-	mode := s.config.FileModesAllowed[0]
+	userConfig := s.requestContext(r).user
+	mode := userConfig.FileModesAllowed[0]
 	if r.Header.Get(HeaderFileMode) != "" {
 		mode = r.Header.Get(HeaderFileMode)
 	} else if r.URL.Query().Get(queryParamFileMode) != "" {
 		mode = r.URL.Query().Get(queryParamFileMode)
 	}
-	for _, allowed := range s.config.FileModesAllowed {
+	for _, allowed := range userConfig.FileModesAllowed {
 		if mode == allowed {
 			return mode, nil
 		}
@@ -618,12 +632,13 @@ func (s *Server) getTTL(r *http.Request, peakedBody *util.PeakedReadCloser) (tim
 	var ttl time.Duration
 
 	// Get the TTL
+	userConfig := s.requestContext(r).user
 	if r.URL.Query().Get(queryParamTTL) != "" {
 		ttl, err = util.ParseDuration(r.URL.Query().Get(queryParamTTL))
 	} else if r.Header.Get(HeaderTTL) != "" {
 		ttl, err = util.ParseDuration(r.Header.Get(HeaderTTL))
-	} else if s.config.FileExpireAfterDefault > 0 {
-		ttl = s.config.FileExpireAfterDefault
+	} else if userConfig.FileExpireAfterDefault > 0 {
+		ttl = userConfig.FileExpireAfterDefault
 	}
 	if err != nil {
 		return 0, ErrHTTPBadRequest
@@ -632,11 +647,11 @@ func (s *Server) getTTL(r *http.Request, peakedBody *util.PeakedReadCloser) (tim
 	// If the given TTL is larger than the max allowed value, set it to the max value.
 	// Special handling for text: if the body is a short text (as per our peaking), the text max value applies.
 	// It may be a little inefficient to always check for UTF-8, but I think it's fine.
-	if ttl > s.config.FileExpireAfterNonTextMax || ttl > s.config.FileExpireAfterTextMax {
-		maxTTL := s.config.FileExpireAfterNonTextMax
+	if ttl > userConfig.FileExpireAfterNonTextMax || ttl > userConfig.FileExpireAfterTextMax {
+		maxTTL := userConfig.FileExpireAfterNonTextMax
 		isShortText := !peakedBody.LimitReached && utf8.Valid(peakedBody.PeakedBytes)
 		if isShortText {
-			maxTTL = s.config.FileExpireAfterTextMax
+			maxTTL = userConfig.FileExpireAfterTextMax
 		}
 		if maxTTL > 0 && ttl > maxTTL {
 			ttl = maxTTL
@@ -674,7 +689,7 @@ func (s *Server) getOutputFormat(r *http.Request) string {
 
 func (s *Server) auth(next handleFunc) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		if err := s.authorize(r); err != nil {
+		if err := s.authorizeUser(r); err != nil {
 			return err
 		}
 		return next(w, r)
@@ -683,31 +698,30 @@ func (s *Server) auth(next handleFunc) handleFunc {
 
 func (s *Server) authFile(next handleFunc) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		if err := s.authorizeFileWithFallback(r); err != nil {
+		if err := s.authorizeFileWithUserFallback(r); err != nil {
 			return err
 		}
 		return next(w, r)
 	}
 }
 
-func (s *Server) authorizeFileWithFallback(r *http.Request) error {
-	fields := r.Context().Value(routeCtx{}).([]string)
-	id := fields[0]
+func (s *Server) authorizeFileWithUserFallback(r *http.Request) error {
+	id := s.requestContext(r).fields[0]
 	stat, err := s.clipboard.Stat(id)
 	if err != nil {
-		return s.authorize(r)
+		return s.authorizeUser(r)
 	}
 	if stat.Secret == "" {
-		return s.authorize(r)
+		return s.authorizeUser(r)
 	}
 	secret, ok := r.URL.Query()[queryParamAuth]
 	if !ok || subtle.ConstantTimeCompare([]byte(stat.Secret), []byte(secret[0])) != 1 {
-		return s.authorize(r)
+		return s.authorizeUser(r)
 	}
 	return nil
 }
 
-func (s *Server) authorize(r *http.Request) error {
+func (s *Server) authorizeUser(r *http.Request) error {
 	if s.config.Key == nil {
 		return nil
 	}
