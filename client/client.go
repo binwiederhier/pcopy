@@ -224,11 +224,11 @@ func (c *Client) FileInfo(id string) (*server.File, error) {
 // join operation. This method will first attempt to securely connect over HTTPS, and (if that fails)
 // fall back to skipping certificate verification. In the latter case, it will download and return
 // the server certificate so the client can pin them.
-func (c *Client) ServerInfo() (*server.Info, error) {
+func (c *Client) ServerInfo(username string) (*server.Info, error) {
 	var err error
 
 	// First attempt to retrieve info with secure HTTP client
-	info, err := c.retrieveInfo(util.WithTimeout(util.NewHTTPClient()))
+	info, err := c.retrieveInfo(util.WithTimeout(util.NewHTTPClient()), username)
 	if err != nil {
 		// If this is not a cert error, fail immediately; there is nothing we can do
 		if !errors.As(err, &x509.UnknownAuthorityError{}) {
@@ -237,7 +237,7 @@ func (c *Client) ServerInfo() (*server.Info, error) {
 
 		// Then attempt to retrieve ignoring bad certs; this is okay, we pin the cert if it's bad
 		// and warn the user about this.
-		info, err = c.retrieveInfo(util.WithTimeout(util.NewHTTPClientWithInsecureTransport()))
+		info, err = c.retrieveInfo(util.WithTimeout(util.NewHTTPClientWithInsecureTransport()), username)
 		if err != nil {
 			return nil, err
 		}
@@ -281,13 +281,15 @@ func (c *Client) Verify(cert *x509.Certificate, key *crypto.Key) error {
 
 func (c *Client) addAuthHeader(req *http.Request, key *crypto.Key) error {
 	if key == nil {
-		key = c.config.Key
+		if userConfig, ok := c.config.Users[c.config.User]; ok {
+			key = userConfig.Key
+		}
 	}
 	if key == nil {
 		return nil // No auth configured
 	}
 
-	auth, err := crypto.GenerateAuthHMAC(key.Bytes, req.Method, req.URL.Path, useDefaultAuthTTL) // RequestURI is empty!
+	auth, err := crypto.GenerateAuthHMAC(c.config.User, key.Bytes, req.Method, req.URL.Path) // RequestURI is empty!
 	if err != nil {
 		return err
 	}
@@ -321,8 +323,8 @@ func (c *Client) parseFileInfoResponse(resp *http.Response) (*server.File, error
 	}, nil
 }
 
-func (c *Client) retrieveInfo(client *http.Client) (*server.Info, error) {
-	resp, err := client.Get(fmt.Sprintf("%s/info", config.ExpandServerAddr(c.config.ServerAddr)))
+func (c *Client) retrieveInfo(client *http.Client, username string) (*server.Info, error) {
+	resp, err := client.Get(fmt.Sprintf("%s/info?u=%s", config.ExpandServerAddr(c.config.ServerAddr), username))
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,7 @@ var cmdJoin = &cli.Command{
 		&cli.BoolFlag{Name: "force", Aliases: []string{"f"}, Usage: "overwrite config if it already exists"},
 		&cli.BoolFlag{Name: "auto", Aliases: []string{"a"}, Usage: "automatically choose clipboard alias"},
 		&cli.BoolFlag{Name: "quiet", Aliases: []string{"q"}, Usage: "do not print instructions"},
+		&cli.StringFlag{Name: "user", Aliases: []string{"u"}, DefaultText: string(config.DefaultUser), Usage: "join as a different user"},
 	},
 	Description: `Connects to a remote clipboard with the server address SERVER. CLIPBOARD is the local alias
 that can be used to identify it (default is 'default'). This command is interactive and
@@ -38,19 +39,24 @@ If the remote server's certificate is self-signed, its certificate will be downl
 ~/.config/pcopy/$CLIPBOARD.crt (or /etc/pcopy/$CLIPBOARD.crt) and pinned for future connections.
 
 Examples:
-  pcopy join pcopy.example.com     # Joins remote clipboard as local alias 'default'
-  pcopy join pcopy.work.com work   # Joins remote clipboard with local alias 'work'`,
+  pcopy join pcopy.example.com        # Joins clipboard as local alias 'default'
+  pcopy join pcopy.work.com work      # Joins clipboard with local alias 'work'
+  pcopy join --user phil nopaste.net  # Joins clipboard as user 'phil'`,
 }
 
 func execJoin(c *cli.Context) error {
 	force := c.Bool("force")
 	auto := c.Bool("auto")
 	quiet := c.Bool("quiet")
+	username := c.String("user")
 	if c.NArg() < 1 {
 		return errors.New("missing server address, see --help for usage details")
 	}
 	if force && auto {
 		return errors.New("cannot use both --auto and --force")
+	}
+	if username == "" {
+		username = config.DefaultUser
 	}
 
 	clipboard := config.DefaultClipboard
@@ -67,11 +73,11 @@ func execJoin(c *cli.Context) error {
 	}
 
 	// Read basic info from server
-	info, err := readServerInfo(c, rawServerAddr)
+	info, err := readServerInfo(c, rawServerAddr, username)
 	if err != nil {
 		return err
 	}
-	pclient, err := client.NewClient(&config.Config{ServerAddr: info.ServerAddr})
+	pclient, err := client.NewClient(&config.Config{ServerAddr: info.ServerAddr, User: username})
 	if err != nil {
 		return err
 	}
@@ -80,22 +86,14 @@ func execJoin(c *cli.Context) error {
 	var key *crypto.Key
 
 	if info.Salt != nil {
-		envKey := os.Getenv(config.EnvKey)
-		if envKey != "" {
-			key, err = crypto.DecodeKey(envKey)
-			if err != nil {
-				return err
-			}
-		} else {
-			password, err := readPassword(c)
-			if err != nil {
-				return err
-			}
-			key = crypto.DeriveKey(password, info.Salt)
-			err = pclient.Verify(info.Cert, key)
-			if err != nil {
-				return fmt.Errorf("failed to join clipboard: %s", err.Error())
-			}
+		password, err := readPassword(c)
+		if err != nil {
+			return err
+		}
+		key = crypto.DeriveKey(password, info.Salt)
+		err = pclient.Verify(info.Cert, key)
+		if err != nil {
+			return fmt.Errorf("failed to join clipboard: %s", err.Error())
 		}
 	}
 
@@ -103,7 +101,10 @@ func execJoin(c *cli.Context) error {
 	conf := config.New()
 	conf.ServerAddr = config.CollapseServerAddr(info.ServerAddr)
 	conf.DefaultID = info.DefaultID
-	conf.Key = key // May be nil, but that's ok
+	conf.User = username
+	conf.Users[username] = &config.User{
+		Key: key, // May be nil, but that's ok
+	}
 	if err := conf.WriteFile(configFile); err != nil {
 		return err
 	}
@@ -136,8 +137,12 @@ type serverInfoResult struct {
 // readServerInfo is doing a parallel lookup for all potential server addresses. For instance, "nopaste.net"
 // is expanded to ["https://nopaste.net:2586", "https://nopaste.net:443"] so we check both addresses in
 // parallel and return the first one that returns, or return an error with all errors.
-func readServerInfo(c *cli.Context, rawServerAddr string) (*server.Info, error) {
-	fmt.Fprintf(c.App.ErrWriter, "Joining clipboard at %s ... ", rawServerAddr)
+func readServerInfo(c *cli.Context, rawServerAddr string, username string) (*server.Info, error) {
+	if username != config.DefaultUser {
+		fmt.Fprintf(c.App.ErrWriter, "Joining clipboard at %s ... ", rawServerAddr)
+	} else {
+		fmt.Fprintf(c.App.ErrWriter, "Joining clipboard at %s as user %s ... ", rawServerAddr, username)
+	}
 
 	resultChan := make(chan *serverInfoResult)
 	serverAddrs := config.ExpandServerAddrsGuess(rawServerAddr)
@@ -146,7 +151,7 @@ func readServerInfo(c *cli.Context, rawServerAddr string) (*server.Info, error) 
 	for _, serverAddr := range serverAddrs {
 		go func(serverAddr string) {
 			pclient, _ := client.NewClient(&config.Config{ServerAddr: serverAddr})
-			serverInfo, err := pclient.ServerInfo()
+			serverInfo, err := pclient.ServerInfo(username)
 			if err != nil {
 				resultChan <- &serverInfoResult{addr: serverAddr, err: err}
 				return

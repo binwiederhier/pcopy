@@ -112,6 +112,7 @@ const (
 	queryParamTTL           = "t"
 	queryParamDownload      = "d"
 	queryParamFilename      = "f" // Same as format, but that's ok, since this is for GETs
+	queryParamUser          = "u" // Only for /info
 
 	defaultMaxAuthAge   = time.Minute
 	visitorExpungeAfter = 30 * time.Minute
@@ -120,7 +121,8 @@ const (
 )
 
 var (
-	authHmacRegex       = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
+	authHMACV1Regex     = regexp.MustCompile(`^HMAC (\d+) (\d+) (.+)$`)
+	authHMACV2Regex     = regexp.MustCompile(`^HMACv2 (\d+) (\S+) (.+)$`)
 	authBasicRegex      = regexp.MustCompile(`^Basic (\S+)$`)
 	clipboardPathFormat = "/%s"
 	templateFnMap       = template.FuncMap{
@@ -211,8 +213,8 @@ type requestCtxKey struct{}
 
 // requestCtx is the value holding the route fields and the current config.User
 type requestCtx struct {
-	fields []string
-	user   *config.User
+	fields     []string
+	userConfig *config.User
 }
 
 // webTemplateConfig is a struct defining all the things required to render the web root
@@ -259,8 +261,8 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 		if len(matches) > 0 && r.Method == route.method {
 			log.Printf("[%s] %s - %s %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 			ctx := context.WithValue(r.Context(), requestCtxKey{}, requestCtx{
-				fields: matches[1:],
-				user:   s.config.Users[config.DefaultUser],
+				fields:     matches[1:],
+				userConfig: s.config.Users[config.DefaultUser],
 			})
 			if err := route.handler(w, r.WithContext(ctx)); err != nil {
 				if err == clipboard.ErrInvalidFileID {
@@ -310,9 +312,19 @@ func (s *Server) routeList() []route {
 func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) error {
 	log.Printf("[%s] %s - %s %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 
+	userConfig := s.requestContext(r).userConfig
+	username := r.URL.Query().Get(queryParamUser)
+	if username != "" {
+		var ok bool
+		userConfig, ok = s.config.Users[username]
+		if !ok {
+			return ErrHTTPNotFound
+		}
+	}
+
 	var salt []byte
-	if s.config.Key != nil {
-		salt = s.config.Key.Salt
+	if userConfig.Key != nil {
+		salt = userConfig.Key.Salt
 	}
 
 	response := &Info{
@@ -430,7 +442,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	// Parse request: file ID, stream
 	ctx := s.requestContext(r)
 	id := ctx.fields[0]
-	userConfig := ctx.user
+	userConfig := ctx.userConfig
 
 	// Check if file exists
 	if err := s.checkPUT(id, r.RemoteAddr); err != nil {
@@ -513,7 +525,7 @@ func (s *Server) handleClipboardPut(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Copy file contents (with file limit & total limit)
-	if err := s.clipboard.WriteFile(id, meta, body); err != nil {
+	if err := s.clipboard.WriteFile(id, meta, body, userConfig.FileSizeLimit); err != nil {
 		if err == util.ErrLimitReached {
 			return ErrHTTPPayloadTooLarge
 		} else if err == clipboard.ErrBrokenPipe {
@@ -612,7 +624,7 @@ func (s *Server) requestContext(r *http.Request) requestCtx {
 }
 
 func (s *Server) getFileMode(r *http.Request) (string, error) {
-	userConfig := s.requestContext(r).user
+	userConfig := s.requestContext(r).userConfig
 	mode := userConfig.FileModesAllowed[0]
 	if r.Header.Get(HeaderFileMode) != "" {
 		mode = r.Header.Get(HeaderFileMode)
@@ -632,7 +644,7 @@ func (s *Server) getTTL(r *http.Request, peakedBody *util.PeakedReadCloser) (tim
 	var ttl time.Duration
 
 	// Get the TTL
-	userConfig := s.requestContext(r).user
+	userConfig := s.requestContext(r).userConfig
 	if r.URL.Query().Get(queryParamTTL) != "" {
 		ttl, err = util.ParseDuration(r.URL.Query().Get(queryParamTTL))
 	} else if r.Header.Get(HeaderTTL) != "" {
@@ -722,40 +734,46 @@ func (s *Server) authorizeFileWithUserFallback(r *http.Request) error {
 }
 
 func (s *Server) authorizeUser(r *http.Request) error {
-	if s.config.Key == nil {
-		return nil
-	}
-
 	auth := r.Header.Get("Authorization")
 	if authParams, ok := r.URL.Query()[queryParamAuth]; ok && len(authParams) > 0 {
 		auth = authParams[0]
 	}
-
-	if m := authHmacRegex.FindStringSubmatch(auth); m != nil {
-		return s.authorizeHmac(r, m)
+	println("auth " + auth)
+	if m := authHMACV2Regex.FindStringSubmatch(auth); m != nil {
+		return s.authorizeHMACV2(r, m)
+	} else if m := authHMACV1Regex.FindStringSubmatch(auth); m != nil {
+		return s.authorizeHMACV1(r, m)
 	} else if m := authBasicRegex.FindStringSubmatch(auth); m != nil {
 		return s.authorizeBasic(r, m)
 	} else if auth != "" {
 		return s.authorizePlain(r, auth)
-	} else {
-		log.Printf("[%s] %s - %s %s - invalid or missing auth", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
-		return ErrHTTPUnauthorized
 	}
+	defaultUserConfig := s.requestContext(r).userConfig
+	if defaultUserConfig.Key == nil {
+		return nil
+	}
+	log.Printf("[%s] %s - %s %s - invalid or missing auth", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
+	return ErrHTTPUnauthorized
 }
 
-func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
+func (s *Server) authorizeHMACV1(r *http.Request, matches []string) error {
+	// Allow request if there is no default key
+	userConfig := s.requestContext(r).userConfig
+	if userConfig.Key == nil {
+		return nil
+	}
+
+	// Parse header
 	timestamp, err := strconv.Atoi(matches[1])
 	if err != nil {
 		log.Printf("[%s] %s - %s %s - hmac timestamp conversion: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
-
 	ttlSecs, err := strconv.Atoi(matches[2])
 	if err != nil {
 		log.Printf("[%s] %s - %s %s - hmac ttl conversion: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
-
 	hash, err := base64.StdEncoding.DecodeString(matches[3])
 	if err != nil {
 		log.Printf("[%s] %s - %s %s - hmac base64 conversion: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
@@ -763,9 +781,8 @@ func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
 	}
 
 	// Recalculate HMAC
-	// TODO this should include the query string
 	data := []byte(fmt.Sprintf("%d:%d:%s:%s", timestamp, ttlSecs, r.Method, r.URL.Path))
-	hm := hmac.New(sha256.New, s.config.Key.Bytes)
+	hm := hmac.New(sha256.New, userConfig.Key.Bytes)
 	if _, err := hm.Write(data); err != nil {
 		log.Printf("[%s] %s - %s %s - hmac calculation: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
@@ -794,39 +811,123 @@ func (s *Server) authorizeHmac(r *http.Request, matches []string) error {
 	return nil
 }
 
+func (s *Server) authorizeHMACV2(r *http.Request, matches []string) error {
+	timestamp, err := strconv.Atoi(matches[1])
+	if err != nil {
+		log.Printf("[%s] %s - %s %s - HMACv2 timestamp conversion: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		return ErrHTTPUnauthorized
+	}
+	username := matches[2]
+	userConfig, ok := s.config.Users[username]
+	if !ok {
+		log.Printf("[%s] %s - %s %s - HMACv2 unknown username: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, username)
+		return ErrHTTPUnauthorized
+	}
+	if userConfig.Key == nil {
+		return nil
+	}
+	hash, err := base64.StdEncoding.DecodeString(matches[3])
+	if err != nil {
+		log.Printf("[%s] %s - %s %s - HMACv2 base64 conversion: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		return ErrHTTPUnauthorized
+	}
+
+	// Recalculate HMAC
+	data := []byte(fmt.Sprintf("%d:%s:%s:%s", timestamp, username, r.Method, r.URL.Path))
+	hm := hmac.New(sha256.New, userConfig.Key.Bytes)
+	if _, err := hm.Write(data); err != nil {
+		log.Printf("[%s] %s - %s %s - HMACv2 calculation: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
+		return ErrHTTPUnauthorized
+	}
+	rehash := hm.Sum(nil)
+	println(fmt.Sprintf("%d:%s:%s:%s", timestamp, username, r.Method, r.URL.Path))
+	// Compare HMAC in constant time (to prevent timing attacks)
+	if subtle.ConstantTimeCompare(hash, rehash) != 1 {
+		log.Printf("[%s] %s - %s %s - HMACv2 invalid", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
+		return ErrHTTPUnauthorized
+	}
+
+	// Compare timestamp (to prevent replay attacks)
+	age := time.Since(time.Unix(int64(timestamp), 0))
+	if age > defaultMaxAuthAge {
+		log.Printf("[%s] %s - %s %s - hmac request age mismatch", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
+		return ErrHTTPUnauthorized
+	}
+
+	// Replace userConfig in request context (side effect!)
+	ctx := s.requestContext(r)
+	ctx.userConfig = userConfig
+
+	return nil
+}
+
 func (s *Server) authorizeBasic(r *http.Request, matches []string) error {
 	userPassBytes, err := base64.StdEncoding.DecodeString(matches[1])
 	if err != nil {
 		log.Printf("[%s] %s - %s %s - basic base64 conversion: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, err.Error())
 		return ErrHTTPUnauthorized
 	}
-
 	userPassParts := strings.Split(string(userPassBytes), ":")
 	if len(userPassParts) != 2 {
 		log.Printf("[%s] %s - %s %s - basic invalid user/pass format", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
+	username := userPassParts[0]
+	if username == "" {
+		username = config.DefaultUser
+	}
+	userConfig, ok := s.config.Users[username]
+	if !ok {
+		log.Printf("[%s] %s - %s %s - basic unknown username: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, username)
+		return ErrHTTPUnauthorized
+	}
+	if userConfig.Key == nil {
+		return nil
+	}
 	passwordBytes := []byte(userPassParts[1])
 
 	// Compare HMAC in constant time (to prevent timing attacks)
-	key := crypto.DeriveKey(passwordBytes, s.config.Key.Salt)
-	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
+	key := crypto.DeriveKey(passwordBytes, userConfig.Key.Salt)
+	if subtle.ConstantTimeCompare(key.Bytes, userConfig.Key.Bytes) != 1 {
 		log.Printf("[%s] %s - %s %s - basic invalid", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
+
+	// Replace userConfig in request context (side effect!)
+	ctx := s.requestContext(r)
+	ctx.userConfig = userConfig
 
 	return nil
 }
 
 func (s *Server) authorizePlain(r *http.Request, auth string) error {
-	passwordBytes := []byte(auth)
+	username := config.DefaultUser
+	password := auth
+	userPassParts := strings.SplitN(auth, ":", 2)
+	if len(userPassParts) == 2 {
+		username = userPassParts[0]
+		password = userPassParts[1]
+	}
+	userConfig, ok := s.config.Users[username]
+	if !ok {
+		log.Printf("[%s] %s - %s %s - plain unknown username: %s", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI, username)
+		return ErrHTTPUnauthorized
+	}
+	if userConfig.Key == nil {
+		return nil
+	}
+	passwordBytes := []byte(password)
 
 	// Compare HMAC in constant time (to prevent timing attacks)
-	key := crypto.DeriveKey(passwordBytes, s.config.Key.Salt)
-	if subtle.ConstantTimeCompare(key.Bytes, s.config.Key.Bytes) != 1 {
+	key := crypto.DeriveKey(passwordBytes, userConfig.Key.Salt)
+	if subtle.ConstantTimeCompare(key.Bytes, userConfig.Key.Bytes) != 1 {
 		log.Printf("[%s] %s - %s %s - plain invalid", config.CollapseServerAddr(s.config.ServerAddr), r.RemoteAddr, r.Method, r.RequestURI)
 		return ErrHTTPUnauthorized
 	}
+
+	// Replace userConfig in request context (side effect!)
+	ctx := s.requestContext(r)
+	ctx.userConfig = userConfig
 
 	return nil
 }

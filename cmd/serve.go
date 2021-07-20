@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/server"
 	"log"
 	"os"
@@ -34,10 +34,7 @@ To generate a new config file, you may want to use the 'pcopy setup' command.
 
 Examples:
   pcopy serve                      # Starts server in the foreground
-  pcopy serve --listen-https :9999 # Starts server with alternate port
-  PCOPY_KEY=.. pcopy serve         # Starts server with alternate key (see 'pcopy keygen')
-
-To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
+  pcopy serve --listen-https :9999 # Starts server with alternate port`,
 }
 
 func execServe(c *cli.Context) error {
@@ -62,6 +59,7 @@ func execServe(c *cli.Context) error {
 	if len(configs) == 0 {
 		return cli.Exit("No valid config files found. Exiting", 1)
 	}
+	fmt.Printf("%#v\n", configs[0].Users)
 	return server.Serve(configs...)
 }
 
@@ -126,13 +124,6 @@ func maybeOverrideOptions(conf *config.Config, listenHTTPS, listenHTTP, serverAd
 	}
 	if certFile != "" {
 		conf.CertFile = certFile
-	}
-	if os.Getenv(config.EnvKey) != "" {
-		var err error
-		conf.Key, err = crypto.DecodeKey(os.Getenv(config.EnvKey))
-		if err != nil {
-			return nil, err
-		}
 	}
 	return conf, nil
 }

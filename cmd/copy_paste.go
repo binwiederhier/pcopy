@@ -7,7 +7,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy/client"
 	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/server"
 	"heckel.io/pcopy/util"
 	"io"
@@ -53,9 +52,7 @@ Examples:
   echo hi | pcp -l work:   # Copies 'hi' to the 'work' clipboard and print links
   echo ho | pcp work:bla   # Copies 'ho' to the 'work' clipboard as 'bla'
   pcp : img1/ img2/        # Creates ZIP from two folders and copies it to the default clipboard
-  yes | pcp --stream       # Stream contents to the other end via FIFO device
-
-To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
+  yes | pcp --stream       # Stream contents to the other end via FIFO device`,
 }
 
 var cmdPaste = &cli.Command{
@@ -86,9 +83,7 @@ Examples:
   ppaste bar > bar.txt     # Reads 'bar' from the default clipboard to file 'bar.txt'
   ppaste work:             # Reads from the 'work' clipboard and prints its contents
   ppaste work:ho > ho.txt  # Reads 'ho' from the 'work' clipboard to file 'ho.txt'
-  ppaste : images/         # Extracts ZIP from default clipboard to folder images/
-
-To override or specify the remote server key, you may pass the PCOPY_KEY variable.`,
+  ppaste : images/         # Extracts ZIP from default clipboard to folder images/`,
 }
 
 func execCopy(c *cli.Context) error {
@@ -276,12 +271,6 @@ func parseClientArgs(c *cli.Context) (*config.Config, string, []string, error) {
 	if !quiet {
 		conf.ProgressFunc = func(processed int64, total int64, done bool) {
 			progressOutput(c.App.ErrWriter, processed, total, done)
-		}
-	}
-	if os.Getenv(config.EnvKey) != "" {
-		conf.Key, err = crypto.DecodeKey(os.Getenv(config.EnvKey))
-		if err != nil {
-			return nil, "", nil, err
 		}
 	}
 

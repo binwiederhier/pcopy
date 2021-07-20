@@ -172,7 +172,6 @@ func (c *Clipboard) Stat(id string) (*File, error) {
 	var cf File
 	if err := json.NewDecoder(mf).Decode(&cf); err != nil {
 		log.Printf("error reading meta file for %s: %s", id, err.Error())
-		cf.Expires = int64(c.config.FileExpireAfterDefault.Seconds())
 	}
 	cf.ID = id
 	cf.Size = stat.Size()
@@ -192,7 +191,7 @@ func (c *Clipboard) Allow() bool {
 // The method observes the per-file size limit as defined in the config, as well as the total clipboard
 // size limit. If a limit is reached, it will return util.ErrLimitReached. When the target file is a FIFO
 // pipe (see MakePipe) and the consumer prematurely interrupts reading, ErrBrokenPipe may be returned.
-func (c *Clipboard) WriteFile(id string, meta *File, rc io.ReadCloser) error {
+func (c *Clipboard) WriteFile(id string, meta *File, rc io.ReadCloser, fileSizeLimit int64) error {
 	file, metafile, err := c.getFilenames(id)
 	if err != nil {
 		return err
@@ -215,7 +214,7 @@ func (c *Clipboard) WriteFile(id string, meta *File, rc io.ReadCloser) error {
 	}
 	defer f.Close()
 
-	fileSizeLimiter := util.NewLimiter(c.config.FileSizeLimit)
+	fileSizeLimiter := util.NewLimiter(fileSizeLimit)
 	limitWriter := util.NewLimitWriter(f, fileSizeLimiter, c.sizeLimiter)
 
 	if _, err := io.Copy(limitWriter, rc); err != nil {

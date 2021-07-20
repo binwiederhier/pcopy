@@ -34,7 +34,7 @@ const (
 	certNotAfterAge  = time.Hour * 24 * 365 * 3 // ~ 3 years
 
 	// TODO move hmac validation in this package as well
-	authHmacFormat = "HMAC %d %d %s" // timestamp ttl b64-hmac
+	authHmacFormat = "HMACv2 %d %s %s" // timestamp username b64-hmac
 )
 
 // Key defines the symmetric key that is derived from the user password. It consists of the raw key bytes
@@ -170,23 +170,20 @@ func ReadCurlPinnedPublicKeyFromFile(filename string) (string, error) {
 	return "", nil
 }
 
-// GenerateAuthHMAC generates the HMAC auth header used to authorize uthenticate against the server.
-// The result can be used in the HTTP "Authorization" header. If the TTL is non-zero, the authorization
-// header will only be valid for the given duration.
-func GenerateAuthHMAC(key []byte, method string, path string, ttl time.Duration) (string, error) {
-	return generateAuthHMAC(time.Now().Unix(), key, method, path, ttl)
+// GenerateAuthHMAC generates the HMAC auth header used to authorize against the server.
+// The result can be used in the HTTP "Authorization" header.
+func GenerateAuthHMAC(username string, key []byte, method string, path string) (string, error) {
+	return generateAuthHMAC(time.Now().Unix(), username, key, method, path)
 }
 
-func generateAuthHMAC(timestamp int64, key []byte, method string, path string, ttl time.Duration) (string, error) {
-	ttlSecs := int(ttl.Seconds())
-	data := []byte(fmt.Sprintf("%d:%d:%s:%s", timestamp, ttlSecs, method, path))
+func generateAuthHMAC(timestamp int64, username string, key []byte, method string, path string) (string, error) {
+	data := []byte(fmt.Sprintf("%d:%s:%s:%s", timestamp, username, method, path))
 	hash := hmac.New(sha256.New, key)
 	if _, err := hash.Write(data); err != nil {
 		return "", err
 	}
-
 	hashBase64 := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	return fmt.Sprintf(authHmacFormat, timestamp, ttlSecs, hashBase64), nil
+	return fmt.Sprintf(authHmacFormat, timestamp, username, hashBase64), nil
 }
 
 // GenerateKeyAndCert generates a ECDSA P-256 key, and a self-signed certificate.

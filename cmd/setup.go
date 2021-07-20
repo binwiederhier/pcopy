@@ -189,7 +189,7 @@ func (w *wizard) askPassword() {
 	fmt.Fprintln(w.context.App.ErrWriter)
 	fmt.Fprintln(w.context.App.ErrWriter)
 	if string(password) != "" {
-		w.config.Key, err = crypto.GenerateKey(password)
+		w.config.Users[config.DefaultUser].Key, err = crypto.GenerateKey(password)
 		if err != nil {
 			w.fail(err)
 		}

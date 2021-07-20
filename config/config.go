@@ -42,7 +42,7 @@ const (
 	DefaultID = "default"
 
 	// DefaultUser is the default username if no API or Web user is passed in
-	DefaultUser = Username("default")
+	DefaultUser = "default"
 
 	// DefaultClipboardSizeLimit is the total size in bytes that the server will allow to be written to the
 	// clipboard directory. This setting is only relevant for the server.
@@ -67,9 +67,6 @@ const (
 
 	// FileModeReadOnly ensures that files cannot be overwritten
 	FileModeReadOnly = "ro"
-
-	// EnvKey provides the ability to provide a key for certain CLI commands
-	EnvKey = "PCOPY_KEY"
 
 	// EnvConfigDir allows overriding the user-specific config dir
 	EnvConfigDir = "PCOPY_CONFIG_DIR"
@@ -103,8 +100,6 @@ var (
 	defaultLimitPUTBurst = 50
 )
 
-type Username string
-
 // Config is the configuration struct used to configure the client and the server. Some settings only apply to
 // the client, others only to the server. Some apply to both. Many (but not all) of these settings can be set either
 // via the config file, or via command line parameters.
@@ -120,7 +115,8 @@ type Config struct {
 	ClipboardDir        string
 	ClipboardSizeLimit  int64
 	ClipboardCountLimit int
-	Users               map[Username]*User
+	User                string
+	Users               map[string]*User
 	ProgressFunc        util.ProgressFunc
 	ManagerInterval     time.Duration
 	LimitGET            rate.Limit
@@ -152,7 +148,8 @@ func New() *Config {
 		ClipboardDir:        DefaultClipboardDir,
 		ClipboardSizeLimit:  DefaultClipboardSizeLimit,
 		ClipboardCountLimit: DefaultClipboardCountLimit,
-		Users: map[Username]*User{
+		User:                DefaultUser,
+		Users: map[string]*User{
 			DefaultUser: {
 				Key:                       nil,
 				FileSizeLimit:             DefaultFileSizeLimit,
@@ -321,92 +318,123 @@ func loadConfig(reader io.Reader) (*Config, error) {
 		}
 	}
 
+	config.Users[DefaultUser], err = loadUser(raw[DefaultUser], config.Users[DefaultUser])
+	if err != nil {
+		return nil, err
+	}
+
 	for username, userRaw := range raw {
-		userConfig := config.Users[username]
-
-		key, ok := userRaw["Key"]
-		if ok {
-			userConfig.Key, err = crypto.DecodeKey(key)
-			if err != nil {
-				return nil, err
-			}
+		if username == DefaultUser {
+			continue
 		}
-
-		fileSizeLimit, ok := userRaw["FileSizeLimit"]
-		if ok {
-			userConfig.FileSizeLimit, err = util.ParseSize(fileSizeLimit)
-			if err != nil {
-				return nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
-			}
-		}
-
-		fileExpireAfter, ok := userRaw["FileExpireAfter"]
-		if ok {
-			parts := strings.Split(fileExpireAfter, " ")
-			userConfig.FileExpireAfterDefault, err = util.ParseDuration(parts[0])
-			if err != nil {
-				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
-			}
-			if len(parts) > 1 {
-				userConfig.FileExpireAfterNonTextMax, err = util.ParseDuration(parts[1])
-				if err != nil {
-					return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
-				}
-			} else {
-				userConfig.FileExpireAfterNonTextMax = userConfig.FileExpireAfterDefault
-			}
-			if len(parts) > 2 {
-				userConfig.FileExpireAfterTextMax, err = util.ParseDuration(parts[2])
-				if err != nil {
-					return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
-				}
-			} else {
-				userConfig.FileExpireAfterTextMax = userConfig.FileExpireAfterNonTextMax
-			}
-			if userConfig.FileExpireAfterNonTextMax > 0 && userConfig.FileExpireAfterDefault > userConfig.FileExpireAfterNonTextMax {
-				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than nontext-max")
-			}
-			if userConfig.FileExpireAfterTextMax > 0 && userConfig.FileExpireAfterDefault > userConfig.FileExpireAfterTextMax {
-				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than text-max")
-			}
-		}
-
-		fileModesAllowed, ok := userRaw["FileModesAllowed"]
-		if ok {
-			modes := strings.Split(fileModesAllowed, " ")
-			if len(modes) == 0 || len(modes) > 2 {
-				return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': max two, but at least one value expected")
-			}
-			for _, m := range modes {
-				if m != FileModeReadOnly && m != FileModeReadWrite {
-					return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': %s", m)
-				}
-			}
-			userConfig.FileModesAllowed = modes
+		config.Users[username], err = loadUser(userRaw, config.Users[DefaultUser])
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	return config, nil
 }
 
-func loadRawConfig(reader io.Reader) (map[Username]map[string]string, error) {
+func loadUser(userRaw map[string]string, defaultUser *User) (*User, error) {
+	var err error
+	userConfig := &User{
+		Key:                       defaultUser.Key,
+		FileSizeLimit:             defaultUser.FileSizeLimit,
+		FileExpireAfterDefault:    defaultUser.FileExpireAfterDefault,
+		FileExpireAfterTextMax:    defaultUser.FileExpireAfterTextMax,
+		FileExpireAfterNonTextMax: defaultUser.FileExpireAfterNonTextMax,
+		FileModesAllowed:          defaultUser.FileModesAllowed,
+	}
+
+	key, ok := userRaw["Key"]
+	if ok {
+		userConfig.Key, err = crypto.DecodeKey(key)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	fileSizeLimit, ok := userRaw["FileSizeLimit"]
+	if ok {
+		userConfig.FileSizeLimit, err = util.ParseSize(fileSizeLimit)
+		if err != nil {
+			return nil, fmt.Errorf("invalid config value for 'FileSizeLimit': %w", err)
+		}
+	}
+
+	fileExpireAfter, ok := userRaw["FileExpireAfter"]
+	if ok {
+		parts := strings.Split(fileExpireAfter, " ")
+		userConfig.FileExpireAfterDefault, err = util.ParseDuration(parts[0])
+		if err != nil {
+			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+		}
+		if len(parts) > 1 {
+			userConfig.FileExpireAfterNonTextMax, err = util.ParseDuration(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+			}
+		} else {
+			userConfig.FileExpireAfterNonTextMax = userConfig.FileExpireAfterDefault
+		}
+		if len(parts) > 2 {
+			userConfig.FileExpireAfterTextMax, err = util.ParseDuration(parts[2])
+			if err != nil {
+				return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': %w", err)
+			}
+		} else {
+			userConfig.FileExpireAfterTextMax = userConfig.FileExpireAfterNonTextMax
+		}
+		if userConfig.FileExpireAfterNonTextMax > 0 && userConfig.FileExpireAfterDefault > userConfig.FileExpireAfterNonTextMax {
+			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than nontext-max")
+		}
+		if userConfig.FileExpireAfterTextMax > 0 && userConfig.FileExpireAfterDefault > userConfig.FileExpireAfterTextMax {
+			return nil, fmt.Errorf("invalid config value for 'FileExpireAfter': default value cannot be larger than text-max")
+		}
+	}
+
+	fileModesAllowed, ok := userRaw["FileModesAllowed"]
+	if ok {
+		modes := strings.Split(fileModesAllowed, " ")
+		if len(modes) == 0 || len(modes) > 2 {
+			return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': max two, but at least one value expected")
+		}
+		for _, m := range modes {
+			if m != FileModeReadOnly && m != FileModeReadWrite {
+				return nil, fmt.Errorf("invalid config value for 'FileModesAllowed': %s", m)
+			}
+		}
+		userConfig.FileModesAllowed = modes
+	}
+
+	return userConfig, nil
+}
+
+func loadRawConfig(reader io.Reader) (map[string]map[string]string, error) {
 	username := DefaultUser
+	config := make(map[string]map[string]string)
+	config[username] = make(map[string]string)
+
 	comment := regexp.MustCompile(`^\s*#`)
 	value := regexp.MustCompile(`^\s*(\S+)(?:\s+(.*)|\s*)$`)
-
-	config := make(map[Username]map[string]string)
 	scanner := bufio.NewScanner(reader)
-
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		if !comment.MatchString(line) {
 			parts := value.FindStringSubmatch(line)
 
-			if parts[1] == "User" {
-				username = Username(strings.TrimSpace(parts[2]))
-			} else if len(parts) == 3 {
-				config[username][parts[1]] = strings.TrimSpace(parts[2])
+			if len(parts) == 3 {
+				if parts[1] == "User" {
+					username = strings.TrimSpace(parts[2])
+					config[DefaultUser]["User"] = username
+					config[username] = make(map[string]string)
+					for k, v := range config[DefaultUser] {
+						config[username][k] = v
+					}
+				} else {
+					config[username][parts[1]] = strings.TrimSpace(parts[2])
+				}
 			} else if len(parts) == 2 {
 				config[username][parts[1]] = ""
 			}

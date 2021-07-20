@@ -46,7 +46,7 @@
 # Format:  SALT:KEY (both base64 encoded)
 # Default: None
 #
-{{if .Key}}Key {{encodeKey .Key}}{{else}}# Key{{end}}
+{{if .Users.default.Key}}Key {{encodeKey .Users.default.Key}}{{else}}# Key{{end}}
 
 # Path to the private key for the matching certificate. If not set, the config file path (with
 # a .key extension) is assumed to be the path to the private key, e.g. server.key (if the config
@@ -157,3 +157,5 @@
 #
 {{$fileModesAllowedStr := stringsJoin .FileModesAllowed " " -}}
 {{if or (eq "rw ro" $fileModesAllowedStr) (not .FileModesAllowed)}}# FileModesAllowed rw ro{{else}}FileModesAllowed {{$fileModesAllowedStr}}{{end}}
+
+# User
