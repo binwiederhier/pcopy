@@ -3,16 +3,15 @@
 //
 // To instantiate a new clipboard Server, use New using a well-defined Config:
 //
-//   server := server.New(config.New())
-//   http.ListenAndServe(":9090", http.HandlerFunc(server.Handle))
+//	server := server.New(config.New())
+//	http.ListenAndServe(":9090", http.HandlerFunc(server.Handle))
 //
 // To use a Router, use NewRouter:
 //
-//   server1 := server.New(config1.New())
-//   server2 := server.New(config2.New())
-//   router := server.NewRouter(server1, server2)
-//   router.Start()
-//
+//	server1 := server.New(config1.New())
+//	server2 := server.New(config2.New())
+//	router := server.NewRouter(server1, server2)
+//	router.Start()
 package server
 
 import (
