@@ -69,12 +69,12 @@ vet:
 	$(GO) vet ./...
 
 lint:
-	which golint || $(GO) install golang.org/x/lint/golint
+	which golint || $(GO) install golang.org/x/lint/golint@latest
 	$(GO) list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status
 
 staticcheck: .PHONY
 	rm -rf build/staticcheck
-	which staticcheck || go install honnef.co/go/tools/cmd/staticcheck
+	which staticcheck || $(GO) install honnef.co/go/tools/cmd/staticcheck@latest
 	mkdir -p build/staticcheck
 	ln -s "$(GO)" build/staticcheck/go
 	PATH="$(PWD)/build/staticcheck:$(PATH)" staticcheck ./...
