@@ -23,10 +23,11 @@ nfpms:
     suggests:
       - bash-completion
     bindir: /usr/bin
-    empty_folders:
-      - /etc/pcopy
-      - /var/cache/pcopy
     contents:
+      - dst: /etc/pcopy
+        type: dir
+      - dst: /var/cache/pcopy
+        type: dir
       - src: config/pcopy.service
         dst: /lib/systemd/system/pcopy.service
       - src: /usr/bin/pcopy
