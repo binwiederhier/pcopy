@@ -72,5 +72,5 @@ func TestSniffWriter_DownloadWithUnknownMimeType(t *testing.T) {
 	rand.Read(randomBytes)
 	sw.Write(randomBytes)
 	test.StrEquals(t, "application/octet-stream", rr.Header().Get("Content-Type"))
-	test.StrEquals(t, `attachment; filename=abcdef.bin`, rr.Header().Get("Content-Disposition"))
+	test.StrEquals(t, `attachment; filename=abcdef`, rr.Header().Get("Content-Disposition"))
 }
