@@ -53,6 +53,13 @@ dpkg -i pcopy_0.6.1_amd64.deb
 rpm -ivh https://github.com/binwiederhier/pcopy/releases/download/v0.6.1/pcopy_0.6.1_amd64.rpm
 ```
 
+**Homebrew for MacOS:**
+Brew package is managed semi-automatically by [nwithan8](https://github.com/nwithan8/homebrew-tap)
+```bash
+brew tap nwithan8/tap
+brew install pcopy
+```
+
 **Docker** (*see [detailed instructions](#docker-usage)*)**:**
 ```bash
 docker run --rm -it binwiederhier/pcopy
