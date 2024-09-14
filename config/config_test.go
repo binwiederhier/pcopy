@@ -2,14 +2,14 @@ package config
 
 import (
 	"fmt"
-	"heckel.io/pcopy/crypto"
-	"heckel.io/pcopy/test"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/test"
 )
 
 func TestLoadRawConfig_WithCommentSuccess(t *testing.T) {
@@ -87,7 +87,7 @@ AwEHoUQDQgAEp60xIGJbAUAmUe+KP9KB8ge4B+vJTKnMSctysQnG+fKOCTc9q7EX
 xmNBMaTK3zXTdMev+TiCfmljflB7ZTkjTw==
 -----END EC PRIVATE KEY-----`
 	keyFile := filepath.Join(dir, "key.key")
-	ioutil.WriteFile(keyFile, []byte(pemKey), 0700)
+	os.WriteFile(keyFile, []byte(pemKey), 0700)
 
 	pemCert := `-----BEGIN CERTIFICATE-----
 MIIBMjCB2KADAgECAhAmIv+vEcI8iwP/TR4G3MavMAoGCCqGSM49BAMCMBAxDjAM
@@ -99,7 +99,7 @@ AiEA1W0sKuPLyxoW0QTn0jovq9cAzT4IT5HaGeX8Z5rWlE4CIQCGn1yMReAETlWB
 D1OY3Axih+rz7mF2xHK20TxRuy1sqw==
 -----END CERTIFICATE-----`
 	certFile := filepath.Join(dir, "cert.crt")
-	ioutil.WriteFile(certFile, []byte(pemCert), 0700)
+	os.WriteFile(certFile, []byte(pemCert), 0700)
 
 	config, err := loadConfig(strings.NewReader(fmt.Sprintf(`
 ListenAddr :1234
@@ -162,7 +162,7 @@ func TestConfig_WriteFileAllTheThings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestConfig_WriteFileNoneOfTheThings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestConfig_LoadConfigFileExpireAfterThreeValuesInfiniteText(t *testing.T) {
 func TestConfig_LoadConfigFromFileFailedDueToMissingCert(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	contents := "CertFile some.crt"
-	ioutil.WriteFile(filename, []byte(contents), 0700)
+	os.WriteFile(filename, []byte(contents), 0700)
 
 	_, err := LoadFromFile(filename)
 	if err == nil {
@@ -274,7 +274,7 @@ func TestConfig_LoadConfigFromFileFailedDueToMissingCert(t *testing.T) {
 func TestConfig_LoadConfigFromFileFailedDueToMissingKey(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	contents := "KeyFile some.key"
-	ioutil.WriteFile(filename, []byte(contents), 0700)
+	os.WriteFile(filename, []byte(contents), 0700)
 
 	_, err := LoadFromFile(filename)
 	if err == nil {
@@ -285,7 +285,7 @@ func TestConfig_LoadConfigFromFileFailedDueToMissingKey(t *testing.T) {
 func TestConfig_LoadConfigFromFileFailedDueToInvalidClipboardSizeLimit(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	contents := "ClipboardSizeLimit invalid-value"
-	ioutil.WriteFile(filename, []byte(contents), 0700)
+	os.WriteFile(filename, []byte(contents), 0700)
 
 	_, err := LoadFromFile(filename)
 	if err == nil {
@@ -296,7 +296,7 @@ func TestConfig_LoadConfigFromFileFailedDueToInvalidClipboardSizeLimit(t *testin
 func TestConfig_LoadConfigFromFileFailedDueToInvalidClipboardCountLimit(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	contents := "ClipboardCountLimit invalid-value"
-	ioutil.WriteFile(filename, []byte(contents), 0700)
+	os.WriteFile(filename, []byte(contents), 0700)
 
 	_, err := LoadFromFile(filename)
 	if err == nil {
@@ -307,7 +307,7 @@ func TestConfig_LoadConfigFromFileFailedDueToInvalidClipboardCountLimit(t *testi
 func TestConfig_LoadConfigFromFileFailedDueToInvalidFileMode1(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	contents := "FileModesAllowed this is an invalid number"
-	ioutil.WriteFile(filename, []byte(contents), 0700)
+	os.WriteFile(filename, []byte(contents), 0700)
 
 	_, err := LoadFromFile(filename)
 	if err == nil {
@@ -318,7 +318,7 @@ func TestConfig_LoadConfigFromFileFailedDueToInvalidFileMode1(t *testing.T) {
 func TestConfig_LoadConfigFromFileFailedDueToInvalidFileMode2(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "some.conf")
 	contents := "FileModesAllowed rw ro123"
-	ioutil.WriteFile(filename, []byte(contents), 0700)
+	os.WriteFile(filename, []byte(contents), 0700)
 
 	_, err := LoadFromFile(filename)
 	if err == nil {
@@ -366,7 +366,7 @@ func TestDefaultCertFile_MustExistSuccess(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "myclip.conf")
 	expectedCertFile := filepath.Join(tmpDir, "myclip.crt")
-	if err := ioutil.WriteFile(expectedCertFile, []byte("something"), 0700); err != nil {
+	if err := os.WriteFile(expectedCertFile, []byte("something"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	test.StrEquals(t, expectedCertFile, DefaultCertFile(configFile, true))

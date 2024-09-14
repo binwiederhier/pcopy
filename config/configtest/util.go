@@ -2,12 +2,12 @@ package configtest
 
 import (
 	"fmt"
-	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/crypto"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
 )
 
 // NewTestConfig creates a new config.Config that can be used for testing. Like NewTestConfigWithHostname, but
@@ -31,11 +31,11 @@ func NewTestConfigWithHostname(t *testing.T, hostname string) (string, *config.C
 		t.Fatal(err)
 	}
 	keyFile := filepath.Join(tempDir, "key")
-	if err := ioutil.WriteFile(keyFile, []byte(key), 0700); err != nil {
+	if err := os.WriteFile(keyFile, []byte(key), 0700); err != nil {
 		t.Fatal(err)
 	}
 	certFile := filepath.Join(tempDir, "cert")
-	if err := ioutil.WriteFile(certFile, []byte(cert), 0700); err != nil {
+	if err := os.WriteFile(certFile, []byte(cert), 0700); err != nil {
 		t.Fatal(err)
 	}
 

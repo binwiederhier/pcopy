@@ -4,11 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/urfave/cli/v2"
-	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/crypto"
-	"heckel.io/pcopy/util"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -16,6 +11,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/urfave/cli/v2"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/util"
 )
 
 const (
@@ -284,7 +284,7 @@ func (w *wizard) writeKeyAndCert() {
 
 	keyFile := config.DefaultKeyFile(w.configFile, false)
 	fmt.Fprintf(w.context.App.ErrWriter, "Writing private key file %s ... ", util.CollapseHome(keyFile))
-	if err := ioutil.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
+	if err := os.WriteFile(keyFile, []byte(pemKey), 0600); err != nil {
 		w.fail(err)
 	}
 	if err := os.Chown(keyFile, w.uid, w.gid); err != nil {
@@ -294,7 +294,7 @@ func (w *wizard) writeKeyAndCert() {
 
 	certFile := config.DefaultCertFile(w.configFile, false)
 	fmt.Fprintf(w.context.App.ErrWriter, "Writing certificate %s ... ", util.CollapseHome(certFile))
-	if err := ioutil.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
+	if err := os.WriteFile(certFile, []byte(pemCert), 0644); err != nil {
 		w.fail(err)
 	}
 	if err := os.Chown(certFile, w.uid, w.gid); err != nil {
@@ -305,7 +305,7 @@ func (w *wizard) writeKeyAndCert() {
 
 func (w *wizard) writeSystemdUnit() {
 	fmt.Fprintf(w.context.App.ErrWriter, "Writing systemd unit file %s ... ", serviceFile)
-	if err := ioutil.WriteFile(serviceFile, []byte(config.SystemdUnit), 0644); err != nil {
+	if err := os.WriteFile(serviceFile, []byte(config.SystemdUnit), 0644); err != nil {
 		w.fail(err)
 	}
 	fmt.Fprintln(w.context.App.ErrWriter, "ok")

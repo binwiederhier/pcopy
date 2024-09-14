@@ -1,7 +1,7 @@
 package config
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -31,7 +31,7 @@ func (c *Store) FileFromName(clipboard string) string {
 // All reads the config folder and returns a map of config files and their Config structs
 func (c *Store) All() map[string]*Config {
 	configs := make(map[string]*Config)
-	files, err := ioutil.ReadDir(c.dir)
+	files, err := os.ReadDir(c.dir)
 	if err != nil {
 		return configs
 	}

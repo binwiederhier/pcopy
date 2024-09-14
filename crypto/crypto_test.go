@@ -2,14 +2,15 @@ package crypto
 
 import (
 	"bytes"
-	"heckel.io/pcopy/test"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"heckel.io/pcopy/test"
 )
 
 func TestGenerateKey(t *testing.T) {
@@ -140,7 +141,7 @@ RgIhAMp7oFxtc93HbfkdhtlBBibc0AJw1tnSYOj+nGbPlxX/AiEA64WsMewc29LT
 1FfIV4ULTMxTwgV6M6b6vmPJEHYfkRU=
 -----END CERTIFICATE-----`
 	filename := filepath.Join(t.TempDir(), "cert.crt")
-	ioutil.WriteFile(filename, []byte(pemCert), 0700)
+	os.WriteFile(filename, []byte(pemCert), 0700)
 
 	cert, err := LoadCertFromFile(filename)
 	if err != nil {
@@ -171,7 +172,7 @@ RgIhAMp7oFxtc93HbfkdhtlBBibc0AJw1tnSYOj+nGbPlxX/AiEA64WsMewc29LT
 1FfIV4ULTMxTwgV6M6b6vmPJEHYfkRU=
 -----NOT A CERT-----`
 	filename := filepath.Join(t.TempDir(), "cert.crt")
-	ioutil.WriteFile(filename, []byte(pemCert), 0700)
+	os.WriteFile(filename, []byte(pemCert), 0700)
 
 	_, err := LoadCertFromFile(filename)
 	if err != errNoCertFound {
@@ -190,7 +191,7 @@ func TestGenerateKeyAndCert(t *testing.T) {
 	test.StrContains(t, cert, "--BEGIN CERTIFICATE--")
 
 	certfile := filepath.Join(dir, "cert")
-	ioutil.WriteFile(certfile, []byte(cert), 0600)
+	os.WriteFile(certfile, []byte(cert), 0600)
 
 	crt, _ := LoadCertFromFile(certfile)
 	test.BytesEquals(t, crt.RawIssuer, crt.RawSubject) // self-signed
@@ -211,7 +212,7 @@ func TestEncodeCertAndReadCurlPinnedPublicKeyFromFileSuccess(t *testing.T) {
 	}
 
 	certfile := filepath.Join(dir, "cert")
-	ioutil.WriteFile(certfile, cert, 0600)
+	os.WriteFile(certfile, cert, 0600)
 
 	pin, err := ReadCurlPinnedPublicKeyFromFile(certfile)
 	if err != nil {
@@ -270,7 +271,7 @@ eTzmbC8o65uD4keYyszxUIk8bBPGM74=
 -----END CERTIFICATE-----`)
 
 	certfile := filepath.Join(t.TempDir(), "cert")
-	ioutil.WriteFile(certfile, cert, 0600)
+	os.WriteFile(certfile, cert, 0600)
 
 	pin, _ := ReadCurlPinnedPublicKeyFromFile("this is not a file")
 	test.StrEquals(t, "", pin)

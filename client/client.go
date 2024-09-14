@@ -7,18 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/crypto"
-	"heckel.io/pcopy/server"
-	"heckel.io/pcopy/util"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/server"
+	"heckel.io/pcopy/util"
 )
 
 const (
@@ -170,7 +170,7 @@ func (c *Client) PasteFiles(dir string, id string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	tmpFile, err := ioutil.TempFile(dir, ".pcopy-paste.*.tmp")
+	tmpFile, err := os.CreateTemp(dir, ".pcopy-paste.*.tmp")
 	if err != nil {
 		return err
 	}

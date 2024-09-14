@@ -6,15 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/time/rate"
-	"heckel.io/pcopy/clipboard"
-	"heckel.io/pcopy/clipboard/clipboardtest"
-	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/config/configtest"
-	"heckel.io/pcopy/crypto"
-	"heckel.io/pcopy/test"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -25,10 +17,18 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/time/rate"
+	"heckel.io/pcopy/clipboard"
+	"heckel.io/pcopy/clipboard/clipboardtest"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/config/configtest"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/test"
 )
 
 func TestMain(m *testing.M) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 	os.Exit(m.Run())
 }
 
@@ -190,8 +190,8 @@ func TestServer_HandleClipboardGetExists(t *testing.T) {
 
 	file := filepath.Join(conf.ClipboardDir, "this-exists")
 	metafile := filepath.Join(conf.ClipboardDir, "this-exists:meta")
-	ioutil.WriteFile(file, []byte("hi there"), 0700)
-	ioutil.WriteFile(metafile, []byte("{}"), 0700)
+	os.WriteFile(file, []byte("hi there"), 0700)
+	os.WriteFile(metafile, []byte("{}"), 0700)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-exists", nil)
@@ -206,8 +206,8 @@ func TestServer_HandleClipboardGetExistsWithAuthParam(t *testing.T) {
 
 	file := filepath.Join(conf.ClipboardDir, "this-exists-again")
 	metafile := filepath.Join(conf.ClipboardDir, "this-exists-again:meta")
-	ioutil.WriteFile(file, []byte("hi there again"), 0700)
-	ioutil.WriteFile(metafile, []byte(`{"secret":"abc"}`), 0700)
+	os.WriteFile(file, []byte("hi there again"), 0700)
+	os.WriteFile(metafile, []byte(`{"secret":"abc"}`), 0700)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-exists-again?a=abc", nil)
@@ -222,8 +222,8 @@ func TestServer_HandleClipboardGetExistsWithAuthParamFailure(t *testing.T) {
 
 	file := filepath.Join(conf.ClipboardDir, "this-exists-again")
 	metafile := filepath.Join(conf.ClipboardDir, "this-exists-again:meta")
-	ioutil.WriteFile(file, []byte("hi there again"), 0700)
-	ioutil.WriteFile(metafile, []byte(`{"secret":"abc"}`), 0700)
+	os.WriteFile(file, []byte("hi there again"), 0700)
+	os.WriteFile(metafile, []byte(`{"secret":"abc"}`), 0700)
 
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/this-exists-again?a=invalid", nil)

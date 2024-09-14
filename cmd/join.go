@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/urfave/cli/v2"
 	"heckel.io/pcopy/client"
 	"heckel.io/pcopy/config"
 	"heckel.io/pcopy/crypto"
 	"heckel.io/pcopy/server"
 	"heckel.io/pcopy/util"
-	"io/ioutil"
-	"os"
-	"strings"
 )
 
 var cmdJoin = &cli.Command{
@@ -115,7 +115,7 @@ func execJoin(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(certFile, certsEncoded, 0644); err != nil {
+		if err := os.WriteFile(certFile, certsEncoded, 0644); err != nil {
 			return err
 		}
 	}

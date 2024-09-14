@@ -1,11 +1,11 @@
 package clipboardtest
 
 import (
-	"heckel.io/pcopy/config"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"heckel.io/pcopy/config"
 )
 
 // NotExist ensures that a clipboard entry does not exist and fails t if it does
@@ -19,7 +19,7 @@ func NotExist(t *testing.T, conf *config.Config, id string) {
 // Content ensures that a clipboard entry has the expected content and fails t if it has not
 func Content(t *testing.T, conf *config.Config, id string, content string) {
 	filename := filepath.Join(conf.ClipboardDir, id)
-	actualContent, err := ioutil.ReadFile(filename)
+	actualContent, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}

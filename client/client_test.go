@@ -5,12 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/crypto"
-	"heckel.io/pcopy/server"
-	"heckel.io/pcopy/test"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +13,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/crypto"
+	"heckel.io/pcopy/server"
+	"heckel.io/pcopy/test"
 )
 
 func TestClient_CopyNoAuthSuccess(t *testing.T) {
@@ -33,7 +33,7 @@ func TestClient_CopyNoAuthSuccess(t *testing.T) {
 	}))
 	defer serv.Close()
 
-	if _, err := client.Copy(ioutil.NopCloser(strings.NewReader("something")), "default", time.Hour, config.FileModeReadWrite, false); err != nil {
+	if _, err := client.Copy(io.NopCloser(strings.NewReader("something")), "default", time.Hour, config.FileModeReadWrite, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -54,7 +54,7 @@ func TestClient_CopyWithHMACAuthSuccess(t *testing.T) {
 	}))
 	defer serv.Close()
 
-	if _, err := client.Copy(ioutil.NopCloser(strings.NewReader("blabla")), "hi-there", time.Hour, config.FileModeReadWrite, false); err != nil {
+	if _, err := client.Copy(io.NopCloser(strings.NewReader("blabla")), "hi-there", time.Hour, config.FileModeReadWrite, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -89,8 +89,8 @@ func TestClient_CopyFilesSuccess(t *testing.T) {
 	dir1 := filepath.Join(tempDir, "/dir1")
 	file2 := filepath.Join(dir1, "/file2")
 	os.Mkdir(dir1, 0700)
-	ioutil.WriteFile(file1, []byte("file content 1"), 0700)
-	ioutil.WriteFile(file2, []byte("file content 2"), 0700)
+	os.WriteFile(file1, []byte("file content 1"), 0700)
+	os.WriteFile(file2, []byte("file content 2"), 0700)
 
 	files := []string{file1, dir1}
 	if _, err := client.CopyFiles(files, "a-few-files", time.Hour, config.FileModeReadWrite, false); err != nil {
@@ -131,11 +131,11 @@ func TestClient_PasteFilesSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f1, err := ioutil.ReadFile(filepath.Join(tmpDir, "file1.txt"))
+	f1, err := os.ReadFile(filepath.Join(tmpDir, "file1.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	f2, err := ioutil.ReadFile(filepath.Join(tmpDir, "dir1/file2.txt"))
+	f2, err := os.ReadFile(filepath.Join(tmpDir, "dir1/file2.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestClient_PasteWithCertFile(t *testing.T) {
 
 	conf.CertFile = filepath.Join(t.TempDir(), "server.crt")
 	pemCert, _ := crypto.EncodeCert(serv.Certificate())
-	ioutil.WriteFile(conf.CertFile, pemCert, 0700)
+	os.WriteFile(conf.CertFile, pemCert, 0700)
 
 	var buf bytes.Buffer
 	err := client.Paste(&buf, "default")

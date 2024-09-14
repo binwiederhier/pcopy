@@ -15,11 +15,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/pbkdf2"
-	"io/ioutil"
 	"math/big"
+	"os"
 	"regexp"
 	"time"
+
+	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
@@ -116,7 +117,7 @@ func EncodeCert(cert *x509.Certificate) ([]byte, error) {
 
 // LoadCertFromFile loads the first PEM-encoded certificate from the given filename
 func LoadCertFromFile(filename string) (*x509.Certificate, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

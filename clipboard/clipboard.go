@@ -6,18 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/sys/unix"
-	"heckel.io/pcopy/config"
-	"heckel.io/pcopy/util"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
+	"heckel.io/pcopy/config"
+	"heckel.io/pcopy/util"
 )
 
 const (
@@ -134,7 +134,7 @@ func (c *Clipboard) Stats() (*Stats, error) {
 // List returns a metadata about the files in the clipboard
 func (c *Clipboard) List() ([]*File, error) {
 	entries := make([]*File, 0)
-	files, err := ioutil.ReadDir(c.config.ClipboardDir)
+	files, err := os.ReadDir(c.config.ClipboardDir)
 	if err != nil {
 		return nil, err
 	}
